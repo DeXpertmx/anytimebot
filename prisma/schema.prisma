@@ -1,0 +1,595 @@
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/meetmind/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  username      String?   @unique
+  image         String?
+  timezone      String    @default("UTC")
+  emailVerified DateTime? @map("email_verified")
+  
+  // Role-based access control
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true) @map("is_active")
+  suspendedAt   DateTime? @map("suspended_at")
+  suspendedReason String? @map("suspended_reason") @db.Text
+  
+  // Subscription fields
+  plan          SubscriptionPlan @default(FREE)
+  stripeCustomerId String?      @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  subscriptionStatus SubscriptionStatus? @map("subscription_status")
+  subscriptionEndsAt DateTime?  @map("subscription_ends_at")
+  bookingsThisMonth Int        @default(0) @map("bookings_this_month")
+  lastBookingReset  DateTime?  @map("last_booking_reset")
+  
+  // WhatsApp Integration
+  whatsappPhone String?   @map("whatsapp_phone")
+  whatsappEnabled Boolean @default(false) @map("whatsapp_enabled")
+  whatsappProvider String @default("evolution") @map("whatsapp_provider") // "evolution" or "twilio"
+  
+  // Evolution API
+  evolutionApiUrl String?  @map("evolution_api_url")
+  evolutionApiKey String?  @map("evolution_api_key")
+  evolutionInstanceName String? @map("evolution_instance_name")
+  
+  // Twilio
+  twilioAccountSid String? @map("twilio_account_sid")
+  twilioAuthToken String?  @map("twilio_auth_token")
+  twilioPhoneNumber String? @map("twilio_phone_number")
+  
+  // Google Calendar Integration
+  calendarSyncEnabled Boolean @default(true) @map("calendar_sync_enabled")
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  accounts     Account[]
+  sessions     Session[]
+  bookingPages BookingPage[]
+  bots         Bot[]
+  subscriptions Subscription[]
+  whatsappMessages WhatsAppMessage[]
+  ownedTeams   Team[]       @relation("TeamOwner")
+  teamMemberships TeamMember[]
+  bookings     Booking[]
+  quotas       Quotas?
+  usage        Usage?
+  adminNotes   AdminNote[]
+  auditLogs    AdminAuditLog[]
+
+  @@map("users")
+}
+
+// Usage Quotas per Plan
+model Quotas {
+  id                 String   @id @default(cuid())
+  userId             String   @unique @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Booking limits
+  bookingPages       Int      @default(1) @map("booking_pages") // Max booking pages
+  
+  // AI Assistant limits
+  aiInteractions     Int      @default(0) @map("ai_interactions") // AI chat messages per month
+  botDocuments       Int      @default(0) @map("bot_documents") // Max documents to train bot
+  
+  // Video limits
+  videoMinutes       Int      @default(0) @map("video_minutes") // Video minutes per month
+  videoRecording     Boolean  @default(false) @map("video_recording") // Can record meetings
+  videoTranscription Boolean  @default(false) @map("video_transcription") // Can transcribe meetings
+  
+  // Communication limits
+  whatsappMessages   Int      @default(0) @map("whatsapp_messages") // WhatsApp messages per month
+  telegramMessages   Int      @default(0) @map("telegram_messages") // Telegram messages per month
+  
+  // Team features
+  teamMembers        Int      @default(0) @map("team_members") // Max team members
+  teamScheduling     Boolean  @default(false) @map("team_scheduling") // Enable team scheduling
+  
+  // Channel access
+  canUseWhatsApp     Boolean  @default(false) @map("can_use_whatsapp") // WhatsApp access
+  canUseTelegram     Boolean  @default(false) @map("can_use_telegram") // Telegram access
+  canUseEvolution    Boolean  @default(false) @map("can_use_evolution") // Evolution API (Pro)
+  canUseTwilio       Boolean  @default(false) @map("can_use_twilio") // Twilio (Team+)
+  
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("quotas")
+}
+
+// Current Usage Tracking
+model Usage {
+  id                 String   @id @default(cuid())
+  userId             String   @unique @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  aiInteractions     Int      @default(0) @map("ai_interactions")
+  videoMinutes       Int      @default(0) @map("video_minutes")
+  whatsappMessages   Int      @default(0) @map("whatsapp_messages")
+  telegramMessages   Int      @default(0) @map("telegram_messages")
+  
+  lastResetAt        DateTime @default(now()) @map("last_reset_at") // Last monthly reset
+  
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("usage")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model BookingPage {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  slug         String   @unique
+  title        String
+  description  String?  @db.Text
+  isActive     Boolean  @default(true) @map("is_active")
+  slotInterval Int      @default(15) @map("slot_interval") // Time slot interval in minutes (15, 30, 60)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventTypes    EventType[]
+  availability  Availability[]
+
+  @@map("booking_pages")
+}
+
+model EventType {
+  id                   String   @id @default(cuid())
+  bookingPageId        String   @map("booking_page_id")
+  name                 String
+  duration             Int      // Duration in minutes
+  bufferTime           Int      @default(0) @map("buffer_time") // Buffer time in minutes
+  location             String   @default("video") // "in-person", "phone", "video"
+  videoLink            String?  @map("video_link") // Zoom, Meet, Teams link
+  color                String   @default("#6366f1") // Hex color
+  requiresConfirmation Boolean  @default(false) @map("requires_confirmation")
+  
+  // Team Scheduling
+  teamId               String?  @map("team_id")
+  assignmentMode       String   @default("individual") @map("assignment_mode") // "individual", "collective", "round_robin", "smart"
+  
+  // Intelligent Routing Forms
+  formSchema           Json?    @map("form_schema") // { questions: [{ id, text, type, options?, required }] }
+  routingRules         Json?    @map("routing_rules") // { rules: [{ questionId, value, assignTo: memberId }] }
+  enableRouting        Boolean  @default(false) @map("enable_routing")
+  
+  // Smart Video Rooms
+  videoProvider        VideoProvider @default(DAILY) @map("video_provider") // google_meet, zoom, daily, custom
+  enableEmbeddedVideo  Boolean  @default(false) @map("enable_embedded_video") // Embed video in MeetMind
+  enableLiveAI         Boolean  @default(false) @map("enable_live_ai") // Live AI assistant during call
+  enableRecording      Boolean  @default(false) @map("enable_recording") // Auto-record meetings
+  enableTranscription  Boolean  @default(false) @map("enable_transcription") // Auto-transcribe meetings
+  
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  bookingPage      BookingPage        @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+  team             Team?              @relation(fields: [teamId], references: [id])
+  bookings         Booking[]
+  formFields       BookingFormField[]
+  routingResponses RoutingFormResponse[]
+
+  @@map("event_types")
+}
+
+model Availability {
+  id            String   @id @default(cuid())
+  bookingPageId String   @map("booking_page_id")
+  dayOfWeek     Int      @map("day_of_week") // 0 = Sunday, 1 = Monday, etc.
+  startTime     String   @map("start_time") // Format: "09:00"
+  endTime       String   @map("end_time")   // Format: "17:00"
+  isAvailable   Boolean  @default(true) @map("is_available")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  bookingPage BookingPage @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+
+  @@map("availability")
+}
+
+model Booking {
+  id         String      @id @default(cuid())
+  eventTypeId String     @map("event_type_id")
+  guestName  String      @map("guest_name")
+  guestEmail String      @map("guest_email")
+  guestPhone String?     @map("guest_phone")
+  startTime  DateTime    @map("start_time")
+  endTime    DateTime    @map("end_time")
+  timezone   String      @default("UTC")
+  status     BookingStatus @default(PENDING)
+  formData   Json?       @map("form_data") // Custom form fields data
+  googleCalendarEventId String? @map("google_calendar_event_id") // Google Calendar Event ID
+  
+  // Team Assignment
+  assignedMemberId String? @map("assigned_member_id") // Which team member is assigned
+  
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  assignedMember User? @relation(fields: [assignedMemberId], references: [id])
+  routingResponse RoutingFormResponse?
+  videoSession VideoSession?
+  meetingBriefings MeetingBriefing[]
+
+  @@map("bookings")
+}
+
+model BookingFormField {
+  id          String            @id @default(cuid())
+  eventTypeId String            @map("event_type_id")
+  label       String
+  type        FormFieldType
+  required    Boolean           @default(false)
+  options     String[]          @default([]) // For select fields
+  placeholder String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+
+  @@map("booking_form_fields")
+}
+
+// Team Scheduling Models
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  description String?      @db.Text
+  ownerId     String       @map("owner_id")
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  eventTypes  EventType[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String    @id @default(cuid())
+  email     String
+  userId    String?   @map("user_id") // null if external member (email only)
+  teamId    String    @map("team_id")
+  timezone  String    @default("UTC")
+  skills    String[]  @default([]) // e.g., ["billing", "support", "german"]
+  languages String[]  @default([]) // e.g., ["english", "spanish", "german"]
+  isActive  Boolean   @default(true) @map("is_active")
+  role      TeamMemberRole @default(MEMBER)
+  lastAssignedAt DateTime? @map("last_assigned_at") // For round_robin tracking
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, email])
+  @@map("team_members")
+}
+
+// Bot and AI Assistant Models
+model Bot {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String   @default("MindBot")
+  avatar      String   @default("robot") // robot, assistant, brain, sparkle, star
+  greeting    String   @default("¡Hola! Soy tu asistente de IA. ¿En qué puedo ayudarte hoy?") @db.Text
+  personality String?  @db.Text // Custom personality description
+  tone        String   @default("friendly") // professional, friendly, casual, formal
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents BotDocument[]
+  conversations BotConversation[]
+
+  @@map("bots")
+}
+
+model BotDocument {
+  id          String   @id @default(cuid())
+  botId       String   @map("bot_id")
+  fileName    String   @map("file_name")
+  fileType    String   @map("file_type") // pdf, txt, url
+  url         String?  @db.Text // For URL documents
+  content     String   @db.Text
+  embedding   Json?    // OpenAI embeddings stored as JSON array
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("bot_documents")
+}
+
+// Bot Conversation Memory
+model BotConversation {
+  id          String   @id @default(cuid())
+  botId       String   @map("bot_id")
+  phone       String   // Phone number of the user
+  messages    Json     // Array of conversation messages [{role, content, timestamp}]
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@unique([botId, phone])
+  @@map("bot_conversations")
+}
+
+// Subscription Management
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @map("user_id")
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  stripePriceId        String?            @map("stripe_price_id")
+  stripeCurrentPeriodEnd DateTime?        @map("stripe_current_period_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// WhatsApp Messages
+model WhatsAppMessage {
+  id          String             @id @default(cuid())
+  userId      String             @map("user_id")
+  bookingId   String?            @map("booking_id")
+  phone       String
+  message     String             @db.Text
+  direction   WhatsAppDirection  // OUTGOING or INCOMING
+  status      WhatsAppStatus     @default(PENDING)
+  provider    String             @default("evolution") // "evolution" or "twilio"
+  evolutionId String?            @map("evolution_id") // ID from Evolution API
+  twilioSid   String?            @map("twilio_sid") // Message SID from Twilio
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_messages")
+}
+
+// Routing Form Responses
+model RoutingFormResponse {
+  id          String   @id @default(cuid())
+  eventTypeId String   @map("event_type_id")
+  bookingId   String   @unique @map("booking_id")
+  responses   Json     // { questionId: answer }
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  booking   Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("routing_form_responses")
+}
+
+// Smart Video Rooms
+model VideoSession {
+  id            String        @id @default(cuid())
+  bookingId     String        @unique @map("booking_id")
+  provider      VideoProvider // google_meet, zoom, daily, custom
+  roomUrl       String        @map("room_url") @db.Text // Join URL for the meeting
+  roomName      String?       @map("room_name") // Daily room name
+  hostRoomUrl   String?       @map("host_room_url") @db.Text // Host-specific URL with elevated permissions
+  dailyRoomId   String?       @map("daily_room_id") // Daily.co room ID
+  recordingUrl  String?       @map("recording_url") @db.Text // URL to recording after meeting
+  transcriptUrl String?       @map("transcript_url") @db.Text // URL to transcript
+  transcript    String?       @db.Text // Full transcript text
+  summary       String?       @db.Text // AI-generated meeting summary
+  actionItems   Json?         @map("action_items") // Extracted action items [{text, assignee?, dueDate?}]
+  keyPoints     Json?         @map("key_points") // Key discussion points
+  sentiment     String?       // Overall meeting sentiment (positive, neutral, negative)
+  duration      Int?          // Actual meeting duration in minutes
+  startedAt     DateTime?     @map("started_at")
+  endedAt       DateTime?     @map("ended_at")
+  recordingConsent Boolean    @default(false) @map("recording_consent") // Guest consent for recording
+  liveNotesEnabled Boolean    @default(false) @map("live_notes_enabled") // Real-time AI notes enabled
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("video_sessions")
+}
+
+// Pre-Meeting Intelligence Briefings
+model MeetingBriefing {
+  id            String   @id @default(cuid())
+  bookingId     String   @map("booking_id")
+  hostBriefing  String   @db.Text @map("host_briefing") // Personalized briefing for host
+  guestBriefing String   @db.Text @map("guest_briefing") // Personalized briefing for guest
+  talkingPoints Json     @map("talking_points") // Array of suggested talking points
+  context       Json     // Context data used for generation
+  emailSent     Boolean  @default(false) @map("email_sent")
+  whatsappSent  Boolean  @default(false) @map("whatsapp_sent")
+  sentAt        DateTime? @map("sent_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("meeting_briefings")
+}
+
+// Admin Support Models
+model AdminNote {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  adminEmail String  @map("admin_email") // Store admin email instead of relation
+  note      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("admin_notes")
+}
+
+// Admin Audit Log
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  action    String   // e.g., "CHANGE_PLAN", "SUSPEND_USER", "RESET_USAGE"
+  targetId  String?  @map("target_id") // User ID or resource ID affected
+  details   Json     // Additional details about the action
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([targetId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum FormFieldType {
+  TEXT
+  EMAIL
+  PHONE
+  SELECT
+  CHECKBOX
+  TEXTAREA
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  TEAM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  UNPAID
+  TRIALING
+}
+
+enum WhatsAppDirection {
+  OUTGOING
+  INCOMING
+}
+
+enum WhatsAppStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum TeamMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum VideoProvider {
+  GOOGLE_MEET
+  ZOOM
+  DAILY
+  CUSTOM
+}

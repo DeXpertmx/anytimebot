@@ -1,0 +1,16 @@
+
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /auth/signin
+Allow: /auth/signup
+
+# Disallow admin and private areas
+Disallow: /dashboard
+Disallow: /api/
+
+# Crawl-delay
+Crawl-delay: 0
+
+# Sitemap
+Sitemap: https://anytimebot.app/sitemap.xml

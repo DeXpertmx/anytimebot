@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#4f46e5" rx="32"/>
+  <rect x="40" y="64" width="176" height="152" fill="#ffffff" rx="12"/>
+  <rect x="40" y="64" width="176" height="40" fill="#6366f1" rx="12"/>
+  <rect x="40" y="92" width="176" height="12" fill="#6366f1"/>
+  <circle cx="72" cy="84" r="6" fill="#ffffff"/>
+  <circle cx="92" cy="84" r="6" fill="#ffffff"/>
+  <circle cx="112" cy="84" r="6" fill="#ffffff"/>
+  <rect x="60" y="128" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <rect x="96" y="128" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <rect x="132" y="128" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <rect x="168" y="128" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <rect x="60" y="160" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <rect x="96" y="160" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <rect x="132" y="160" width="28" height="24" fill="#4f46e5" rx="4"/>
+  <rect x="168" y="160" width="28" height="24" fill="#e0e7ff" rx="4"/>
+  <path d="M 140 168 Q 144 164 148 168 Q 152 172 148 176 Q 144 180 140 176 Q 136 172 140 168 Z" fill="#ffffff"/>
+  <circle cx="142" cy="170" r="1.5" fill="#ffffff"/>
+  <circle cx="146" cy="170" r="1.5" fill="#ffffff"/>
+  <path d="M 138 174 Q 144 177 150 174" stroke="#ffffff" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+</svg>

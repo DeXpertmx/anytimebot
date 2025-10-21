@@ -1,0 +1,299 @@
+
+{
+  "landing": {
+    "title": "Scheduling con IA",
+    "subtitle": "Potenciado por WhatsApp",
+    "description": "La plataforma de agendamiento más avanzada del mercado. WhatsApp Bot nativo, Smart Video Rooms con IA, Pre-Meeting Intelligence Briefs, Team Scheduling avanzado y mucho más. Todo lo que la competencia no tiene.",
+    "getStarted": "Comienza Gratis",
+    "signIn": "Iniciar Sesión",
+    "readyToStart": "¿Listo para la revolución del scheduling?",
+    "joinProfessionals": "Únete a los profesionales que ya superaron a Calendly, Cal.com y Doodle con ANYTIMEBOT",
+    "startFreeTrial": "Comienza Tu Prueba Gratuita",
+    "allRightsReserved": "Todos los derechos reservados",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "heroHighlight": "Lo que otros NO tienen",
+    "whyDifferent": "Por qué somos diferentes",
+    "whyDifferentSubtitle": "Funciones exclusivas que nos colocan años adelante de la competencia",
+    "features": {
+      "title": "Funciones que la competencia no ofrece",
+      "subtitle": "Descubre lo que hace a ANYTIMEBOT único en el mercado",
+      "whatsappBot": {
+        "title": "WhatsApp Bot Nativo",
+        "description": "Único asistente AI totalmente integrado con WhatsApp. Agenda citas conversando naturalmente, sin salir de la app favorita de tus clientes",
+        "badge": "EXCLUSIVO"
+      },
+      "smartVideoRooms": {
+        "title": "Smart Video Rooms con IA",
+        "description": "Salas de videoconferencia inteligentes con Daily.co, transcripciones automáticas, análisis de sentimiento y grabaciones en la nube",
+        "badge": "EXCLUSIVO"
+      },
+      "preMeetingBriefs": {
+        "title": "Pre-Meeting Intelligence Briefs",
+        "description": "Contexto completo antes de cada reunión: perfil LinkedIn, historial de interacciones, temas clave y análisis de sentimiento",
+        "badge": "EXCLUSIVO"
+      },
+      "intelligentRouting": {
+        "title": "Intelligent Routing Forms",
+        "description": "Formularios inteligentes que asignan automáticamente al miembro del equipo ideal según habilidades, carga de trabajo y disponibilidad",
+        "badge": "EXCLUSIVO"
+      },
+      "teamScheduling": {
+        "title": "Team Scheduling Avanzado",
+        "description": "Coordinación automática de equipos con round-robin inteligente, balanceo de carga y sincronización de calendarios múltiples",
+        "badge": "MEJORADO"
+      },
+      "postMeetingAuto": {
+        "title": "Automatización Post-Reunión",
+        "description": "Resúmenes automáticos con IA, extracción de acción items, seguimientos inteligentes y distribución de notas a todos los participantes",
+        "badge": "EXCLUSIVO"
+      },
+      "eventTypes": {
+        "title": "Tipos de Eventos Ilimitados",
+        "description": "Crea eventos personalizados con duraciones, ubicaciones y requisitos únicos. Sin límites en ningún plan"
+      },
+      "availability": {
+        "title": "Disponibilidad Ultra-Flexible",
+        "description": "Intervalos desde 5 minutos, horarios complejos, buffers personalizados y detección automática de zonas horarias"
+      },
+      "analytics": {
+        "title": "Analytics con IA",
+        "description": "Análisis predictivo, insights de productividad, métricas de conversión y recomendaciones inteligentes para optimizar tu agenda"
+      },
+      "bookingPages": {
+        "title": "Páginas de Reserva Personalizadas",
+        "description": "Diseños profesionales, SEO optimizado, dominio personalizado y experiencia de marca completa"
+      },
+      "calendar": {
+        "title": "Sincronización Multi-Calendario",
+        "description": "Google Calendar, Outlook, Apple Calendar y más. Detección inteligente de conflictos en tiempo real"
+      },
+      "mobileFirst": {
+        "title": "Mobile-First Design",
+        "description": "Experiencia optimizada para móvil que funciona perfectamente en cualquier dispositivo, especialmente WhatsApp"
+      }
+    },
+    "comparison": {
+      "title": "ANYTIMEBOT vs. La Competencia",
+      "subtitle": "Ve por qué miles eligen ANYTIMEBOT sobre Calendly, Cal.com y otros",
+      "anytimebot": "ANYTIMEBOT",
+      "others": "Otros",
+      "whatsappNative": "WhatsApp Bot Nativo",
+      "smartVideo": "Smart Video Rooms con IA",
+      "preMeetingAI": "Pre-Meeting Intelligence",
+      "postMeetingAuto": "Automatización Post-Reunión",
+      "intelligentRouting": "Intelligent Routing",
+      "teamAdvanced": "Team Scheduling Avanzado",
+      "unlimitedEvents": "Eventos Ilimitados",
+      "aiAnalytics": "Analytics con IA",
+      "has": "✓",
+      "hasNot": "✗"
+    },
+    "cta": {
+      "title": "¿Listo para dejar atrás las plataformas obsoletas?",
+      "subtitle": "Prueba ANYTIMEBOT gratis y descubre por qué somos el futuro del scheduling inteligente",
+      "button": "Comienza Ahora - Es Gratis"
+    }
+  },
+  "dashboard": {
+    "welcome": "Bienvenido",
+    "overview": "Resumen",
+    "eventTypes": "Tipos de Eventos",
+    "bookings": "Reservas",
+    "availability": "Disponibilidad",
+    "calendar": "Calendario",
+    "teams": "Equipos",
+    "analytics": "Analytics",
+    "bookingPages": "Páginas de Reserva",
+    "whatsapp": "WhatsApp",
+    "bot": "Bot IA",
+    "settings": "Configuración",
+    "signOut": "Cerrar Sesión",
+    "totalBookings": "Total de Reservas",
+    "upcomingBookings": "Próximas",
+    "completedBookings": "Completadas",
+    "cancelledBookings": "Canceladas",
+    "newEventType": "Nuevo Tipo de Evento",
+    "editEventType": "Editar Tipo de Evento",
+    "deleteEventType": "Eliminar Tipo de Evento",
+    "saveChanges": "Guardar Cambios",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "view": "Ver",
+    "noBookings": "No hay reservas aún",
+    "noEventTypes": "No hay tipos de eventos aún"
+  },
+  "auth": {
+    "signIn": "Iniciar Sesión",
+    "signUp": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "fullName": "Nombre Completo",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "dontHaveAccount": "¿No tienes una cuenta?",
+    "signInWithGoogle": "Iniciar sesión con Google",
+    "signUpWithGoogle": "Registrarse con Google",
+    "orContinueWith": "O continuar con",
+    "createAccount": "Crear Cuenta"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "view": "Ver",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "actions": "Acciones",
+    "noResults": "No se encontraron resultados",
+    "language": "Idioma",
+    "english": "Inglés",
+    "spanish": "Español"
+  },
+  "eventTypes": {
+    "title": "Tipos de Eventos",
+    "noEventTypes": "No hay tipos de eventos aún",
+    "noEventTypesDesc": "Crea tu primer tipo de evento para comenzar a aceptar tipos específicos de reuniones",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar",
+    "deleted": "Tipo de evento eliminado correctamente",
+    "deleteFailed": "Error al eliminar el tipo de evento",
+    "loadFailed": "Error al cargar los tipos de eventos",
+    "videoCall": "Videollamada",
+    "phoneCall": "Llamada telefónica",
+    "inPerson": "Presencial",
+    "bookingPage": "Página de Reserva",
+    "bufferTime": "Tiempo de Buffer",
+    "requiresConfirmation": "Requiere Confirmación",
+    "bookings": "reservas",
+    "booking": "reserva"
+  },
+  "pricing": {
+    "title": "Precios Simples y Transparentes",
+    "subtitle": "Elige el plan perfecto para tus necesidades de agendamiento. Actualiza, baja de plan o cancela en cualquier momento.",
+    "month": "mes",
+    "perMonth": "/mes",
+    "custom": "Personalizado",
+    "currentPlan": "Plan Actual",
+    "mostPopular": "Más Popular",
+    "features": "Características",
+    "comparisonTitle": "Comparación de Características",
+    "faqTitle": "Preguntas Frecuentes",
+    "plans": {
+      "free": {
+        "name": "Gratis",
+        "description": "Perfecto para personas que comienzan con agendamiento básico",
+        "cta": "Comenzar Gratis",
+        "features": [
+          "1 Página de Reserva",
+          "Tipos de Eventos Básicos",
+          "Sincronización con Google Calendar",
+          "Notificaciones por Email",
+          "Optimizado para Móvil",
+          "Analytics Básico"
+        ]
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Para profesionales que necesitan funciones avanzadas",
+        "cta": "Actualizar a Pro",
+        "features": [
+          "10 Páginas de Reserva",
+          "Asistente IA (200/mes)",
+          "5 Documentos de Entrenamiento del Bot",
+          "Salas de Video (100 min/mes)",
+          "Grabación y Transcripción de Video",
+          "Integración WhatsApp (Evolution API)",
+          "Pre-Meeting Intelligence Briefs",
+          "Analytics Avanzado",
+          "Soporte Prioritario"
+        ]
+      },
+      "team": {
+        "name": "Equipo",
+        "description": "Para equipos que colaboran en el agendamiento",
+        "cta": "Actualizar a Equipo",
+        "features": [
+          "50 Páginas de Reserva",
+          "Asistente IA (500/mes)",
+          "50 Documentos de Entrenamiento del Bot",
+          "Salas de Video (500 min/mes)",
+          "Agendamiento en Equipo (hasta 5)",
+          "Integración WhatsApp + Telegram",
+          "Integración con Twilio",
+          "Round-Robin Routing",
+          "Intelligence Pre y Post-Reunión",
+          "Soporte Dedicado"
+        ]
+      },
+      "enterprise": {
+        "name": "Empresa",
+        "description": "Soluciones personalizadas para grandes organizaciones",
+        "cta": "Contactar Ventas",
+        "features": [
+          "Todo Ilimitado",
+          "Entrenamiento IA Personalizado",
+          "Solución White-Label",
+          "SSO y Seguridad Avanzada",
+          "Integraciones Personalizadas",
+          "Gerente de Cuenta Dedicado",
+          "Soporte Prioritario 24/7",
+          "Garantías SLA",
+          "Términos de Contrato Personalizados"
+        ]
+      }
+    },
+    "comparisonTable": {
+      "feature": "Característica",
+      "bookingPages": "Páginas de Reserva",
+      "googleCalendar": "Sincronización con Google Calendar",
+      "aiAssistant": "Asistente IA (Chatbot)",
+      "botTrainingDocs": "Documentos de Entrenamiento del Bot",
+      "videoRooms": "Salas de Reuniones en Video",
+      "videoRecording": "Grabación y Transcripción de Video",
+      "whatsapp": "Integración WhatsApp",
+      "telegram": "Integración Telegram",
+      "teamScheduling": "Agendamiento en Equipo",
+      "preMeetingBriefs": "Pre-Meeting Briefs",
+      "roundRobin": "Round-Robin Routing",
+      "sso": "SSO y Seguridad",
+      "dedicatedSupport": "Soporte Dedicado",
+      "free": "Gratis",
+      "pro": "Pro",
+      "team": "Equipo",
+      "enterprise": "Empresa"
+    },
+    "faq": [
+      {
+        "question": "¿Puedo cambiar mi plan más adelante?",
+        "answer": "¡Sí! Puedes actualizar o bajar de plan en cualquier momento. Los cambios se aplican inmediatamente y prorrateamos cualquier cargo."
+      },
+      {
+        "question": "¿Qué sucede cuando excedo mi cuota?",
+        "answer": "Cuando alcances el 100% de tu cuota, las funciones se deshabilitarán hasta el próximo ciclo de facturación o actualices tu plan. Te notificaremos al 80% de uso."
+      },
+      {
+        "question": "¿Ofrecen reembolsos?",
+        "answer": "Ofrecemos una garantía de devolución de dinero de 14 días para todos los planes de pago. Sin preguntas."
+      },
+      {
+        "question": "¿Cómo funciona Evolution API vs Twilio para WhatsApp?",
+        "answer": "Evolution API (plan Pro) es perfecto para integración de WhatsApp a pequeña escala. Twilio (plan Equipo) proporciona confiabilidad y cumplimiento de nivel empresarial para equipos más grandes."
+      },
+      {
+        "question": "¿Puedo usar enlaces de video externos con el plan gratuito?",
+        "answer": "¡Sí! El plan gratuito admite enlaces de video externos de Zoom, Google Meet y Microsoft Teams. Las Smart Video Rooms con grabación/transcripción integradas requieren Pro o superior."
+      }
+    ]
+  }
+}
