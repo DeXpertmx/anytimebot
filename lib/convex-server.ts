@@ -1,10 +1,20 @@
 const convexUrl = process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL;
-
+// HTTP actions are served from the Convex *site* URL (e.g. *.convex.site),
+// not the deployment URL (*.convex.cloud). Fall back to the deployment URL
+// for local dev, where the site is served on the same origin.
 function getConvexConfig() {
   if (!convexUrl || !process.env.CONVEX_INGEST_SECRET) {
     return null;
   }
-  return { convexUrl: convexUrl.replace(/\/$/, ""), secret: process.env.CONVEX_INGEST_SECRET };
+  const siteUrl =
+    process.env.NEXT_PUBLIC_CONVEX_SITE_URL ||
+    process.env.CONVEX_SITE_URL ||
+    convexUrl;
+  return {
+    convexUrl: convexUrl.replace(/\/$/, ""),
+    siteUrl: siteUrl.replace(/\/$/, ""),
+    secret: process.env.CONVEX_INGEST_SECRET,
+  };
 }
 
 export async function publishBotMessage(input: {
@@ -19,7 +29,7 @@ export async function publishBotMessage(input: {
   if (!config) return false;
 
   try {
-    const response = await fetch(`${config.convexUrl}/events/bot-message`, {
+    const response = await fetch(`${config.siteUrl}/events/bot-message`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
