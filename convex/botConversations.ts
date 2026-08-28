@@ -56,6 +56,21 @@ export const appendMessage = internalMutation({
   },
 });
 
+export const deleteByBotPhone = internalMutation({
+  args: { externalBotId: v.string(), phone: v.string() },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("botConversations")
+      .withIndex("by_bot_phone", (q) =>
+        q.eq("externalBotId", args.externalBotId).eq("phone", args.phone),
+      )
+      .unique();
+    if (!existing) return null;
+    await ctx.db.delete(existing._id);
+    return existing._id;
+  },
+});
+
 export const recordEvent = internalMutation({
   args: {
     eventId: v.string(),

@@ -39,4 +39,27 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/events/bot-message",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.CONVEX_INGEST_SECRET;
+    if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const body = await request.json();
+    if (typeof body.externalBotId !== "string" || typeof body.phone !== "string") {
+      return new Response("Invalid payload", { status: 400 });
+    }
+
+    await ctx.runMutation(internal.botConversations.deleteByBotPhone, {
+      externalBotId: body.externalBotId,
+      phone: body.phone,
+    });
+
+    return Response.json({ ok: true });
+  }),
+});
+
 export default http;
