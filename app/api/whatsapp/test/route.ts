@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's Evolution API credentials
+    // Get the user's WhatsApp connection config.
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       select: {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     if (!user || !user.evolutionApiUrl || !user.evolutionApiKey || !user.evolutionInstanceName) {
       return NextResponse.json(
-        { error: 'Evolution API credentials not configured' },
+        { error: 'WhatsApp connection not configured' },
         { status: 400 }
       );
     }

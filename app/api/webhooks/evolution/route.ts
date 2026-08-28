@@ -5,27 +5,28 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendWhatsAppMessage } from '@/lib/evolution-api';
 import { findSimilarDocuments } from '@/lib/embeddings';
+import { publishBotMessage } from '@/lib/convex-server';
 
 // Simple GET endpoint to verify webhook is accessible
 export async function GET() {
   return NextResponse.json({ 
     status: 'active',
-    message: 'Evolution API webhook is ready to receive messages',
+    message: 'WhatsApp webhook is ready to receive messages',
     timestamp: new Date().toISOString()
   });
 }
 
-// Webhook to receive incoming WhatsApp messages from Evolution API
+// Webhook to receive incoming WhatsApp messages.
 export async function POST(req: Request) {
   try {
     const data = await req.json();
     
     console.log('='.repeat(80));
-    console.log('🎯 EVOLUTION WEBHOOK RECEIVED AT:', new Date().toISOString());
+    console.log('🎯 WHATSAPP WEBHOOK RECEIVED AT:', new Date().toISOString());
     console.log('='.repeat(80));
-    console.log('Evolution webhook data:', JSON.stringify(data, null, 2));
+    console.log('WhatsApp webhook data:', JSON.stringify(data, null, 2));
 
-    // Evolution API can send different event types
+    // The platform can send different event types.
     const event = data.event;
     const instance = data.instance;
     const messageData = data.data;
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // Extract message data - Evolution API can use different structures
+    // Extract message data - the platform can use different structures.
     const key = messageData?.key || data.key;
     const message = messageData?.message || data.message;
     const pushName = messageData?.pushName || data.pushName;
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
     console.log(`📲 Instance: ${instance}`);
     console.log(`👤 Push name: ${pushName || 'Unknown'}`);
 
-    // Find the user who owns this Evolution instance
+    // Find the user who owns this connection.
     const user = await prisma.user.findFirst({
       where: {
         evolutionInstanceName: instance,
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
 
     console.log(`✅ User found: ${user.email}, Bot: ${user.bots[0]?.name}`);
 
-    // Store incoming message
+    // Store incoming message (PostgreSQL is the source of truth / fallback)
     await prisma.whatsAppMessage.create({
       data: {
         userId: user.id,
@@ -111,6 +112,16 @@ export async function POST(req: Request) {
         status: 'DELIVERED',
         evolutionId: key.id,
       },
+    });
+
+    // Publish incoming message to Convex for real-time conversations.
+    await publishBotMessage({
+      externalBotId: user.bots?.[0]?.id || user.id,
+      externalUserId: user.id,
+      phone: clientPhone,
+      role: 'user',
+      content: messageText,
+      timestamp: key?.timestamp || Date.now(),
     });
 
     console.log('✅ Message stored in database');
@@ -301,7 +312,7 @@ Answer directly and briefly. If you don't know something, say so in one short se
         if (sendResult.success) {
           console.log(`✅ Message ${i + 1} sent successfully!`);
           
-          // Store outgoing message
+          // Store outgoing message (PostgreSQL fallback kept)
           await prisma.whatsAppMessage.create({
             data: {
               userId: user.id,
@@ -310,6 +321,15 @@ Answer directly and briefly. If you don't know something, say so in one short se
               direction: 'OUTGOING',
               status: 'SENT',
             },
+          });
+
+          // Publish outbound response to Convex.
+          await publishBotMessage({
+            externalBotId: user.bots?.[0]?.id || user.id,
+            externalUserId: user.id,
+            phone: clientPhone,
+            role: 'assistant',
+            content: messageText,
           });
           
           // Small delay between messages to avoid rate limits
@@ -321,12 +341,12 @@ Answer directly and briefly. If you don't know something, say so in one short se
         }
       }
     } else {
-      console.error('❌ Missing Evolution API credentials');
+      console.error('❌ Missing WhatsApp connection credentials');
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ Error processing Evolution webhook:', error);
+    console.error('❌ Error processing WhatsApp webhook:', error);
     return NextResponse.json({ success: true }); // Always return 200 to avoid webhook retries
   }
 }

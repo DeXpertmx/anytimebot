@@ -7,7 +7,21 @@
  * All infrastructure/tooling names are kept here and never surface in the UI.
  */
 
-import { prisma } from '@/lib/db';
+import { prisma as defaultPrisma } from '@/lib/db';
+
+// Injectable dependencies (used by tests). When not provided, the app-wide
+// defaults are used so practical callers keep the exact same behaviour.
+export interface WhatsAppManagerDeps {
+  prisma?: typeof defaultPrisma;
+  fetchImpl?: typeof fetch;
+}
+
+function resolveDeps(deps?: WhatsAppManagerDeps) {
+  return {
+    prisma: deps?.prisma ?? defaultPrisma,
+    fetchImpl: deps?.fetchImpl ?? fetch.bind(globalThis),
+  };
+}
 
 /**
  * Base URL of the managed messaging infrastructure.
@@ -62,11 +76,16 @@ export interface QrPayload {
  *
  * Returns the instance name created.
  */
-export async function createWhatsAppConnection(userId: string, publicOrigin?: string): Promise<{ instanceName: string }> {
+export async function createWhatsAppConnection(
+  userId: string,
+  publicOrigin?: string,
+  deps?: WhatsAppManagerDeps,
+): Promise<{ instanceName: string }> {
+  const { prisma, fetchImpl } = resolveDeps(deps);
   const { baseUrl, apiKey } = options();
   const instanceName = buildInstanceName(userId);
 
-  const createRes = await fetch(`${baseUrl}/instance/create`, {
+  const createRes = await fetchImpl(`${baseUrl}/instance/create`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -88,7 +107,7 @@ export async function createWhatsAppConnection(userId: string, publicOrigin?: st
   const origin = publicOrigin || getWebhookOrigin();
   const webhookUrl = `${origin}/api/webhooks/evolution`;
 
-  await setWebhook(instanceName, [webhookUrl], ['MESSAGES_UPSERT', 'QRCODE_UPDATED', 'CONNECTION_UPDATE'], apiKey, baseUrl);
+  await setWebhook(instanceName, [webhookUrl], ['MESSAGES_UPSERT', 'QRCODE_UPDATED', 'CONNECTION_UPDATE'], apiKey, baseUrl, fetchImpl);
 
   await prisma.user.update({
     where: { id: userId },
@@ -108,7 +127,8 @@ export async function createWhatsAppConnection(userId: string, publicOrigin?: st
  * Get the current QR code to pair/scan with a phone.
  * Returns the QR as a base64 PNG data URI suitable for <img src=... />.
  */
-export async function getWhatsAppQr(userId: string): Promise<QrPayload | null> {
+export async function getWhatsAppQr(userId: string, deps?: WhatsAppManagerDeps): Promise<QrPayload | null> {
+  const { prisma, fetchImpl } = resolveDeps(deps);
   const { baseUrl, apiKey } = options();
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -118,7 +138,7 @@ export async function getWhatsAppQr(userId: string): Promise<QrPayload | null> {
   const instanceName = user?.evolutionInstanceName;
   if (!instanceName) return null;
 
-  const res = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+  const res = await fetchImpl(`${baseUrl}/instance/connect/${instanceName}`, {
     method: 'GET',
     headers: { apikey: apiKey },
   });
@@ -140,12 +160,16 @@ export async function getWhatsAppQr(userId: string): Promise<QrPayload | null> {
  * Get the connection state for the user's instance.
  * Returns a neutral status object.
  */
-export async function getWhatsAppConnectionState(userId: string): Promise<{
+export async function getWhatsAppConnectionState(
+  userId: string,
+  deps?: WhatsAppManagerDeps,
+): Promise<{
   success: boolean;
   connected: boolean;
   state: string;
   hasInstance: boolean;
 }> {
+  const { prisma, fetchImpl } = resolveDeps(deps);
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { evolutionInstanceName: true },
@@ -159,7 +183,7 @@ export async function getWhatsAppConnectionState(userId: string): Promise<{
   const { baseUrl, apiKey } = options();
 
   try {
-    const res = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {
+    const res = await fetchImpl(`${baseUrl}/instance/connectionState/${instanceName}`, {
       method: 'GET',
       headers: { apikey: apiKey },
     });
@@ -185,7 +209,8 @@ export async function getWhatsAppConnectionState(userId: string): Promise<{
 /**
  * Disconnect / log out the current WhatsApp session, keeping the instance.
  */
-export async function disconnectWhatsAppInstance(userId: string): Promise<void> {
+export async function disconnectWhatsAppInstance(userId: string, deps?: WhatsAppManagerDeps): Promise<void> {
+  const { prisma, fetchImpl } = resolveDeps(deps);
   const { baseUrl, apiKey } = options();
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -194,7 +219,7 @@ export async function disconnectWhatsAppInstance(userId: string): Promise<void> 
   const instanceName = user?.evolutionInstanceName;
   if (!instanceName) return;
 
-  await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
+  await fetchImpl(`${baseUrl}/instance/logout/${instanceName}`, {
     method: 'DELETE',
     headers: { apikey: apiKey },
   });
@@ -203,7 +228,8 @@ export async function disconnectWhatsAppInstance(userId: string): Promise<void> 
 /**
  * Permanently delete the user's WhatsApp instance and reset their config.
  */
-export async function deleteWhatsAppInstance(userId: string): Promise<void> {
+export async function deleteWhatsAppInstance(userId: string, deps?: WhatsAppManagerDeps): Promise<void> {
+  const { prisma, fetchImpl } = resolveDeps(deps);
   const { baseUrl, apiKey } = options();
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -211,7 +237,7 @@ export async function deleteWhatsAppInstance(userId: string): Promise<void> {
   });
   const instanceName = user?.evolutionInstanceName;
   if (instanceName) {
-    await fetch(`${baseUrl}/instance/delete/${instanceName}`, {
+    await fetchImpl(`${baseUrl}/instance/delete/${instanceName}`, {
       method: 'DELETE',
       headers: { apikey: apiKey },
     });
@@ -236,9 +262,10 @@ async function setWebhook(
   events: string[],
   apiKey: string,
   baseUrl: string,
+  fetchImpl: typeof fetch,
 ): Promise<void> {
   const url = urls[0];
-  const res = await fetch(`${baseUrl}/webhook/set/${instanceName}`, {
+  const res = await fetchImpl(`${baseUrl}/webhook/set/${instanceName}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', apikey: apiKey },
     body: JSON.stringify({

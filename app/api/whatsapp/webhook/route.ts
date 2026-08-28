@@ -24,7 +24,7 @@ export async function GET() {
   });
 }
 
-// Webhook to receive incoming WhatsApp messages from Evolution API
+// Webhook to receive incoming WhatsApp messages.
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     console.log('='.repeat(80));
     console.log('WhatsApp webhook received:', JSON.stringify(data, null, 2));
 
-    // Extract message data from Evolution API webhook
+    // Extract message data from the WhatsApp webhook.
     const { key, message, pushName, instance } = data;
     
     // IGNORE messages sent by the bot itself (fromMe = true)
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     console.log(`📲 Instance: ${instance}`);
     console.log(`👤 Push name: ${pushName || 'Unknown'}`);
 
-    // Find the user who owns this Evolution instance
+    // Find the user who owns this connection.
     const user = await prisma.user.findFirst({
       where: {
         evolutionInstanceName: instance,
@@ -344,7 +344,7 @@ Answer the user's question naturally and conversationally. If you don't know som
         console.error('❌ Failed to send response:', sendResult.error);
       }
     } else {
-      console.error('❌ Missing Evolution API credentials:', {
+      console.error('❌ Missing WhatsApp connection credentials:', {
         hasApiUrl: !!user.evolutionApiUrl,
         hasApiKey: !!user.evolutionApiKey,
         hasInstanceName: !!user.evolutionInstanceName,
