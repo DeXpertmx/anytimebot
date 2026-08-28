@@ -361,7 +361,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
         <CardContent>
           <div className="space-y-2">
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-              <span className="text-sm font-medium">WhatsApp (Evolution API)</span>
+              <span className="text-sm font-medium">WhatsApp</span>
               <Badge variant={user.whatsappEnabled ? 'default' : 'secondary'}>
                 {user.whatsappEnabled ? 'Enabled' : 'Disabled'}
               </Badge>

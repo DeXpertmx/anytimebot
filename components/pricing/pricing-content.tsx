@@ -235,8 +235,8 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
                 t={t}
                 feature={t('pricing.comparisonTable.whatsapp')}
                 free={false}
-                pro="Evolution API"
-                team="Twilio + Evolution"
+                pro="WhatsApp"
+                team="Twilio + WhatsApp"
                 enterprise="Custom"
               />
               <FeatureRow

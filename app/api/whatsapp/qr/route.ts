@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getWhatsAppConnectionState } from '@/lib/whatsapp-manager';
+import { getWhatsAppQr } from '@/lib/whatsapp-manager';
 
 export async function GET() {
   try {
@@ -18,12 +18,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const result = await getWhatsAppConnectionState(userId);
-    return NextResponse.json(result);
+    const existing = await getWhatsAppQr(userId);
+    if (!existing) {
+      // No instance created yet -> tell the client it must activate first.
+      return NextResponse.json({ error: 'WhatsApp not activated', needActivate: true }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, qr: existing });
   } catch (error) {
-    console.error('Error getting WhatsApp status:', error);
+    console.error('Error getting WhatsApp QR:', error);
     return NextResponse.json(
-      { error: 'Failed to get WhatsApp status' },
+      { error: (error as Error).message || 'Failed to get WhatsApp QR' },
       { status: 500 }
     );
   }

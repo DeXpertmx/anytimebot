@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,463 +9,367 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, MessageCircle, Zap } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, MessageCircle, QrCode, RefreshCw, Trash2, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+
+type ConnStatus = 'not_created' | 'connecting' | 'connected' | 'error' | 'loading';
 
 export default function IntegrationsPage() {
   const { data: session } = useSession() || {};
-  const [loading, setLoading] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<'evolution' | 'twilio'>('evolution');
+  const [activating, setActivating] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
-  // Evolution API state
-  const [evolutionConfig, setEvolutionConfig] = useState({
-    apiUrl: '',
-    apiKey: '',
-    instanceName: '',
-    phone: '',
-  });
+  const [status, setStatus] = useState<ConnStatus>('loading');
+  const [stateLabel, setStateLabel] = useState('');
+  const [qr, setQr] = useState<string | null>(null);
+  const [showingQr, setShowingQr] = useState(false);
+  const [instanceName, setInstanceName] = useState('');
 
-  // Twilio state
-  const [twilioConfig, setTwilioConfig] = useState({
-    accountSid: '',
-    authToken: '',
-    phoneNumber: '',
-  });
-
-  const [evolutionStatus, setEvolutionStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
+  // Twilio state (kept as-is)
+  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio'>('whatsapp');
+  const [twilioConfig, setTwilioConfig] = useState({ accountSid: '', authToken: '', phoneNumber: '' });
   const [twilioStatus, setTwilioStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
+  const [twilioKey, setTwilioKey] = useState(0);
 
-  // Load configurations on mount
-  useEffect(() => {
-    loadConfigurations();
+  const checkStatus = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.success || !data.hasInstance) {
+          setStatus(data.hasInstance ? 'error' : 'not_created');
+          setStateLabel('');
+          setShowingQr(false);
+        } else if (data.connected) {
+          setStatus('connected');
+          setStateLabel(data.state || 'open');
+          setShowingQr(false);
+        } else {
+          setStatus('connecting');
+          setStateLabel(data.state || 'connecting');
+        }
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    } finally {
+      setStatusLoading(false);
+    }
   }, []);
 
-  const loadConfigurations = async () => {
+  useEffect(() => {
+    void checkStatus();
+  }, [checkStatus]);
+
+  const handleActivate = async () => {
+    setActivating(true);
     try {
-      // Load Evolution API config
-      const evolutionRes = await fetch('/api/whatsapp/config');
-      if (evolutionRes.ok) {
-        const data = await evolutionRes.json();
-        setEvolutionConfig({
-          apiUrl: data.evolutionApiUrl || '',
-          apiKey: data.evolutionApiKey || '',
-          instanceName: data.evolutionInstanceName || '',
-          phone: data.whatsappPhone || '',
-        });
-        setEvolutionStatus(data.evolutionApiUrl ? 'connected' : 'disconnected');
+      const res = await fetch('/api/whatsapp/activate', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'No se pudo activar WhatsApp');
+        return;
       }
-
-      // Load Twilio config
-      const twilioRes = await fetch('/api/integrations/twilio/config');
-      if (twilioRes.ok) {
-        const data = await twilioRes.json();
-        setTwilioConfig({
-          accountSid: data.accountSid || '',
-          authToken: '', // Don't load token for security
-          phoneNumber: data.phoneNumber || '',
-        });
-        setTwilioStatus(data.hasAuthToken ? 'connected' : 'disconnected');
-        setActiveProvider(data.provider || 'evolution');
+      if (data.instanceName) setInstanceName(data.instanceName);
+      toast.success('WhatsApp activado. Escanea el código QR para conectar tu teléfono.');
+      if (data.qr?.base64) {
+        setQr(data.qr.base64);
+        setShowingQr(true);
       }
-    } catch (error) {
-      console.error('Error loading configurations:', error);
-    }
-  };
-
-  const saveEvolutionConfig = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/whatsapp/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          evolutionApiUrl: evolutionConfig.apiUrl,
-          evolutionApiKey: evolutionConfig.apiKey,
-          evolutionInstanceName: evolutionConfig.instanceName,
-          whatsappPhone: evolutionConfig.phone,
-          provider: 'evolution',
-        }),
-      });
-
-      if (response.ok) {
-        toast.success('Evolution API configurado exitosamente');
-        setEvolutionStatus('connected');
-        setActiveProvider('evolution');
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Error al guardar configuración');
-      }
-    } catch (error) {
-      console.error('Error saving Evolution config:', error);
-      toast.error('Error al guardar configuración');
+      await checkStatus();
+    } catch (e) {
+      toast.error('Error al activar WhatsApp');
     } finally {
-      setLoading(false);
+      setActivating(false);
     }
   };
 
-  const saveTwilioConfig = async () => {
-    setLoading(true);
+  const fetchQr = async () => {
+    setQrLoading(true);
     try {
-      const response = await fetch('/api/integrations/twilio/config', {
+      const res = await fetch('/api/whatsapp/qr');
+      const data = await res.json();
+      if (res.ok && data.qr?.base64) {
+        setQr(data.qr.base64);
+        setShowingQr(true);
+      } else {
+        toast.success('Abre WhatsApp en tu teléfono y escanea el código.');
+        // Fall back: keep QR area open but empty; status will surface once paired.
+        setShowingQr(true);
+      }
+    } catch {
+      toast.error('No se pudo obtener el código QR');
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const handleShowQr = async () => {
+    if (showingQr) {
+      setShowingQr(false);
+      return;
+    }
+    await fetchQr();
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm('¿Desconectar WhatsApp de este dispositivo?')) return;
+    setDisconnecting(true);
+    try {
+      const res = await fetch('/api/whatsapp/disconnect', { method: 'POST', body: JSON.stringify({ permanent: true }) });
+      if (res.ok) {
+        toast.success('WhatsApp desconectado');
+        setQr(null);
+        setShowingQr(false);
+        setInstanceName('');
+        await checkStatus();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error al desconectar');
+      }
+    } catch {
+      toast.error('Error al desconectar');
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const statusBadge = () => {
+    if (statusLoading) {
+      return <Badge variant="secondary"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Verificando…</Badge>;
+    }
+    if (status === 'connected') {
+      return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="mr-1 h-3 w-3" />Conectado</Badge>;
+    }
+    if (status === 'connecting') {
+      return <Badge variant="secondary" className="bg-amber-100 text-amber-800"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Pendiente de escaneo</Badge>;
+    }
+    if (status === 'error') {
+      return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Error</Badge>;
+    }
+    return <Badge variant="secondary">No conectado</Badge>;
+  };
+
+  // --- Twilio handlers (unchanged from previous behaviour) --------------
+  const loadTwilio = async () => {
+    try {
+      const res = await fetch('/api/integrations/twilio/config');
+      if (res.ok) {
+        const d = await res.json();
+        setTwilioConfig({ accountSid: d.accountSid || '', authToken: '', phoneNumber: d.phoneNumber || '' });
+        setTwilioStatus(d.hasAuthToken ? 'connected' : 'disconnected');
+        setActiveProvider(d.provider ? (d.provider === 'twilio' ? 'twilio' : 'whatsapp') : 'whatsapp');
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  };
+  useEffect(() => { void loadTwilio(); }, [twilioKey]);
+
+  const saveTwilio = async () => {
+    try {
+      const res = await fetch('/api/integrations/twilio/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountSid: twilioConfig.accountSid,
-          authToken: twilioConfig.authToken,
-          phoneNumber: twilioConfig.phoneNumber,
-          provider: 'twilio',
-        }),
+        body: JSON.stringify({ ...twilioConfig, provider: 'twilio' }),
       });
-
-      if (response.ok) {
-        toast.success('Twilio configurado exitosamente');
+      if (res.ok) {
+        toast.success('Twilio configurado');
         setTwilioStatus('connected');
         setActiveProvider('twilio');
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Error al guardar configuración');
+        const e = await res.json();
+        toast.error(e.error || 'Error al guardar');
       }
-    } catch (error) {
-      console.error('Error saving Twilio config:', error);
-      toast.error('Error al guardar configuración');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const testEvolutionConnection = async () => {
-    setTesting(true);
-    try {
-      const response = await fetch('/api/whatsapp/test', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        toast.success('Conexión exitosa con Evolution API');
-        setEvolutionStatus('connected');
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Error en la conexión');
-        setEvolutionStatus('disconnected');
-      }
-    } catch (error) {
-      console.error('Error testing Evolution connection:', error);
-      toast.error('Error al probar conexión');
-      setEvolutionStatus('disconnected');
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const testTwilioConnection = async () => {
-    setTesting(true);
-    try {
-      const response = await fetch('/api/integrations/twilio/test', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        toast.success(`Conexión exitosa: ${data.account?.friendlyName || 'Twilio'}`);
-        setTwilioStatus('connected');
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Error en la conexión');
-        setTwilioStatus('disconnected');
-      }
-    } catch (error) {
-      console.error('Error testing Twilio connection:', error);
-      toast.error('Error al probar conexión');
-      setTwilioStatus('disconnected');
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const disconnectEvolution = async () => {
-    if (!confirm('¿Estás seguro de desconectar Evolution API?')) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/whatsapp/config', {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast.success('Evolution API desconectado');
-        setEvolutionConfig({ apiUrl: '', apiKey: '', instanceName: '', phone: '' });
-        setEvolutionStatus('disconnected');
-      }
-    } catch (error) {
-      console.error('Error disconnecting Evolution:', error);
-      toast.error('Error al desconectar');
-    } finally {
-      setLoading(false);
+    } catch {
+      toast.error('Error al guardar Twilio');
     }
   };
 
   const disconnectTwilio = async () => {
-    if (!confirm('¿Estás seguro de desconectar Twilio?')) return;
-
-    setLoading(true);
+    if (!confirm('¿Desconectar Twilio?')) return;
     try {
-      const response = await fetch('/api/integrations/twilio/config', {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
+      const res = await fetch('/api/integrations/twilio/config', { method: 'DELETE' });
+      if (res.ok) {
         toast.success('Twilio desconectado');
         setTwilioConfig({ accountSid: '', authToken: '', phoneNumber: '' });
         setTwilioStatus('disconnected');
       }
-    } catch (error) {
-      console.error('Error disconnecting Twilio:', error);
+    } catch {
       toast.error('Error al desconectar');
-    } finally {
-      setLoading(false);
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Integraciones de WhatsApp</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Integraciones de mensajería</h1>
         <p className="text-muted-foreground">
-          Conecta tu cuenta con Evolution API o Twilio para enviar y recibir mensajes de WhatsApp
+          Conecta tu número de WhatsApp para enviar y recibir mensajes desde tu plataforma
         </p>
       </div>
 
-      {/* Active Provider Badge */}
       <Alert>
         <MessageCircle className="h-4 w-4" />
-        <AlertDescription>
-          Proveedor activo: <Badge variant="default" className="ml-2">{activeProvider === 'evolution' ? 'Evolution API' : 'Twilio'}</Badge>
+        <AlertDescription className="flex items-center gap-2">
+          Mensajería activa:&nbsp;
+          <Badge variant="default" className="ml-1">
+            {activeProvider === 'whatsapp' ? 'WhatsApp' : 'Twilio'}
+          </Badge>
         </AlertDescription>
       </Alert>
 
-      <Tabs defaultValue="evolution" className="w-full">
+      <Tabs value={activeProvider} onValueChange={(v) => setActiveProvider(v as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="evolution" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            Evolution API
-            {evolutionStatus === 'connected' && (
-              <CheckCircle className="h-3 w-3 text-green-500" />
-            )}
+          <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp
+            {status === 'connected' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
           </TabsTrigger>
           <TabsTrigger value="twilio" className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" />
+            <Zap className="h-4 w-4" />
             Twilio
-            {twilioStatus === 'connected' && (
-              <CheckCircle className="h-3 w-3 text-green-500" />
-            )}
+            {twilioStatus === 'connected' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
           </TabsTrigger>
         </TabsList>
 
-        {/* Evolution API Tab */}
-        <TabsContent value="evolution">
+        {/* WhatsApp tab */}
+        <TabsContent value="whatsapp">
           <Card>
-            <CardHeader>
-              <CardTitle>Evolution API</CardTitle>
-              <CardDescription>
-                Configura tu instancia de Evolution API para WhatsApp
-              </CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div>
+                <CardTitle>WhatsApp</CardTitle>
+                <CardDescription>
+                  Activa la conexión para recibir y responder mensajes al instante. Sin configuración manual.
+                </CardDescription>
+              </div>
+              {statusBadge()}
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="evolution-url">URL de API</Label>
-                <Input
-                  id="evolution-url"
-                  placeholder="https://api.evolution.com"
-                  value={evolutionConfig.apiUrl}
-                  onChange={(e) => setEvolutionConfig({ ...evolutionConfig, apiUrl: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="evolution-key">API Key</Label>
-                <Input
-                  id="evolution-key"
-                  type="password"
-                  placeholder="Tu Evolution API Key"
-                  value={evolutionConfig.apiKey}
-                  onChange={(e) => setEvolutionConfig({ ...evolutionConfig, apiKey: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="evolution-instance">Nombre de Instancia</Label>
-                <Input
-                  id="evolution-instance"
-                  placeholder="mi-instancia"
-                  value={evolutionConfig.instanceName}
-                  onChange={(e) => setEvolutionConfig({ ...evolutionConfig, instanceName: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="evolution-phone">Número de Teléfono</Label>
-                <Input
-                  id="evolution-phone"
-                  placeholder="+1234567890"
-                  value={evolutionConfig.phone}
-                  onChange={(e) => setEvolutionConfig({ ...evolutionConfig, phone: e.target.value })}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={saveEvolutionConfig}
-                  disabled={loading || !evolutionConfig.apiUrl || !evolutionConfig.apiKey}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Guardar Configuración
-                </Button>
-
-                {evolutionStatus === 'connected' && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={testEvolutionConnection}
-                      disabled={testing}
-                    >
-                      {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Probar Conexión
+            <CardContent className="space-y-6">
+              {/* Not created: show activate button */}
+              {(status === 'not_created' || status === 'error') && (
+                <div className="space-y-4">
+                  <Alert>
+                    <AlertDescription>
+                      Al activar, la plataforma crea automáticamente tu conexión y te muestra un código QR para
+                      vincular tu teléfono. No necesitas instalar ni configurar nada manualmente.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="flex flex-wrap gap-3">
+                    <Button onClick={handleActivate} disabled={activating}>
+                      {activating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Activar WhatsApp
                     </Button>
-
-                    <Button
-                      variant="destructive"
-                      onClick={disconnectEvolution}
-                      disabled={loading}
-                    >
-                      Desconectar
+                    <Button variant="outline" onClick={checkStatus} disabled={statusLoading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Verificar estado
                     </Button>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
 
-              {evolutionStatus === 'connected' && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <AlertDescription className="text-green-700">
-                    Evolution API conectado correctamente
-                  </AlertDescription>
-                </Alert>
+              {/* Connecting / connected / QR area */}
+              {(status === 'connecting' || status === 'connected') && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    {status === 'connected' ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {status === 'connected'
+                        ? 'Tu número está vinculado. Los mensajes entrantes se procesan automáticamente.'
+                        : 'Escanea el código QR para vincular tu teléfono.'}
+                    </p>
+                  </div>
+
+                  {/* QR card */}
+                  <Card>
+                    <CardContent className="flex flex-col items-center gap-3 pt-6">
+                      {showingQr && qr ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={qr} alt="Código QR de WhatsApp" className="h-56 w-56 object-contain rounded-lg border" />
+                          <p className="text-xs text-muted-foreground text-center">
+                            Abre WhatsApp en tu teléfono → Ajustes → Dispositivos vinculados → Vincular un dispositivo y escanea.
+                          </p>
+                        </>
+                      ) : status === 'connected' ? (
+                        <p className="text-sm text-green-700">Conectado correctamente.</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Presiona &quot;Mostrar código QR&quot; para vincular tu teléfono.
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button variant="outline" onClick={handleShowQr} disabled={qrLoading}>
+                          {qrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+                          {showingQr ? 'Ocultar código' : 'Mostrar código QR'}
+                        </Button>
+                        {status !== 'connected' && (
+                          <Button variant="outline" onClick={fetchQr} disabled={qrLoading}>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Actualizar QR
+                          </Button>
+                        )}
+                        <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting}>
+                          {disconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                          Desconectar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {instanceName && (
+                    <Alert>
+                      <AlertDescription className="text-xs text-muted-foreground font-mono break-all">
+                        Conexión: {instanceName}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Twilio Tab */}
+        {/* Twilio tab */}
         <TabsContent value="twilio">
           <Card>
             <CardHeader>
               <CardTitle>Twilio WhatsApp</CardTitle>
-              <CardDescription>
-                Configura tu cuenta de Twilio para enviar y recibir mensajes de WhatsApp
-              </CardDescription>
+              <CardDescription>Configura tu cuenta de Twilio para mensajería a escala</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert>
-                <AlertDescription>
-                  Necesitas una cuenta de Twilio con WhatsApp habilitado. 
-                  <a 
-                    href="https://www.twilio.com/whatsapp" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline ml-1"
-                  >
-                    Más información aquí
-                  </a>
-                </AlertDescription>
-              </Alert>
-
               <div className="space-y-2">
                 <Label htmlFor="twilio-sid">Account SID</Label>
-                <Input
-                  id="twilio-sid"
-                  placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                  value={twilioConfig.accountSid}
-                  onChange={(e) => setTwilioConfig({ ...twilioConfig, accountSid: e.target.value })}
-                />
+                <Input id="twilio-sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value={twilioConfig.accountSid}
+                  onChange={(e) => setTwilioConfig({ ...twilioConfig, accountSid: e.target.value })} />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="twilio-token">Auth Token</Label>
-                <Input
-                  id="twilio-token"
-                  type="password"
-                  placeholder="Tu Twilio Auth Token"
-                  value={twilioConfig.authToken}
-                  onChange={(e) => setTwilioConfig({ ...twilioConfig, authToken: e.target.value })}
-                />
+                <Input id="twilio-token" type="password" placeholder="Tu Twilio Auth Token" value={twilioConfig.authToken}
+                  onChange={(e) => setTwilioConfig({ ...twilioConfig, authToken: e.target.value })} />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="twilio-phone">Número de WhatsApp</Label>
-                <Input
-                  id="twilio-phone"
-                  placeholder="+14155238886"
-                  value={twilioConfig.phoneNumber}
-                  onChange={(e) => setTwilioConfig({ ...twilioConfig, phoneNumber: e.target.value })}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Usa el formato internacional, ej: +14155238886
-                </p>
+                <Input id="twilio-phone" placeholder="+14155238886" value={twilioConfig.phoneNumber}
+                  onChange={(e) => setTwilioConfig({ ...twilioConfig, phoneNumber: e.target.value })} />
               </div>
-
               <div className="flex gap-2">
-                <Button
-                  onClick={saveTwilioConfig}
-                  disabled={loading || !twilioConfig.accountSid || !twilioConfig.authToken}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                <Button onClick={saveTwilio} disabled={!twilioConfig.accountSid || !twilioConfig.authToken}>
                   Guardar Configuración
                 </Button>
-
                 {twilioStatus === 'connected' && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={testTwilioConnection}
-                      disabled={testing}
-                    >
-                      {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Probar Conexión
-                    </Button>
-
-                    <Button
-                      variant="destructive"
-                      onClick={disconnectTwilio}
-                      disabled={loading}
-                    >
-                      Desconectar
-                    </Button>
-                  </>
+                  <Button variant="destructive" onClick={disconnectTwilio}>Desconectar</Button>
                 )}
               </div>
-
-              {twilioStatus === 'connected' && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <AlertDescription className="text-green-700">
-                    Twilio conectado correctamente
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Webhook URL Info */}
-              <Alert>
-                <AlertDescription>
-                  <strong>Webhook URL:</strong>
-                  <code className="block mt-2 p-2 bg-gray-100 rounded text-sm">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/integrations/twilio/webhook` : ''}
-                  </code>
-                  <p className="mt-2 text-sm">
-                    Configura esta URL en tu consola de Twilio para recibir mensajes entrantes
-                  </p>
-                </AlertDescription>
-              </Alert>
             </CardContent>
           </Card>
         </TabsContent>

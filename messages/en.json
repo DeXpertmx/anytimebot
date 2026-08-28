@@ -213,7 +213,7 @@
           "5 Bot Training Documents",
           "Video Rooms (100 min/mo)",
           "Video Recording & Transcription",
-          "WhatsApp Integration (Evolution API)",
+          "WhatsApp Integration",
           "Pre-Meeting Intelligence Briefs",
           "Advanced Analytics",
           "Priority Support"
@@ -287,8 +287,8 @@
         "answer": "We offer a 14-day money-back guarantee for all paid plans. No questions asked."
       },
       {
-        "question": "How does the Evolution API vs Twilio work for WhatsApp?",
-        "answer": "Evolution API (Pro plan) is perfect for small-scale WhatsApp integration. Twilio (Team plan) provides enterprise-grade reliability and compliance for larger teams."
+        "question": "How does native WhatsApp vs Twilio work for messaging?",
+        "answer": "WhatsApp (Pro plan) is perfect for small-scale WhatsApp integration. Twilio (Team plan) provides enterprise-grade reliability and compliance for larger teams."
       },
       {
         "question": "Can I use external video links with the free plan?",

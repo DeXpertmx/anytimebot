@@ -213,7 +213,7 @@
           "5 Documentos de Entrenamiento del Bot",
           "Salas de Video (100 min/mes)",
           "Grabación y Transcripción de Video",
-          "Integración WhatsApp (Evolution API)",
+          "Integración de WhatsApp",
           "Pre-Meeting Intelligence Briefs",
           "Analytics Avanzado",
           "Soporte Prioritario"
@@ -287,8 +287,8 @@
         "answer": "Ofrecemos una garantía de devolución de dinero de 14 días para todos los planes de pago. Sin preguntas."
       },
       {
-        "question": "¿Cómo funciona Evolution API vs Twilio para WhatsApp?",
-        "answer": "Evolution API (plan Pro) es perfecto para integración de WhatsApp a pequeña escala. Twilio (plan Equipo) proporciona confiabilidad y cumplimiento de nivel empresarial para equipos más grandes."
+        "question": "¿Cómo funciona WhatsApp nativo vs Twilio para mensajería?",
+        "answer": "WhatsApp (plan Pro) es perfecto para integración de WhatsApp a pequeña escala. Twilio (plan Equipo) proporciona confiabilidad y cumplimiento de nivel empresarial para equipos más grandes."
       },
       {
         "question": "¿Puedo usar enlaces de video externos con el plan gratuito?",

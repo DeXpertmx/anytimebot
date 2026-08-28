@@ -72,7 +72,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       'Up to 5 documents for AI training',
       'Anytime Meeting Rooms (100 min/mo)',
       'Video recording + transcription',
-      'WhatsApp via Evolution API',
+      'WhatsApp integration',
       'Pre-meeting briefs',
       '200 AI interactions/mo',
     ],
