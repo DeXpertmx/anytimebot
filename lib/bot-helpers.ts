@@ -1,5 +1,6 @@
 
 import { prisma } from './db';
+import { publishBotMessage } from './convex-server';
 
 /**
  * Get or create conversation for a phone number
@@ -55,6 +56,14 @@ export async function addMessageToConversation(
       messages: recentMessages,
       lastMessageAt: new Date(),
     },
+  });
+
+  await publishBotMessage({
+    externalBotId: botId,
+    externalUserId: conversation.botId,
+    phone,
+    role,
+    content,
   });
 
   return recentMessages;

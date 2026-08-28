@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { publishBotMessage } from '@/lib/convex-server';
 
 // POST: Receive WhatsApp messages from Twilio webhook
 export async function POST(req: NextRequest) {
@@ -67,6 +68,13 @@ export async function POST(req: NextRequest) {
     // Process bot response if bot is active
     if (user.bots && user.bots.length > 0) {
       const bot = user.bots[0];
+      await publishBotMessage({
+        externalBotId: bot.id,
+        externalUserId: user.id,
+        phone: from,
+        role: 'user',
+        content: body,
+      });
       
       // Get or create conversation
       let conversation = await prisma.botConversation.findUnique({
@@ -89,6 +97,14 @@ export async function POST(req: NextRequest) {
 
       // Generate bot response using AI (placeholder - you'll need to implement AI logic)
       const botResponse = await generateBotResponse(bot, messages);
+
+      await publishBotMessage({
+        externalBotId: bot.id,
+        externalUserId: user.id,
+        phone: from,
+        role: 'assistant',
+        content: botResponse,
+      });
 
       // Add bot response to conversation
       messages.push({

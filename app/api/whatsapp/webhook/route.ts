@@ -13,6 +13,7 @@ import {
   getPersonalityPrompt,
 } from '@/lib/bot-helpers';
 import { getAvailableSlots, createBookingFromWhatsApp } from '@/lib/booking-helpers';
+import { publishBotMessage } from '@/lib/convex-server';
 
 // Simple GET endpoint to verify webhook is accessible
 export async function GET() {
@@ -115,6 +116,13 @@ export async function POST(req: Request) {
 
     // Add user message to conversation history
     await addMessageToConversation(bot.id, clientPhone, 'user', messageText);
+    await publishBotMessage({
+      externalBotId: bot.id,
+      externalUserId: user.id,
+      phone: clientPhone,
+      role: 'user',
+      content: messageText,
+    });
 
     // Get conversation history
     const conversationHistory = await getConversationHistory(bot.id, clientPhone);
@@ -289,6 +297,13 @@ Answer the user's question naturally and conversationally. If you don't know som
 
     // Add bot response to conversation history
     await addMessageToConversation(bot.id, clientPhone, 'assistant', botResponse);
+    await publishBotMessage({
+      externalBotId: bot.id,
+      externalUserId: user.id,
+      phone: clientPhone,
+      role: 'assistant',
+      content: botResponse,
+    });
 
     // Send response via WhatsApp
     if (user.evolutionApiUrl && user.evolutionApiKey && user.evolutionInstanceName) {

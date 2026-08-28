@@ -18,7 +18,7 @@ Next-generation scheduling SaaS built with Next.js, PostgreSQL, and modern integ
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - PostgreSQL database
 - Yarn package manager
 
@@ -54,6 +54,9 @@ yarn dev
 ```
 
 ## 📦 Deployment
+
+Consulta [`VERCEL_DEPLOYMENT.md`](./VERCEL_DEPLOYMENT.md) para la configuración completa de Vercel, Convex, variables de entorno, webhooks y cron jobs.
+
 
 ### Deploy to Vercel
 

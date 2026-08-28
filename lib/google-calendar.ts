@@ -1,9 +1,8 @@
 
 import { calendar_v3, google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 import { prisma } from './db';
 
-const oauth2Client = new OAuth2Client(
+const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
   process.env.NEXTAUTH_URL

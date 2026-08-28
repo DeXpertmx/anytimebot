@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma as db } from '@/lib/db';
 import { generateEmbedding, findSimilarDocuments } from '@/lib/embeddings';
+import { publishBotMessage } from '@/lib/convex-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +37,14 @@ export async function POST(request: NextRequest) {
     }
 
     const bot = user.bots[0];
+
+    await publishBotMessage({
+      externalBotId: bot.id,
+      externalUserId: user.id,
+      phone: `web:${username}`,
+      role: 'user',
+      content: message,
+    });
 
     // Find relevant documents using text search
     const documentsForSearch = bot.documents.map((doc) => ({
@@ -145,6 +154,8 @@ Answer the user's question naturally and conversationally. If you don't know som
       },
     });
 
+    // Streaming responses cannot be persisted incrementally; the client remains
+    // responsible for displaying the stream. WhatsApp uses the non-streaming path.
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',

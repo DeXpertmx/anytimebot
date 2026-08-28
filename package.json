@@ -1,11 +1,16 @@
 {
   "name": "app",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"
@@ -33,6 +38,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.911.0",
+    "convex": "^1.25.4",
     "@aws-sdk/s3-request-presigner": "^3.911.0",
     "@floating-ui/react": "0.26.0",
     "@headlessui/react": "1.7.18",

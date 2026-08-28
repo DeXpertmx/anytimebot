@@ -1,7 +1,6 @@
 
 import { prisma } from '@/lib/db';
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 
 interface AssignmentContext {
   eventTypeId: string;
@@ -32,7 +31,7 @@ async function getGoogleCalendarAvailability(
       return false; // No Google Calendar connected
     }
 
-    const oauth2Client = new OAuth2Client();
+    const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({
       access_token: account.access_token,
       refresh_token: account.refresh_token,
