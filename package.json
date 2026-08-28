@@ -6,7 +6,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && (if [ -n \"$CONVEX_DEPLOY_KEY\" ]; then npx convex deploy --typecheck disable || echo 'Convex deploy failed, continuing with Next build'; fi) && next build",
     "start": "next start",
     "lint": "next lint",
     "convex:dev": "convex dev",

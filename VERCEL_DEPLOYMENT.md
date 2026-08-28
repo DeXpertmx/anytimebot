@@ -45,8 +45,11 @@ https://TU_DOMINIO/api/auth/callback/google
 - `NEXT_PUBLIC_CONVEX_URL`: URL pública del deployment Convex de producción.
 - `CONVEX_URL`: misma URL, usada por Vercel server-side.
 - `CONVEX_INGEST_SECRET`: secreto compartido entre Vercel y Convex para publicar mensajes.
+- `CONVEX_DEPLOY_KEY`: deploy key de producción. Con ella, el build de Vercel ejecuta `npx convex deploy` automáticamente y crea/actualiza las tablas y funciones en Convex en cada despliegue.
 
 En Convex configura también `CONVEX_INGEST_SECRET` como variable del deployment. No uses el deployment local en producción.
+
+Para generar la deploy key: dashboard de Convex → **Settings → Deploy Keys → Create deploy key** (elige el deployment de producción). Se muestra una sola vez; configúrala directamente en Vercel como `CONVEX_DEPLOY_KEY` y no la compartas en chats o logs.
 
 ### Pagos
 
