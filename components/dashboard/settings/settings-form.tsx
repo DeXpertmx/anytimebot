@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Globe, Bell, Lock, X } from 'lucide-react';
+import { User, Globe, Bell, Lock, X, Download } from 'lucide-react';
 
 interface User {
   id: string;
@@ -76,6 +76,32 @@ export function SettingsForm({ user }: SettingsFormProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/user/export');
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `anytimebot-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: 'Datos exportados', description: 'La descarga de tus datos ha comenzado.' });
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast({ title: 'Error', description: 'No se pudieron exportar tus datos.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     if (deleteConfirm.toLowerCase() !== 'delete') {
@@ -444,6 +470,23 @@ export function SettingsForm({ user }: SettingsFormProps) {
               )}
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Privacy and data */}
+      <Card className="p-6">
+        <div className="flex items-center mb-6">
+          <Download className="h-5 w-5 text-indigo-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Privacy and Data</h2>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Descarga una copia estructurada de los datos personales asociados a tu cuenta.
+          </p>
+          <Button variant="outline" onClick={handleExportData} disabled={isExporting}>
+            <Download className="mr-2 h-4 w-4" />
+            {isExporting ? 'Exportando...' : 'Exportar mis datos'}
+          </Button>
         </div>
       </Card>
 
