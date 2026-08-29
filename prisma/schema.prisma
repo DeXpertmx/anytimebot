@@ -175,7 +175,7 @@ model VerificationToken {
 model BookingPage {
   id           String   @id @default(cuid())
   userId       String   @map("user_id")
-  slug         String   @unique
+  slug         String
   title        String
   description  String?  @db.Text
   isActive     Boolean  @default(true) @map("is_active")
@@ -188,6 +188,7 @@ model BookingPage {
   eventTypes    EventType[]
   availability  Availability[]
 
+  @@unique([userId, slug])
   @@map("booking_pages")
 }
 

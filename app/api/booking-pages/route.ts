@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { generateSlug, isValidUsername } from '@/lib/utils';
+import { isValidUsername } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,16 +57,17 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { slug, title, description, isActive = true } = body;
+    const normalizedSlug = String(slug || '').trim().toLowerCase();
 
     // Validation
-    if (!slug || !title) {
+    if (!normalizedSlug || !title) {
       return NextResponse.json(
         { success: false, error: 'Slug and title are required' },
         { status: 400 }
       );
     }
 
-    if (!isValidUsername(slug)) {
+    if (!isValidUsername(normalizedSlug)) {
       return NextResponse.json(
         { success: false, error: 'Invalid slug format' },
         { status: 400 }
@@ -74,8 +75,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if slug is already taken
-    const existingPage = await prisma.bookingPage.findUnique({
-      where: { slug },
+    const existingUser = await prisma.user.findUnique({ where: { id: (session.user as any).id }, select: { username: true } });
+    if (!existingUser?.username) {
+      return NextResponse.json({ success: false, error: 'Configure your public username before creating a booking page' }, { status: 400 });
+    }
+
+    const existingPage = await prisma.bookingPage.findFirst({
+      where: { userId: (session.user as any).id, slug: normalizedSlug },
     });
 
     if (existingPage) {
@@ -88,7 +94,7 @@ export async function POST(request: NextRequest) {
     const bookingPage = await prisma.bookingPage.create({
       data: {
         userId: (session.user as any).id,
-        slug,
+        slug: normalizedSlug,
         title,
         description,
         isActive,

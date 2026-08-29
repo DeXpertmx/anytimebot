@@ -26,7 +26,10 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
     },
     include: {
       bookingPages: {
-        where: { slug },
+        where: {
+          slug,
+          isActive: true,
+        },
         include: {
           eventTypes: {
             include: {

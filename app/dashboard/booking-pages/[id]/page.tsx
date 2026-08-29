@@ -52,7 +52,7 @@ export default async function EditBookingPagePage({ params }: Props) {
           </div>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/${bookingPage.slug}`} target="_blank">
+          <Link href={`/${(session.user as any).username}/${bookingPage.slug}`} target="_blank">
             <ExternalLink className="mr-2 h-4 w-4" />
             View Page
           </Link>

@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 interface BookingPage {
+
   id: string;
   slug: string;
   title: string;
@@ -107,7 +108,8 @@ export function BookingPagesList() {
   };
 
   const copyBookingUrl = (slug: string) => {
-    const url = `${window.location.origin}/${slug}`;
+    const username = document.body.dataset.username || '';
+    const url = `${window.location.origin}/${username}/${slug}`;
     navigator.clipboard.writeText(url);
     toast({
       title: 'Copied!',
@@ -172,7 +174,7 @@ export function BookingPagesList() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href={`/${page.slug}`} target="_blank">
+                    <Link href={`/dashboard/booking-pages/${page.id}`} target="_blank">
                       <ExternalLink className="mr-2 h-4 w-4" />
                       View Page
                     </Link>

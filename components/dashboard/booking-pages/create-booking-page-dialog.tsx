@@ -34,15 +34,21 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
     isActive: true,
   });
   const [loading, setLoading] = useState(false);
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
   const handleTitleChange = (title: string) => {
-    setFormData(prev => ({
-      ...prev,
-      title,
-      slug: prev.slug === generateSlug(prev.title) ? generateSlug(title) : prev.slug,
-    }));
+    setFormData(prev => {
+      const nextSlug = prev.slug === generateSlug(prev.title) ? generateSlug(title) : prev.slug;
+      setSlugAvailable(null);
+      return { ...prev, title, slug: nextSlug };
+    });
+  };
+
+  const handleSlugChange = (slug: string) => {
+    setSlugAvailable(null);
+    setFormData(prev => ({ ...prev, slug: slug.toLowerCase().replace(/[^a-z0-9_-]/g, '-') }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -133,18 +139,18 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
             <Label htmlFor="slug">URL Slug</Label>
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-1">
-                {typeof window !== 'undefined' ? window.location.origin : ''}/
+                {typeof window !== 'undefined' ? window.location.origin : 'https://anytimebot.app'}/username/
               </span>
               <Input
                 id="slug"
                 placeholder="your-name"
                 value={formData.slug}
-                onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                onChange={(e) => handleSlugChange(e.target.value)}
                 required
               />
             </div>
             <p className="text-xs text-gray-500">
-              This will be your booking page URL. Use only letters, numbers, hyphens, and underscores.
+              This will be your booking page URL. The username is configured in your profile and the slug is unique for your account.
             </p>
           </div>
           

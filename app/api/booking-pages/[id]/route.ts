@@ -72,6 +72,7 @@ export async function PUT(
 
     const body = await request.json();
     const { slug, title, description, isActive, slotInterval, availability } = body;
+    const normalizedSlug = typeof slug === 'string' ? slug.trim().toLowerCase() : slug;
 
     // Validation
     if (!slug || !title) {
@@ -81,7 +82,7 @@ export async function PUT(
       );
     }
 
-    if (!isValidUsername(slug)) {
+    if (!isValidUsername(normalizedSlug)) {
       return NextResponse.json(
         { success: false, error: 'Invalid slug format' },
         { status: 400 }
@@ -104,10 +105,10 @@ export async function PUT(
     }
 
     // Check if slug is already taken by another page
-    if (slug !== existingPage.slug) {
+    if (normalizedSlug !== existingPage.slug) {
       const slugTaken = await prisma.bookingPage.findFirst({
         where: {
-          slug,
+          slug: normalizedSlug,
           id: { not: params.id },
         },
       });
@@ -126,7 +127,7 @@ export async function PUT(
       const page = await tx.bookingPage.update({
         where: { id: params.id },
         data: {
-          slug,
+          slug: normalizedSlug,
           title,
           description,
           isActive,
