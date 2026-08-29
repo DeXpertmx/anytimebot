@@ -26,10 +26,8 @@ export default async function DashboardLayout({
       <DashboardSidebar />
       <div className="pl-64">
         <DashboardHeader />
-        <main className="min-h-[calc(100vh-4rem)] p-0">
-          <div className="w-full max-w-none">
-            {children}
-          </div>
+        <main className="h-[calc(100vh-4rem)] overflow-hidden p-0">
+          {children}
         </main>
       </div>
     </div>
