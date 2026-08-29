@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { isValidEmail, isValidPhone, addMinutes } from '@/lib/utils';
-import { sendBookingConfirmation } from '@/lib/email';
+import { sendBookingConfirmationWithTemplate } from '@/lib/email';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability } from '@/lib/google-calendar';
 import { generateBookingToken } from '@/lib/booking-tokens';
@@ -367,7 +367,8 @@ export async function POST(request: NextRequest) {
       const baseUrl = getPublicAppUrl();
       const meetingPageUrl = videoSession ? `${baseUrl}/meeting/${booking.id}` : undefined;
 
-      await sendBookingConfirmation({
+      await sendBookingConfirmationWithTemplate({
+        userId: booking.eventType.bookingPage.userId,
         to: guestEmail,
         guestName,
         eventTitle: eventType.name,

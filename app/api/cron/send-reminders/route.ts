@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { sendBookingReminder } from '@/lib/email';
+import { sendBookingReminderWithTemplate } from '@/lib/email';
 import { generateBookingToken } from '@/lib/booking-tokens';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
           const cancelToken = generateBookingToken(booking.id, 'cancel');
           const rescheduleToken = generateBookingToken(booking.id, 'reschedule');
 
-          await sendBookingReminder({
+          await sendBookingReminderWithTemplate({
+            userId: booking.eventType.bookingPage.userId,
             to: booking.guestEmail,
             guestName: booking.guestName,
             eventTitle: booking.eventType.name,
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
             timezone: booking.timezone,
             cancelToken,
             rescheduleToken,
+            hoursBefore: 24,
           });
 
           console.log(`Reminder sent for booking ${booking.id}`);

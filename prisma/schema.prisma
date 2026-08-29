@@ -94,6 +94,9 @@ model User {
   phone        String?  @map("phone") // Public phone number
   address      String?  @map("address") // Public address
   
+  // Email Templates
+  emailTemplates EmailTemplate[]
+  
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -644,4 +647,22 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  type        String   // "confirmation", "reminder_24h", "reminder_1h", "cancellation", "reschedule"
+  name        String   // Display name
+  subject     String   // Email subject line
+  htmlBody    String   @db.Text @map("html_body") // HTML template body
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("email_templates")
 }

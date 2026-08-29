@@ -1,10 +1,50 @@
 
 // Email utility functions
 
+import { prisma } from '@/lib/db';
+
 export interface EmailOptions {
   to: string;
   subject: string;
   html: string;
+}
+
+/**
+ * Get email template for user
+ */
+export async function getEmailTemplate(userId: string, type: string): Promise<{ subject: string; htmlBody: string } | null> {
+  try {
+    const template = await prisma.emailTemplate.findFirst({
+      where: {
+        userId,
+        type,
+        isActive: true,
+      },
+    });
+
+    if (!template) {
+      return null;
+    }
+
+    return {
+      subject: template.subject,
+      htmlBody: template.htmlBody,
+    };
+  } catch (error) {
+    console.error('Error fetching email template:', error);
+    return null;
+  }
+}
+
+/**
+ * Replace template variables with actual values
+ */
+export function replaceTemplateVariables(template: string, variables: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`\{\{${key}\}\}`, 'g'), value);
+  }
+  return result;
 }
 
 /**
@@ -174,6 +214,59 @@ export async function sendBookingConfirmation(data: {
 }
 
 /**
+ * Send booking confirmation email with custom template support
+ */
+export async function sendBookingConfirmationWithTemplate(data: {
+  userId: string;
+  to: string;
+  guestName: string;
+  eventTitle: string;
+  startTime: Date;
+  duration: number;
+  location: string;
+  videoLink?: string;
+  timezone?: string;
+  bookingId?: string;
+  cancelToken?: string;
+  rescheduleToken?: string;
+  meetingPageUrl?: string;
+}): Promise<boolean> {
+  const { userId, to, guestName, eventTitle, startTime, duration, location, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl } = data;
+  
+  // Try to get custom template
+  const template = await getEmailTemplate(userId, 'confirmation');
+  
+  if (template) {
+    const formattedDate = formatDateWithTimezone(startTime, timezone);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+    const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : '';
+    const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : '';
+    
+    const variables = {
+      guestName,
+      eventTitle,
+      startTime: formattedDate,
+      duration: duration.toString(),
+      location,
+      videoLink: videoLink || '',
+      timezone,
+      cancelUrl,
+      rescheduleUrl,
+      meetingPageUrl: meetingPageUrl || '',
+      bookingId: bookingId || '',
+    };
+    
+    const html = replaceTemplateVariables(template.htmlBody, variables);
+    const subject = replaceTemplateVariables(template.subject, variables);
+    
+    return sendEmail({ to, subject, html });
+  }
+  
+  // Fall back to default template
+  return sendBookingConfirmation(data);
+}
+
+/**
  * Send booking reminder email (24 hours before)
  */
 export async function sendBookingReminder(data: {
@@ -267,6 +360,56 @@ export async function sendBookingReminder(data: {
     subject: `⏰ Recordatorio: ${eventTitle} es mañana`,
     html,
   });
+}
+
+/**
+ * Send booking reminder email with custom template support
+ */
+export async function sendBookingReminderWithTemplate(data: {
+  userId: string;
+  to: string;
+  guestName: string;
+  eventTitle: string;
+  startTime: Date;
+  videoLink?: string;
+  location?: string;
+  timezone?: string;
+  cancelToken?: string;
+  rescheduleToken?: string;
+  hoursBefore?: number;
+}): Promise<boolean> {
+  const { userId, to, guestName, eventTitle, startTime, videoLink, location, timezone = 'UTC', cancelToken, rescheduleToken, hoursBefore = 24 } = data;
+  
+  // Try to get custom template
+  const templateType = hoursBefore === 1 ? 'reminder_1h' : 'reminder_24h';
+  const template = await getEmailTemplate(userId, templateType);
+  
+  if (template) {
+    const formattedDate = formatDateWithTimezone(startTime, timezone);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+    const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : '';
+    const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : '';
+    
+    const variables = {
+      guestName,
+      eventTitle,
+      startTime: formattedDate,
+      location: location || '',
+      videoLink: videoLink || '',
+      timezone,
+      cancelUrl,
+      rescheduleUrl,
+      hoursBefore: hoursBefore.toString(),
+    };
+    
+    const html = replaceTemplateVariables(template.htmlBody, variables);
+    const subject = replaceTemplateVariables(template.subject, variables);
+    
+    return sendEmail({ to, subject, html });
+  }
+  
+  // Fall back to default template
+  return sendBookingReminder(data);
 }
 
 /**

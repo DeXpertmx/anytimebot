@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { SettingsForm } from '@/components/dashboard/settings/settings-form';
+import { EmailTemplates } from '@/components/dashboard/settings/email-templates';
 
 export const metadata = {
   title: 'Settings - ANYTIMEBOT',
@@ -34,6 +35,7 @@ export default async function SettingsPage() {
         </p>
       </div>
       <SettingsForm user={user} />
+      <EmailTemplates />
     </div>
   );
 }
