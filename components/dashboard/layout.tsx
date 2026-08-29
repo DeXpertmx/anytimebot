@@ -10,8 +10,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       <DashboardSidebar />
       <div className="md:pl-64">
         <DashboardHeader />
-        <main className="p-4 sm:p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="min-h-[calc(100vh-4rem)] p-2 sm:p-4">
+          <div className="w-full max-w-none">
             {children}
           </div>
         </main>
