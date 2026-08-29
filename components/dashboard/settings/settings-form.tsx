@@ -63,6 +63,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
     username: user.username || '',
     email: user.email,
     timezone: user.timezone,
+    bio: (user as any).bio || '',
+    company: (user as any).company || '',
+    website: (user as any).website || '',
+    linkedin: (user as any).linkedin || '',
+    twitter: (user as any).twitter || '',
+    phone: (user as any).phone || '',
+    address: (user as any).address || '',
   });
   // Password change state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -286,6 +293,132 @@ export function SettingsForm({ user }: SettingsFormProps) {
             className="bg-indigo-600 hover:bg-indigo-700"
           >
             {isLoading ? 'Saving...' : 'Save Profile'}
+          </Button>
+        </form>
+      </Card>
+
+      {/* Public Profile Settings */}
+      <Card className="p-6">
+        <div className="flex items-center mb-6">
+          <Globe className="h-5 w-5 text-indigo-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Public Profile</h2>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Configure your public profile that clients will see at{' '}
+          <span className="font-mono text-indigo-600">anytimebot.app/{formData.username || 'username'}</span>
+        </p>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setIsLoading(true);
+            try {
+              const response = await fetch('/api/user/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bio: formData.bio,
+                  company: formData.company,
+                  website: formData.website,
+                  linkedin: formData.linkedin,
+                  twitter: formData.twitter,
+                  phone: formData.phone,
+                  address: formData.address,
+                }),
+              });
+              if (response.ok) {
+                toast({ title: 'Profile Updated', description: 'Your public profile has been updated.' });
+                router.refresh();
+              }
+            } catch (error) {
+              toast({ title: 'Error', description: 'Failed to update profile', variant: 'destructive' });
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <Label htmlFor="bio">Bio</Label>
+            <textarea
+              id="bio"
+              value={formData.bio}
+              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+              placeholder="Tell clients about yourself..."
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="company">Company</Label>
+              <Input
+                id="company"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                placeholder="Your company name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="website">Website</Label>
+              <Input
+                id="website"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                placeholder="https://yourwebsite.com"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="linkedin">LinkedIn</Label>
+              <Input
+                id="linkedin"
+                value={formData.linkedin}
+                onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
+                placeholder="https://linkedin.com/in/yourprofile"
+              />
+            </div>
+            <div>
+              <Label htmlFor="twitter">Twitter / X</Label>
+              <Input
+                id="twitter"
+                value={formData.twitter}
+                onChange={(e) => setFormData({ ...formData, twitter: e.target.value })}
+                placeholder="https://twitter.com/yourprofile"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+            <div>
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="Your business address"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="bg-indigo-600 hover:bg-indigo-700"
+          >
+            {isLoading ? 'Saving...' : 'Save Public Profile'}
           </Button>
         </form>
       </Card>

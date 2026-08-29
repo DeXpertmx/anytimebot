@@ -85,6 +85,15 @@ model User {
   // Google Calendar Integration
   calendarSyncEnabled Boolean @default(true) @map("calendar_sync_enabled")
   
+  // Public Profile
+  bio          String?  @db.Text // Public bio/description
+  company      String?  @map("company") // Company name
+  website      String?  @map("website") // Personal website
+  linkedin     String?  @map("linkedin") // LinkedIn URL
+  twitter      String?  @map("twitter") // Twitter/X URL
+  phone        String?  @map("phone") // Public phone number
+  address      String?  @map("address") // Public address
+  
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
