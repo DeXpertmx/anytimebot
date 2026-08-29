@@ -120,6 +120,7 @@ export async function PUT(
     if (bufferTime !== undefined) updateData.bufferTime = parseInt(bufferTime);
     if (location !== undefined) updateData.location = location;
     if (videoLink !== undefined) updateData.videoLink = videoLink;
+    if (videoProvider !== undefined) updateData.videoProvider = videoProvider;
     if (color !== undefined) updateData.color = color;
     if (requiresConfirmation !== undefined) updateData.requiresConfirmation = requiresConfirmation;
     if (price !== undefined) updateData.price = parseInt(price);

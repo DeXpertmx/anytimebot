@@ -6,6 +6,8 @@
 
 import { prisma } from '@/lib/db';
 import { createDailyRoom, createMeetingToken } from '@/lib/daily';
+import { createZoomMeeting } from '@/lib/zoom';
+import { createTeamsMeeting } from '@/lib/teams';
 import { VideoProvider } from '@prisma/client';
 
 interface CreateVideoSessionParams {
@@ -75,15 +77,49 @@ export async function createVideoSession(params: CreateVideoSessionParams) {
       hostRoomUrl = roomUrl;
     }
   } else if (provider === VideoProvider.GOOGLE_MEET) {
-    // For now, Google Meet rooms are created via Google Calendar API
+    // Google Meet rooms are created via Google Calendar API
     // This will be handled in the calendar event creation
     roomUrl = 'https://meet.google.com/'; // Placeholder
   } else if (provider === VideoProvider.ZOOM) {
-    // Zoom integration would go here
-    roomUrl = 'https://zoom.us/'; // Placeholder
-  } else {
-    // Custom video link
+    // Create Zoom meeting
+    const zoomResult = await createZoomMeeting({
+      topic: meetingDetails.title,
+      startTime: meetingDetails.startTime,
+      duration: 30, // Default duration, will be overridden by event type
+      timezone: 'UTC',
+      agenda: `Meeting with ${meetingDetails.guestName}`,
+    });
+
+    if (zoomResult.success) {
+      roomUrl = zoomResult.joinUrl || '';
+      roomName = zoomResult.meetingId || null;
+    } else {
+      console.error('Failed to create Zoom meeting:', zoomResult.error);
+      roomUrl = 'https://zoom.us/'; // Fallback
+    }
+  } else if (provider === VideoProvider.TEAMS) {
+    // Create Teams meeting
+    const teamsResult = await createTeamsMeeting({
+      topic: meetingDetails.title,
+      startTime: meetingDetails.startTime,
+      duration: 30, // Default duration, will be overridden by event type
+      timezone: 'UTC',
+      agenda: `Meeting with ${meetingDetails.guestName}`,
+    });
+
+    if (teamsResult.success) {
+      roomUrl = teamsResult.joinUrl || '';
+      roomName = teamsResult.meetingId || null;
+    } else {
+      console.error('Failed to create Teams meeting:', teamsResult.error);
+      roomUrl = 'https://teams.microsoft.com/'; // Fallback
+    }
+  } else if (provider === VideoProvider.CUSTOM) {
+    // Custom video link - will be set by event type
     roomUrl = 'Custom video link'; // Will be set by event type
+  } else {
+    // Default to Daily
+    roomUrl = 'https://daily.co/'; // Placeholder
   }
 
   // Create video session in database

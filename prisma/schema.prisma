@@ -638,6 +638,7 @@ enum TeamMemberRole {
 enum VideoProvider {
   GOOGLE_MEET
   ZOOM
+  TEAMS
   DAILY
   CUSTOM
 }

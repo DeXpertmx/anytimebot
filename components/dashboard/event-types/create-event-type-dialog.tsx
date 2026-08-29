@@ -48,6 +48,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
     bufferTime: '5',
     location: 'video',
     videoLink: '',
+    videoProvider: 'DAILY',
     color: '#6366f1',
     requiresConfirmation: false,
     price: '0',
@@ -125,6 +126,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           bufferTime: '5',
           location: 'video',
           videoLink: '',
+          videoProvider: 'DAILY',
           color: '#6366f1',
           requiresConfirmation: false,
           price: '0',
@@ -288,15 +290,40 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           </div>
 
           {formData.location === 'video' && (
-            <div className="space-y-2">
-              <Label htmlFor="videoLink">Video Link (Optional)</Label>
-              <Input
-                id="videoLink"
-                placeholder="e.g., https://zoom.us/j/123456789"
-                value={formData.videoLink}
-                onChange={(e) => setFormData(prev => ({ ...prev, videoLink: e.target.value }))}
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="videoProvider">Video Provider</Label>
+                <Select
+                  value={formData.videoProvider}
+                  onValueChange={(value) => 
+                    setFormData(prev => ({ ...prev, videoProvider: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select video provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DAILY">Daily.co (Recommended)</SelectItem>
+                    <SelectItem value="GOOGLE_MEET">Google Meet</SelectItem>
+                    <SelectItem value="ZOOM">Zoom</SelectItem>
+                    <SelectItem value="TEAMS">Microsoft Teams</SelectItem>
+                    <SelectItem value="CUSTOM">Custom URL</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  Select the video conferencing provider for this event type.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="videoLink">Video Link (Optional)</Label>
+                <Input
+                  id="videoLink"
+                  placeholder="e.g., https://zoom.us/j/123456789"
+                  value={formData.videoLink}
+                  onChange={(e) => setFormData(prev => ({ ...prev, videoLink: e.target.value }))}
+                />
+              </div>
+            </>
           )}
 
           <div className="space-y-2">

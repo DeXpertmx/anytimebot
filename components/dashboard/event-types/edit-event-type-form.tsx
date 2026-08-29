@@ -342,6 +342,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   <SelectItem value="DAILY">Daily.co (Recommended - Native Integration)</SelectItem>
                   <SelectItem value="GOOGLE_MEET">Google Meet</SelectItem>
                   <SelectItem value="ZOOM">Zoom</SelectItem>
+                  <SelectItem value="TEAMS">Microsoft Teams</SelectItem>
                   <SelectItem value="CUSTOM">Custom URL</SelectItem>
                 </SelectContent>
               </Select>
