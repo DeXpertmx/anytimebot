@@ -200,7 +200,7 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 - [ ] Página pública de perfil: `anytimebot.app/[usuario]`
 
 ### Fase 2 — Monetización (2-4 semanas)
-- [ ] Pagos al reservar con Stripe (cobro de consultas/sesiones)
+- [x] Pagos al reservar con Stripe ✅
 - [ ] Planes de precio con límites de reservas
 - [ ] Facturación básica
 
