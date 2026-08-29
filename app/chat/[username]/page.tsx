@@ -74,48 +74,14 @@ export default function ChatPage() {
 
       if (!response.ok) throw new Error('Chat failed');
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader');
-
-      const decoder = new TextDecoder();
-      let assistantMessage = '';
-
-      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setMessages((prev) => {
-                  const newMessages = [...prev];
-                  newMessages[newMessages.length - 1].content = assistantMessage;
-                  return newMessages;
-                });
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
-          }
-        }
-      }
+      const assistantMessage = await response.text();
+      if (!assistantMessage.trim()) throw new Error('Empty response');
+      setMessages((prev) => [...prev, { role: 'assistant', content: assistantMessage }]);
     } catch (error) {
       console.error('Chat error:', error);
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' },
+        { role: 'assistant', content: 'Ocurrió un error al procesar tu mensaje. Inténtalo de nuevo.' },
       ]);
     } finally {
       setLoading(false);
@@ -191,11 +157,17 @@ export default function ChatPage() {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Type your message..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              aria-label="Escribe tu mensaje"
+              placeholder="Escribe tu mensaje..."
               disabled={loading}
             />
-            <Button onClick={handleSend} disabled={loading || !input.trim()}>
+            <Button onClick={() => void handleSend()} disabled={loading || !input.trim()} aria-label="Enviar mensaje">
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

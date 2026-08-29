@@ -65,8 +65,7 @@ export async function POST(request: NextRequest) {
         name,
         email,
         username: finalUsername,
-        // Note: In a real app, you'd store the hashedPassword
-        // For demo purposes, we'll rely on the test credentials
+        password: hashedPassword,
       },
     });
 

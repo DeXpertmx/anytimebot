@@ -40,21 +40,27 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          // For demo purposes, check if it's the test account
-          if (credentials.email === 'john@doe.com' && credentials.password === 'johndoe123') {
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              username: user.username,
-              image: user.image,
-            };
+          // Demo account compatibility (kept for existing test logins).
+          let isValid =
+            user.password
+              ? await bcryptjs.compare(credentials.password, user.password)
+              : false;
+
+          if (!isValid && credentials.email === 'john@doe.com' && credentials.password === 'johndoe123') {
+            isValid = true;
           }
 
-          // For regular users, you would typically hash and compare passwords
-          // const isValidPassword = await bcryptjs.compare(credentials.password, user.hashedPassword);
-          // For now, we'll just allow the test user
-          return null;
+          if (!isValid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            username: user.username,
+            image: user.image,
+          };
         } catch (error) {
           console.error('Auth error:', error);
           return null;

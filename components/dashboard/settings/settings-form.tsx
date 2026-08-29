@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Globe, Bell, Lock } from 'lucide-react';
+import { User, Globe, Bell, Lock, X } from 'lucide-react';
 
 interface User {
   id: string;
@@ -63,6 +64,87 @@ export function SettingsForm({ user }: SettingsFormProps) {
     email: user.email,
     timezone: user.timezone,
   });
+  // Password change state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  // Account deletion state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm.toLowerCase() !== 'delete') {
+      toast({ title: 'Escribe DELETE para confirmar', variant: 'destructive' });
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/user/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        toast({ title: 'Cuenta eliminada', description: 'Todos tus datos fueron borrados permanentemente.' });
+        await signOut({ redirect: false });
+        router.push('/');
+      } else {
+        const err = await res.json();
+        toast({ title: 'Error', description: err.error || 'No se pudo eliminar la cuenta', variant: 'destructive' });
+        setIsDeleting(false);
+      }
+    } catch (e) {
+      console.error('Error deleting account:', e);
+      toast({ title: 'Error', description: 'Ocurrió un error al eliminar la cuenta', variant: 'destructive' });
+      setIsDeleting(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      toast({
+        title: 'Password too short',
+        description: 'New password must be at least 6 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const response = await fetch('/api/user/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      if (response.ok) {
+        toast({ title: 'Password Changed', description: 'Your password has been updated successfully.' });
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setShowPasswordModal(false);
+      } else {
+        const error = await response.json();
+        toast({ title: 'Change Failed', description: error.error || 'Failed to change password', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast({ title: 'Error', description: 'An error occurred while changing your password', variant: 'destructive' });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +234,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 required
               />
               <div className="mt-1 text-sm text-gray-500">
-                Your booking page will be: meetmind.abacusai.app/
+                Your booking page will be: anytimebot.app/
                 {formData.username || 'username'}
               </div>
             </div>
@@ -314,7 +396,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
               )}
             </p>
             {!user.image && (
-              <Button variant="outline">Change Password</Button>
+              <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
+                Change Password
+              </Button>
             )}
           </div>
 
@@ -377,10 +461,137 @@ export function SettingsForm({ user }: SettingsFormProps) {
               Once you delete your account, there is no going back. Please be
               certain.
             </p>
-            <Button variant="destructive">Delete Account</Button>
+            <Button variant="destructive" onClick={() => setShowDeleteModal(true)}>
+              Delete Account
+            </Button>
           </div>
         </div>
       </Card>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-red-600">Delete Account</h3>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-600">
+                Esta acción es irreversible. Se eliminarán permanentemente tu cuenta, tus reservas, tu bot, tus
+                conversaciones y los datos de WhatsApp. Escribe{' '}
+                <span className="font-mono font-semibold">DELETE</span> para confirmar.
+              </p>
+              <div>
+                <Label htmlFor="delete-confirm">Confirmación</Label>
+                <Input
+                  id="delete-confirm"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder="Escribe DELETE"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirm(''); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || deleteConfirm.toLowerCase() !== 'delete'}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Account'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
+              <button
+                type="button"
+                onClick={() => setShowPasswordModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleChangePassword} className="px-6 py-4 space-y-4">
+              <div>
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
+                  }
+                  placeholder="Your current password"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                  }
+                  placeholder="New password (min 6 characters)"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
+                  }
+                  placeholder="Re-enter new password"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPasswordModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isChangingPassword}>
+                  {isChangingPassword ? 'Saving...' : 'Update Password'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

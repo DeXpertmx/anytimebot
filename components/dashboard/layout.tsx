@@ -8,9 +8,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardSidebar />
-      <div className="pl-64">
+      <div className="md:pl-64">
         <DashboardHeader />
-        <main className="p-6">
+        <main className="p-4 sm:p-6">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

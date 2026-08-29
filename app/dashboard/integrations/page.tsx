@@ -9,7 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, MessageCircle, QrCode, RefreshCw, Trash2, Zap } from 'lucide-react';
+import {
+  Loader2, CheckCircle2, XCircle, MessageCircle, QrCode, RefreshCw, Trash2, Zap,
+  Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone,
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 type ConnStatus = 'not_created' | 'connecting' | 'connected' | 'error' | 'loading';
@@ -23,9 +26,9 @@ export default function IntegrationsPage() {
 
   const [status, setStatus] = useState<ConnStatus>('loading');
   const [stateLabel, setStateLabel] = useState('');
+  const [phone, setPhone] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [showingQr, setShowingQr] = useState(false);
-  const [instanceName, setInstanceName] = useState('');
 
   // Twilio state (kept as-is)
   const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio'>('whatsapp');
@@ -39,6 +42,7 @@ export default function IntegrationsPage() {
       const res = await fetch('/api/whatsapp/status');
       if (res.ok) {
         const data = await res.json();
+        setPhone(data.phone || null);
         if (!data.success || !data.hasInstance) {
           setStatus(data.hasInstance ? 'error' : 'not_created');
           setStateLabel('');
@@ -65,6 +69,17 @@ export default function IntegrationsPage() {
     void checkStatus();
   }, [checkStatus]);
 
+  // The pairing service updates asynchronously after the QR is scanned.
+  // Poll while pairing so the UI reflects the server state without requiring
+  // the user to refresh the page manually.
+  useEffect(() => {
+    if (status !== 'connecting') return;
+    const timer = window.setInterval(() => {
+      void checkStatus();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [status, checkStatus]);
+
   const handleActivate = async () => {
     setActivating(true);
     try {
@@ -74,7 +89,6 @@ export default function IntegrationsPage() {
         toast.error(data.error || 'No se pudo activar WhatsApp');
         return;
       }
-      if (data.instanceName) setInstanceName(data.instanceName);
       toast.success('WhatsApp activado. Escanea el código QR para conectar tu teléfono.');
       if (data.qr?.base64) {
         setQr(data.qr.base64);
@@ -98,7 +112,6 @@ export default function IntegrationsPage() {
         setShowingQr(true);
       } else {
         toast.success('Abre WhatsApp en tu teléfono y escanea el código.');
-        // Fall back: keep QR area open but empty; status will surface once paired.
         setShowingQr(true);
       }
     } catch {
@@ -125,7 +138,7 @@ export default function IntegrationsPage() {
         toast.success('WhatsApp desconectado');
         setQr(null);
         setShowingQr(false);
-        setInstanceName('');
+        setPhone(null);
         await checkStatus();
       } else {
         const data = await res.json();
@@ -146,7 +159,7 @@ export default function IntegrationsPage() {
       return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="mr-1 h-3 w-3" />Conectado</Badge>;
     }
     if (status === 'connecting') {
-      return <Badge variant="secondary" className="bg-amber-100 text-amber-800"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Pendiente de escaneo</Badge>;
+      return <Badge variant="secondary" className="border-amber-300 bg-amber-50 text-amber-800"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Conectando…</Badge>;
     }
     if (status === 'error') {
       return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Error</Badge>;
@@ -204,27 +217,62 @@ export default function IntegrationsPage() {
     }
   };
 
+  const howItWorks = [
+    'Pulsa "Crear y conectar WhatsApp del Negocio"',
+    'La plataforma crea la conexión del negocio y configura el webhook',
+    'Escanea el código QR con el teléfono del negocio',
+    'Espera a que el estado cambie a conectado',
+    '¡Listo! El chatbot empieza a responder desde este número',
+  ];
+
+  const requirements = [
+    'El servicio de WhatsApp debe estar disponible para la plataforma',
+    'Un teléfono con WhatsApp para escanear el QR',
+    'No tener otro WhatsApp del negocio activo en esta cuenta',
+  ];
+
+  const benefits = [
+    'El chatbot tiene una identidad propia (la del negocio)',
+    'El cliente nunca ve números personales',
+    'Las escalaciones se atienden en el centro de comunicaciones con el mismo número',
+    'Todas las conversaciones de trabajo quedan registradas',
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Integraciones de mensajería</h1>
-        <p className="text-muted-foreground">
-          Conecta tu número de WhatsApp para enviar y recibir mensajes desde tu plataforma
-        </p>
+      <div className="flex items-start gap-3">
+        <div className="rounded-lg bg-indigo-600 p-2.5 text-white">
+          <Smartphone className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">WhatsApp del Negocio</h1>
+          <p className="text-muted-foreground">
+            Número dedicado del negocio para el chatbot y el equipo. Separado de los WhatsApp personales.
+          </p>
+        </div>
       </div>
 
-      <Alert>
-        <MessageCircle className="h-4 w-4" />
-        <AlertDescription className="flex items-center gap-2">
-          Mensajería activa:&nbsp;
-          <Badge variant="default" className="ml-1">
-            {activeProvider === 'whatsapp' ? 'WhatsApp' : 'Twilio'}
-          </Badge>
+      {/* Conexión automática */}
+      <Alert className="border-green-200 bg-green-50">
+        <CheckCircle2 className="h-5 w-5 text-green-600" />
+        <AlertDescription className="text-green-800">
+          <span className="font-semibold">Conexión automática:</span> La plataforma crea la conexión del negocio y
+          mostrará aquí el código QR para vincular el número. Solo puede existir un WhatsApp del negocio por cuenta.
+        </AlertDescription>
+      </Alert>
+
+      {/* Responden desde este número */}
+      <Alert className="border-blue-200 bg-blue-50">
+        <Bot className="h-5 w-5 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          El chatbot responde desde este número. Cuando una conversación se escala a un agente, este la atiende desde el
+          centro de comunicaciones usando el mismo número del negocio: el cliente nunca ve números personales y todas
+          las conversaciones quedan registradas.
         </AlertDescription>
       </Alert>
 
       <Tabs value={activeProvider} onValueChange={(v) => setActiveProvider(v as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
             WhatsApp
@@ -239,104 +287,171 @@ export default function IntegrationsPage() {
 
         {/* WhatsApp tab */}
         <TabsContent value="whatsapp">
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between space-y-0">
-              <div>
-                <CardTitle>WhatsApp</CardTitle>
-                <CardDescription>
-                  Activa la conexión para recibir y responder mensajes al instante. Sin configuración manual.
-                </CardDescription>
-              </div>
-              {statusBadge()}
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Not created: show activate button */}
-              {(status === 'not_created' || status === 'error') && (
-                <div className="space-y-4">
-                  <Alert>
-                    <AlertDescription>
-                      Al activar, la plataforma crea automáticamente tu conexión y te muestra un código QR para
-                      vincular tu teléfono. No necesitas instalar ni configurar nada manualmente.
-                    </AlertDescription>
+          {/* Not created / error: onboarding card */}
+          {(status === 'not_created' || status === 'error') && (
+            <Card>
+              <CardContent className="flex flex-col items-center gap-6 pt-8 text-center">
+                <div className="flex w-full flex-col items-center gap-3">
+                  <h2 className="text-xl font-bold">Conecta el WhatsApp del Negocio</h2>
+                  <p className="max-w-md text-sm text-muted-foreground">
+                    Un número dedicado del negocio para el chatbot y las conversaciones de trabajo.
+                  </p>
+                </div>
+
+                {status === 'error' && (
+                  <Alert variant="destructive" className="w-full">
+                    <AlertDescription>No pudimos verificar el estado de la conexión. Inténtalo de nuevo.</AlertDescription>
                   </Alert>
-                  <div className="flex flex-wrap gap-3">
-                    <Button onClick={handleActivate} disabled={activating}>
-                      {activating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Activar WhatsApp
-                    </Button>
+                )}
+
+                {/* ¿Cómo funciona? */}
+                <div className="w-full rounded-xl bg-gray-50 p-5 text-left">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
+                    <ClipboardList className="h-4 w-4 text-indigo-600" /> ¿Cómo funciona?
+                  </h3>
+                  <ol className="space-y-2">
+                    {howItWorks.map((step, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
+                        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
+                          {i + 1}
+                        </span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                {/* Requisitos */}
+                <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-5 text-left">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-blue-800">
+                    <ShieldCheck className="h-4 w-4" /> Requisitos previos:
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {requirements.map((r, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-blue-800">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Beneficios */}
+                <div className="w-full rounded-xl border border-green-200 bg-green-50 p-5 text-left">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-green-800">
+                    <Sparkles className="h-4 w-4" /> Beneficios:
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {benefits.map((b, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-green-800">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" />
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <Button
+                  onClick={handleActivate}
+                  disabled={activating}
+                  className="h-12 w-full px-6 py-3 text-base"
+                >
+                  {activating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Phone className="mr-2 h-5 w-5" />}
+                  Crear y conectar WhatsApp del Negocio
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Connecting / connected: status card */}
+          {(status === 'connecting' || status === 'connected') && (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                      <MessageCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <CardTitle>WhatsApp del Negocio</CardTitle>
+                      <CardDescription>
+                        {phone ? phone : status === 'connected' ? 'Número vinculado' : 'Número no disponible'}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {statusBadge()}
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg bg-gray-50 p-4 text-center">
+                      <MessageCircle className="mx-auto mb-1 h-5 w-5 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Mensajes</p>
+                      <p className="text-xl font-bold">0</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 p-4 text-center">
+                      <Phone className="mx-auto mb-1 h-5 w-5 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Estado</p>
+                      <p className="text-xl font-bold">{status === 'connected' ? 'Activo' : 'Inactivo'}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 p-4 text-center">
+                      <Sparkles className="mx-auto mb-1 h-5 w-5 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Conectado ahora</p>
+                      <p className="text-xl font-bold">{status === 'connected' ? 'Sí' : 'No'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {status !== 'connected' && (
+                      <Button variant="outline" onClick={handleShowQr} disabled={qrLoading}>
+                        {qrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
+                        {showingQr ? 'Ocultar código' : 'Mostrar código QR'}
+                      </Button>
+                    )}
                     <Button variant="outline" onClick={checkStatus} disabled={statusLoading}>
                       <RefreshCw className="mr-2 h-4 w-4" />
-                      Verificar estado
+                      Actualizar Estado
+                    </Button>
+                    <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting}>
+                      {disconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                      Desconectar
                     </Button>
                   </div>
-                </div>
-              )}
+                </CardContent>
+              </Card>
 
-              {/* Connecting / connected / QR area */}
-              {(status === 'connecting' || status === 'connected') && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    {status === 'connected' ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      {status === 'connected'
-                        ? 'Tu número está vinculado. Los mensajes entrantes se procesan automáticamente.'
-                        : 'Escanea el código QR para vincular tu teléfono.'}
-                    </p>
-                  </div>
-
-                  {/* QR card */}
-                  <Card>
-                    <CardContent className="flex flex-col items-center gap-3 pt-6">
-                      {showingQr && qr ? (
-                        <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={qr} alt="Código QR de WhatsApp" className="h-56 w-56 object-contain rounded-lg border" />
-                          <p className="text-xs text-muted-foreground text-center">
-                            Abre WhatsApp en tu teléfono → Ajustes → Dispositivos vinculados → Vincular un dispositivo y escanea.
-                          </p>
-                        </>
-                      ) : status === 'connected' ? (
-                        <p className="text-sm text-green-700">Conectado correctamente.</p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center">
-                          Presiona &quot;Mostrar código QR&quot; para vincular tu teléfono.
+              {/* QR card */}
+              {showingQr && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <QrCode className="h-4 w-4" /> Escanea el código QR con WhatsApp
+                    </CardTitle>
+                    <CardDescription>
+                      Abre WhatsApp en tu teléfono → Ajustes → Dispositivos vinculados → Vincular un dispositivo y escanea este código.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-3 pt-2">
+                    {qr ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={qr} alt="Código QR de WhatsApp" className="h-60 w-60 rounded-lg border object-contain" />
+                        <p className="text-xs text-muted-foreground">
+                          Cuando el teléfono lo escanee, el estado cambiará automáticamente a &quot;Conectado&quot;.
                         </p>
-                      )}
-
-                      <div className="flex flex-wrap justify-center gap-2">
-                        <Button variant="outline" onClick={handleShowQr} disabled={qrLoading}>
-                          {qrLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <QrCode className="mr-2 h-4 w-4" />}
-                          {showingQr ? 'Ocultar código' : 'Mostrar código QR'}
-                        </Button>
-                        {status !== 'connected' && (
-                          <Button variant="outline" onClick={fetchQr} disabled={qrLoading}>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Actualizar QR
-                          </Button>
-                        )}
-                        <Button variant="destructive" onClick={handleDisconnect} disabled={disconnecting}>
-                          {disconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                          Desconectar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {instanceName && (
-                    <Alert>
-                      <AlertDescription className="text-xs text-muted-foreground font-mono break-all">
-                        Conexión: {instanceName}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Aún no hay un código disponible. Presiona &quot;Mostrar código QR&quot; para generarlo.
+                      </p>
+                    )}
+                    <Button variant="outline" onClick={handleShowQr}>
+                      Ocultar código
+                    </Button>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </TabsContent>
 
         {/* Twilio tab */}

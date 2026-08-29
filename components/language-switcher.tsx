@@ -21,10 +21,13 @@ export function LanguageSwitcher() {
   const handleLocaleChange = (locale: Locale) => {
     setIsPending(true);
     changeLanguage(locale);
-    // Reload page to apply new locale
-    setTimeout(() => {
+    void fetch('/api/set-locale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale }),
+    }).finally(() => {
       window.location.reload();
-    }, 100);
+    });
   };
 
   return (
@@ -32,7 +35,7 @@ export function LanguageSwitcher() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" disabled={isPending}>
           <Globe className="h-5 w-5" />
-          <span className="sr-only">Change language</span>
+          <span className="sr-only">{i18n.t('common.language')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

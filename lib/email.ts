@@ -86,7 +86,7 @@ export async function sendBookingConfirmation(data: {
   const formattedDate = formatDateWithTimezone(startTime, timezone);
 
   // Create cancel and reschedule links
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
   const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : null;
   const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : null;
 
@@ -192,7 +192,7 @@ export async function sendBookingReminder(data: {
   const formattedDate = formatDateWithTimezone(startTime, timezone);
 
   // Create cancel and reschedule links
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
   const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : null;
   const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : null;
 
@@ -350,7 +350,7 @@ export async function sendBookingReschedule(data: {
   const newFormattedDate = formatDateWithTimezone(newStartTime, timezone);
 
   // Create cancel and reschedule links
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
   const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : null;
   const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : null;
 

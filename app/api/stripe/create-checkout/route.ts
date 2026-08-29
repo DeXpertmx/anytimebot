@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const origin = request.headers.get('origin') || 'https://meetmind.abacusai.app';
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
 
     // Create or get Stripe customer
     let customerId = (session.user as any).stripeCustomerId;

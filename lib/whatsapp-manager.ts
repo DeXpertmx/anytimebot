@@ -198,8 +198,9 @@ export async function getWhatsAppConnectionState(
     }
 
     const data = await res.json();
-    const state = data?.state || data?.instance?.state || 'unknown';
-    const connected = state === 'open';
+    const rawState = data?.state || data?.instance?.state || 'unknown';
+    const state = String(rawState).toLowerCase();
+    const connected = ['open', 'connected'].includes(state);
     return { success: true, connected, state, hasInstance: true };
   } catch (e) {
     return { success: false, connected: false, state: 'error', hasInstance: true };

@@ -133,7 +133,7 @@ export default function BotConfigPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/bot/documents', {
+      const response = await fetch('/api/bot/upload-document', {
         method: 'POST',
         body: formData,
       });
@@ -164,7 +164,7 @@ export default function BotConfigPage() {
 
     setUploadLoading(true);
     try {
-      const response = await fetch('/api/bot/documents', {
+      const response = await fetch('/api/bot/upload-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
@@ -364,13 +364,13 @@ export default function BotConfigPage() {
               {uploadType === 'file' ? (
                 <div className="space-y-2">
                   <Label htmlFor="file-upload">
-                    Subir documento (TXT)
+                    Subir documento (TXT o PDF)
                   </Label>
                   <div className="flex items-center gap-2">
                     <Input
                       id="file-upload"
                       type="file"
-                      accept=".txt"
+                      accept=".txt,.pdf"
                       onChange={handleFileUpload}
                       disabled={uploadLoading}
                     />

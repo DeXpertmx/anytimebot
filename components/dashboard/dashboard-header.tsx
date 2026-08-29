@@ -12,13 +12,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings, LogOut, User } from 'lucide-react';
+import { Settings, LogOut, User, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { useTranslation } from '@/lib/i18n/hooks';
 
 export function DashboardHeader() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { t } = useTranslation();
+
+  const handleOpenMenu = () => {
+    window.dispatchEvent(new Event('dashboard:open-menu'));
+  };
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
@@ -32,8 +39,12 @@ export function DashboardHeader() {
     ?.toUpperCase() || 'U';
 
   return (
-    <header className="h-16 border-b border-gray-200 bg-white px-6 flex items-center justify-end">
-      <div className="flex items-center space-x-4">
+    <header className="h-16 border-b border-gray-200 bg-white px-4 sm:px-6 flex items-center justify-between">
+      <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menú" onClick={handleOpenMenu}>
+        <Menu className="h-5 w-5" />
+      </Button>
+      <div className="flex items-center space-x-2 sm:space-x-4 ml-auto">
+        <LanguageSwitcher />
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -61,13 +72,13 @@ export function DashboardHeader() {
             <DropdownMenuItem asChild>
               <Link href="/dashboard/settings" className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <span>{t('dashboard.settings')}</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Sign out</span>
+              <span>{t('dashboard.signOut')}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

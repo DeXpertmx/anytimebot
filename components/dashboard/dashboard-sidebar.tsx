@@ -4,7 +4,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useTranslation } from '@/lib/i18n/hooks';
 import { cn } from '@/lib/utils';
 import {
   Calendar,
@@ -23,69 +25,77 @@ import {
 
 export function DashboardSidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const openMenu = () => setMobileOpen(true);
+    window.addEventListener('dashboard:open-menu', openMenu);
+    return () => window.removeEventListener('dashboard:open-menu', openMenu);
+  }, []);
   const { data: session } = useSession() || {};
+  const { t } = useTranslation();
 
   // Check if user is admin - DISABLED
   // const isAdmin = (session?.user as any)?.role === 'ADMIN';
 
   const navigation = [
     {
-      name: 'Overview',
+      name: t('dashboard.overview'),
       href: '/dashboard',
       icon: BarChart3,
     },
     {
-      name: 'Analytics',
+      name: t('dashboard.analytics'),
       href: '/dashboard/analytics',
       icon: LineChart,
     },
     {
-      name: 'Booking Pages',
+      name: t('dashboard.bookingPages'),
       href: '/dashboard/booking-pages',
       icon: Globe,
     },
     {
-      name: 'Event Types',
+      name: t('dashboard.eventTypes'),
       href: '/dashboard/event-types',
       icon: Calendar,
     },
     {
-      name: 'Teams',
+      name: t('dashboard.teams'),
       href: '/dashboard/teams',
       icon: Users,
     },
     {
-      name: 'Bookings',
+      name: t('dashboard.bookings'),
       href: '/dashboard/bookings',
       icon: FileText,
     },
     {
-      name: 'Availability',
+      name: t('dashboard.availability'),
       href: '/dashboard/availability',
       icon: Clock,
     },
     {
-      name: 'Calendar',
+      name: t('dashboard.calendar'),
       href: '/dashboard/calendar',
       icon: Calendar,
     },
     {
-      name: 'Bot',
+      name: t('dashboard.bot'),
       href: '/dashboard/bot',
       icon: Bot,
     },
     {
-      name: 'Integraciones',
+      name: t('dashboard.integrations'),
       href: '/dashboard/integrations',
       icon: MessageCircle,
     },
     {
-      name: 'Billing & Plans',
+      name: t('dashboard.billingPlans'),
       href: '/pricing',
       icon: CreditCard,
     },
     {
-      name: 'Settings',
+      name: t('dashboard.settings'),
       href: '/dashboard/settings',
       icon: Settings,
     },
@@ -98,7 +108,19 @@ export function DashboardSidebar() {
   ];
 
   return (
-    <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200">
+    <>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-40 bg-black/30 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+      <div className={cn(
+        'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transition-transform md:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:block',
+      )}>
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-20 shrink-0 items-center justify-center border-b border-gray-200 px-4">
@@ -144,6 +166,7 @@ export function DashboardSidebar() {
           })}
         </nav>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

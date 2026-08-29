@@ -19,7 +19,16 @@ export async function GET() {
     }
 
     const result = await getWhatsAppConnectionState(userId);
-    return NextResponse.json(result);
+
+    // Provide the configured business number (if any) so the dashboard can
+    // show a neutral "Número del negocio" without exposing internal tooling.
+    const { prisma } = await import('@/lib/db');
+    const record = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { whatsappPhone: true },
+    });
+
+    return NextResponse.json({ ...result, phone: record?.whatsappPhone || null });
   } catch (error) {
     console.error('Error getting WhatsApp status:', error);
     return NextResponse.json(

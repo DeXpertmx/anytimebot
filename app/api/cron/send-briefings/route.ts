@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
           }
 
           const host = booking.assignedMember || booking.eventType.bookingPage.user;
-          const baseUrl = process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
 
           // Send guest briefing via email
           if (!briefing.emailSent) {

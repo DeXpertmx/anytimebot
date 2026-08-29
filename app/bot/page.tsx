@@ -65,7 +65,7 @@ export default function BotConfigPage() {
       const response = await fetch('/api/bot/documents');
       if (response.ok) {
         const data = await response.json();
-        setDocuments(data.documents || []);
+        setDocuments(Array.isArray(data) ? data : (data.documents || []));
       }
     } catch (error) {
       console.error('Error loading documents:', error);
@@ -76,7 +76,7 @@ export default function BotConfigPage() {
     setSaving(true);
     try {
       const response = await fetch('/api/bot/config', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: botName, avatar: selectedAvatar, greeting }),
       });
@@ -428,7 +428,9 @@ export default function BotConfigPage() {
                   <div className="grid grid-cols-5 gap-3">
                     {AVATAR_OPTIONS.map((option) => (
                       <button
+                        type="button"
                         key={option.id}
+                        aria-pressed={selectedAvatar === option.id}
                         onClick={() => setSelectedAvatar(option.id)}
                         className={`p-4 border-2 rounded-lg text-center transition-all ${
                           selectedAvatar === option.id
@@ -484,13 +486,13 @@ export default function BotConfigPage() {
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
                   <Input
-                    value={`https://meetmind.abacusai.app/chat/${username}`}
+                    value={`${typeof window !== 'undefined' ? window.location.origin : 'https://anytimebot.app'}/chat/${username}`}
                     readOnly
                     className="font-mono text-sm"
                   />
                   <Button
                     onClick={() => {
-                      navigator.clipboard.writeText(`https://meetmind.abacusai.app/chat/${username}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/chat/${username}`);
                       toast.success('¡Enlace copiado!');
                     }}
                   >
@@ -502,7 +504,7 @@ export default function BotConfigPage() {
                 <div className="pt-2 border-t">
                   <Button
                     onClick={() => {
-                      window.open(`https://meetmind.abacusai.app/chat/${username}`, '_blank');
+                      window.open(`${window.location.origin}/chat/${username}`, '_blank');
                     }}
                     className="w-full"
                     variant="outline"
