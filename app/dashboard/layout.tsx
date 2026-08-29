@@ -26,7 +26,7 @@ export default async function DashboardLayout({
       <DashboardSidebar />
       <div className="pl-64">
         <DashboardHeader />
-        <main className="h-[calc(100vh-4rem)] overflow-hidden p-0">
+        <main className="h-[calc(100vh-4rem)] overflow-hidden p-6">
           {children}
         </main>
       </div>

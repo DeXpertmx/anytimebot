@@ -125,7 +125,7 @@ export default function CalendarPage() {
   if (status === 'loading' || loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden bg-slate-50/70">
+    <div className="h-[calc(100vh-4rem)] -m-6 flex flex-col overflow-hidden bg-slate-50/70">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0">
         <div className="flex items-center gap-3">
