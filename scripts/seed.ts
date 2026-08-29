@@ -22,7 +22,7 @@ async function main() {
 
   // Create a booking page for the test user
   const bookingPage = await prisma.bookingPage.upsert({
-    where: { slug: 'johndoe' },
+    where: { userId_slug: { userId: testUser.id, slug: 'johndoe' } },
     update: {},
     create: {
       userId: testUser.id,
