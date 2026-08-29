@@ -195,8 +195,8 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 ## Roadmap Sugerido
 
 ### Fase 1 — Quick Wins (1-2 semanas)
+- [x] Recordatorios automáticos por WhatsApp (24h y 1h antes) ✅
 - [ ] Recordatorios automáticos por email mejorados (personalizables)
-- [ ] Recordatorios por WhatsApp (usando la integración existente)
 - [ ] Página pública de perfil: `anytimebot.app/[usuario]`
 
 ### Fase 2 — Monetización (2-4 semanas)
