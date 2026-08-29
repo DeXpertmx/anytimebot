@@ -207,7 +207,7 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 ### Fase 3 — Experiencia (4-6 semanas)
 - [ ] PWA o App móvil con notificaciones push
 - [ ] Widget embebido para sitios web externos
-- [ ] Integración Zoom/Teams (crear enlace automáticamente)
+- [x] Integración Zoom/Teams (crear enlace automáticamente) ✅
 - [ ] Gestión de ausencias y vacaciones
 
 ### Fase 4 — CRM y Analytics (6-8 semanas)
