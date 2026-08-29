@@ -10,6 +10,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/whatsapp-reminders",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/reset-usage",
       "schedule": "0 0 1 * *"
     },

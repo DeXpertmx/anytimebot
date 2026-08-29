@@ -264,6 +264,10 @@ model Booking {
   // Team Assignment
   assignedMemberId String? @map("assigned_member_id") // Which team member is assigned
   
+  // Reminder tracking
+  reminder24hSent Boolean  @default(false) @map("reminder_24h_sent")
+  reminder1hSent  Boolean  @default(false) @map("reminder_1h_sent")
+  
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
 
