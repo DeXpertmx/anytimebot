@@ -80,6 +80,9 @@ export async function PUT(
       videoLink,
       color,
       requiresConfirmation,
+      price,
+      currency,
+      collectPayment,
       formFields = [],
       teamId,
       assignmentMode,
@@ -119,6 +122,9 @@ export async function PUT(
     if (videoLink !== undefined) updateData.videoLink = videoLink;
     if (color !== undefined) updateData.color = color;
     if (requiresConfirmation !== undefined) updateData.requiresConfirmation = requiresConfirmation;
+    if (price !== undefined) updateData.price = parseInt(price);
+    if (currency !== undefined) updateData.currency = currency;
+    if (collectPayment !== undefined) updateData.collectPayment = collectPayment;
     if (teamId !== undefined) updateData.teamId = teamId;
     if (assignmentMode !== undefined) updateData.assignmentMode = assignmentMode;
     if (formSchema !== undefined) updateData.formSchema = formSchema;

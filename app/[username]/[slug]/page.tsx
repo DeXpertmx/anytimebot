@@ -167,6 +167,11 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
                         {eventType.location}
                       </span>
                     </div>
+                    {eventType.collectPayment && eventType.price > 0 && (
+                      <div className="flex items-center text-sm font-semibold text-emerald-600 mt-2">
+                        <span>${(eventType.price / 100).toFixed(2)} {eventType.currency.toUpperCase()}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

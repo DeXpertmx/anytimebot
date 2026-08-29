@@ -25,6 +25,9 @@ interface EventType {
   duration: number;
   location: string;
   color: string;
+  price: number;
+  currency: string;
+  collectPayment: boolean;
   formFields: Array<{
     id: string;
     label: string;
@@ -147,6 +150,42 @@ export function BookingForm({
       const startTime = new Date(
         `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`
       );
+
+      // Check if payment is required
+      if (selectedEventType.collectPayment && selectedEventType.price > 0) {
+        // Redirect to Stripe Checkout
+        const paymentResponse = await fetch('/api/bookings/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventTypeId: selectedEventType.id,
+            guestName: formData.guestName,
+            guestEmail: formData.guestEmail,
+            startTime: startTime.toISOString(),
+            timezone: userTimezone,
+          }),
+        });
+
+        if (paymentResponse.ok) {
+          const paymentData = await paymentResponse.json();
+          if (paymentData.data?.url) {
+            // Redirect to Stripe Checkout
+            window.location.href = paymentData.data.url;
+            return;
+          }
+        } else {
+          const error = await paymentResponse.json();
+          toast({
+            title: 'Payment Error',
+            description: error.error || 'Failed to create payment session',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Regular booking (no payment required)
       const endTime = new Date(
         startTime.getTime() + selectedEventType.duration * 60000
       );
@@ -438,12 +477,27 @@ export function BookingForm({
             </div>
           ))}
 
+          {/* Price Display */}
+          {selectedEventType?.collectPayment && selectedEventType.price > 0 && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-emerald-700 font-medium">Payment Required</span>
+                <span className="text-emerald-800 font-bold text-lg">
+                  ${(selectedEventType.price / 100).toFixed(2)} {selectedEventType.currency.toUpperCase()}
+                </span>
+              </div>
+              <p className="text-sm text-emerald-600 mt-1">
+                You will be redirected to our secure payment page to complete your booking.
+              </p>
+            </div>
+          )}
+
           <Button
             type="submit"
             disabled={isLoading}
             className="w-full bg-indigo-600 hover:bg-indigo-700"
           >
-            {isLoading ? 'Creating Booking...' : 'Confirm Booking'}
+            {isLoading ? 'Processing...' : selectedEventType?.collectPayment && selectedEventType.price > 0 ? 'Continue to Payment' : 'Confirm Booking'}
           </Button>
         </div>
       )}

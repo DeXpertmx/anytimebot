@@ -32,7 +32,14 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutComplete(session);
+        
+        // Check if this is a booking payment (has eventTypeId in metadata)
+        if (session.metadata?.eventTypeId && session.metadata?.guestEmail) {
+          await handleBookingPayment(session);
+        } else {
+          // Regular subscription checkout
+          await handleCheckoutComplete(session);
+        }
         break;
       }
 
@@ -65,6 +72,69 @@ export async function POST(req: NextRequest) {
       { error: 'Webhook handler failed' },
       { status: 500 }
     );
+  }
+}
+
+async function handleBookingPayment(session: Stripe.Checkout.Session) {
+  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId } = session.metadata || {};
+
+  if (!eventTypeId || !guestName || !guestEmail || !startTime || !userId) {
+    console.error('Missing metadata for booking payment');
+    return;
+  }
+
+  try {
+    // Get event type
+    const eventType = await prisma.eventType.findUnique({
+      where: { id: eventTypeId },
+    });
+
+    if (!eventType) {
+      console.error('Event type not found:', eventTypeId);
+      return;
+    }
+
+    // Calculate end time
+    const bookingStartTime = new Date(startTime);
+    const bookingEndTime = new Date(bookingStartTime.getTime() + eventType.duration * 60 * 1000);
+
+    // Create the booking
+    const booking = await prisma.booking.create({
+      data: {
+        eventTypeId,
+        guestName,
+        guestEmail,
+        startTime: bookingStartTime,
+        endTime: bookingEndTime,
+        timezone: timezone || 'UTC',
+        status: 'CONFIRMED',
+        paymentStatus: 'PAID',
+        stripeSessionId: session.id,
+        paymentAmount: session.amount_total || eventType.price,
+        paymentCurrency: session.currency || eventType.currency,
+        paidAt: new Date(),
+      },
+      include: {
+        eventType: {
+          include: {
+            bookingPage: true,
+          },
+        },
+      },
+    });
+
+    console.log(`✅ Booking payment confirmed for booking ${booking.id}`);
+    console.log(`   Guest: ${guestName} (${guestEmail})`);
+    console.log(`   Event: ${eventType.name}`);
+    console.log(`   Time: ${startTime}`);
+    console.log(`   Amount: ${session.amount_total} ${session.currency}`);
+
+    // TODO: Send confirmation email
+    // TODO: Send WhatsApp notification
+    // TODO: Create Google Calendar event
+
+  } catch (error) {
+    console.error('Error creating booking after payment:', error);
   }
 }
 

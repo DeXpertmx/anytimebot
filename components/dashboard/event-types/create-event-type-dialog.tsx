@@ -50,6 +50,9 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
     videoLink: '',
     color: '#6366f1',
     requiresConfirmation: false,
+    price: '0',
+    currency: 'usd',
+    collectPayment: false,
     teamId: null as string | null,
     assignmentMode: 'individual',
   });
@@ -124,6 +127,9 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           videoLink: '',
           color: '#6366f1',
           requiresConfirmation: false,
+          price: '0',
+          currency: 'usd',
+          collectPayment: false,
           teamId: null,
           assignmentMode: 'individual',
         });
@@ -337,6 +343,62 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
               }
             />
           </div>
+
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="space-y-0.5">
+              <Label htmlFor="collect-payment" className="text-base">
+                Collect Payment
+              </Label>
+              <p className="text-sm text-gray-500">
+                Require payment to complete booking
+              </p>
+            </div>
+            <Switch
+              id="collect-payment"
+              checked={formData.collectPayment}
+              onCheckedChange={(checked) => 
+                setFormData(prev => ({ ...prev, collectPayment: checked }))
+              }
+            />
+          </div>
+
+          {formData.collectPayment && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (cents)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={formData.price}
+                  onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                />
+                <p className="text-xs text-gray-500">
+                  Enter price in cents (e.g., 5000 = $50.00)
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) => 
+                    setFormData(prev => ({ ...prev, currency: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="usd">USD - US Dollar</SelectItem>
+                    <SelectItem value="eur">EUR - Euro</SelectItem>
+                    <SelectItem value="mxn">MXN - Mexican Peso</SelectItem>
+                    <SelectItem value="gbp">GBP - British Pound</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
           
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
