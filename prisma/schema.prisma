@@ -48,6 +48,7 @@ model User {
   email         String    @unique
   username      String?   @unique
   image         String?
+  password      String?   @map("password") @db.Text // bcrypt hash for credentials login
   timezone      String    @default("UTC")
   emailVerified DateTime? @map("email_verified")
   
@@ -424,6 +425,25 @@ model WhatsAppMessage {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("whatsapp_messages")
+}
+
+// Consent records (GDPR Art. 7) - proof of explicit, informed consent
+model ConsentLog {
+  id           String   @id @default(cuid())
+  subjectEmail String   @map("subject_email") // data subject
+  tenantId     String?  @map("tenant_id")     // user/tenant whose service is used
+  purpose      String   // e.g. "booking", "recording", "messaging", "terms"
+  version      String   // policy version the subject accepted
+  granted      Boolean  @default(true) @map("granted")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  withdrawnAt  DateTime? @map("withdrawn_at")
+
+  @@index([subjectEmail])
+  @@index([tenantId])
+  @@index([purpose, version])
+  @@map("consent_logs")
 }
 
 // Routing Form Responses

@@ -46,3 +46,40 @@ export async function publishBotMessage(input: {
     return false;
   }
 }
+
+/**
+ * Erase every piece of bot data (conversations + events) stored for a user
+ * in Convex. Used to satisfy the right to erasure (GDPR Art. 17).
+ */
+export async function eraseUserBotData(externalUserId: string): Promise<{
+  ok: boolean;
+  conversations?: number;
+  events?: number;
+}> {
+  const config = getConvexConfig();
+  if (!config) return { ok: false };
+
+  try {
+    const response = await fetch(`${config.siteUrl}/events/delete-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.secret}`,
+      },
+      body: JSON.stringify({ externalUserId }),
+    });
+    if (!response.ok) {
+      console.error("Convex erasure error:", response.status, await response.text());
+      return { ok: false };
+    }
+    const data = await response.json();
+    return {
+      ok: true,
+      conversations: data?.conversations ?? 0,
+      events: data?.events ?? 0,
+    };
+  } catch (error) {
+    console.error("Convex erasure request failed:", error);
+    return { ok: false };
+  }
+}

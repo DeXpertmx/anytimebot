@@ -10,6 +10,8 @@ import { createCalendarEvent, checkAvailability as checkCalendarAvailability } f
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
 import { createVideoSession } from '@/lib/video-session';
+import { getPublicAppUrl } from '@/lib/public-url';
+import { recordConsent } from '@/lib/consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +99,23 @@ export async function POST(request: NextRequest) {
       formData = {},
       routingFormResponses = {},
     } = body;
+
+    // Record the data subject's explicit consent to process their data for
+    // the booking (GDPR Art. 7) BEFORE any data processing happens.
+    try {
+      await recordConsent(
+        {
+          purpose: 'booking',
+          subjectEmail: guestEmail,
+          tenantId: null, // resolved below once the owner is known
+          ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+          userAgent: request.headers.get('user-agent'),
+        },
+        true,
+      );
+    } catch (consentError) {
+      console.error('Failed to record booking consent:', consentError);
+    }
 
     // Validation
     if (!eventTypeId || !guestName || !guestEmail || !startTime) {
@@ -345,7 +364,7 @@ export async function POST(request: NextRequest) {
 
     // Send confirmation email
     try {
-      const baseUrl = process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+      const baseUrl = getPublicAppUrl();
       const meetingPageUrl = videoSession ? `${baseUrl}/meeting/${booking.id}` : undefined;
 
       await sendBookingConfirmation({

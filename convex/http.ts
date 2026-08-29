@@ -62,4 +62,26 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/events/delete-user",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.CONVEX_INGEST_SECRET;
+    if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const body = await request.json();
+    if (typeof body.externalUserId !== "string") {
+      return new Response("Invalid payload", { status: 400 });
+    }
+
+    const result = await ctx.runMutation(internal.botConversations.deleteAllByUser, {
+      externalUserId: body.externalUserId,
+    });
+
+    return Response.json({ ok: true, ...result });
+  }),
+});
+
 export default http;

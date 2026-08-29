@@ -71,6 +71,34 @@ export const deleteByBotPhone = internalMutation({
   },
 });
 
+export const deleteAllByUser = internalMutation({
+  args: { externalUserId: v.string() },
+  handler: async (ctx, args) => {
+    // botConversations indexed by_user_updated = [externalUserId, updatedAt]
+    const conversations = await ctx.db
+      .query("botConversations")
+      .withIndex("by_user_updated", (q) => q.eq("externalUserId", args.externalUserId))
+      .collect();
+    for (const c of conversations) {
+      await ctx.db.delete(c._id);
+    }
+
+    // botEvents indexed by_user_occurred = [externalUserId, occurredAt]
+    const events = await ctx.db
+      .query("botEvents")
+      .withIndex("by_user_occurred", (q) => q.eq("externalUserId", args.externalUserId))
+      .collect();
+    for (const e of events) {
+      await ctx.db.delete(e._id);
+    }
+
+    return {
+      conversations: conversations.length,
+      events: events.length,
+    };
+  },
+});
+
 export const recordEvent = internalMutation({
   args: {
     eventId: v.string(),
