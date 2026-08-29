@@ -88,14 +88,12 @@ export default function CalendarPage() {
       </div>
 
       {/* Month navigation */}
-      <div className="flex items-center justify-between px-4 py-1 shrink-0">
+      <div className="flex items-center justify-center gap-2 px-4 py-1 shrink-0">
+        <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
           <Calendar className="h-5 w-5 text-indigo-600" />{title}
         </h2>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
-        </div>
+        <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
       </div>
 
       {/* Calendar grid — takes all remaining space */}
