@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X } from 'lucide-react';
+import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Booking { id: string; guestName: string; guestEmail: string; startTime: string; endTime: string; status: string; eventType: { name: string; color?: string }; }
 interface Team { id: string; name: string; members: { id: string; email: string; user?: { name?: string | null; image?: string | null } | null }[]; }
+interface EventType { id: string; name: string; duration: number; color?: string; bookingPage: { id: string; name: string } }
 
 const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const palette = ['#63b3ed', '#a78bfa', '#86efac', '#f9a8d4', '#fcd34d'];
@@ -20,22 +21,41 @@ export default function CalendarPage() {
   const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>('month');
   const [teamId, setTeamId] = useState('all');
-  const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
   const [loading, setLoading] = useState(true);
+
+  // New booking modal state
+  const [showNewBooking, setShowNewBooking] = useState(false);
+  const [newBookingDate, setNewBookingDate] = useState('');
+  const [newBookingHour, setNewBookingHour] = useState('09:00');
+  const [newEventTypeId, setNewEventTypeId] = useState('');
+  const [newGuestName, setNewGuestName] = useState('');
+  const [newGuestEmail, setNewGuestEmail] = useState('');
+  const [newGuestPhone, setNewGuestPhone] = useState('');
+  const [newNotes, setNewNotes] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
 
   const load = async () => {
     setLoading(true);
     try {
-      const [bookingResponse, teamResponse] = await Promise.all([fetch('/api/bookings?status=all&limit=100'), fetch('/api/teams')]);
-      const bookingData = await bookingResponse.json();
+      const [bookingRes, teamRes, eventRes] = await Promise.all([
+        fetch('/api/bookings?status=all&limit=100'),
+        fetch('/api/teams'),
+        fetch('/api/event-types'),
+      ]);
+      const bookingData = await bookingRes.json();
       if (bookingData.success) setBookings(bookingData.data.bookings);
-      const teamData = await teamResponse.json();
+      const teamData = await teamRes.json();
       if (teamData.success) setTeams(teamData.data);
+      const eventData = await eventRes.json();
+      if (eventData.success) setEventTypes(eventData.data);
     } catch { toast.error('No se pudo cargar el calendario'); } finally { setLoading(false); }
   };
 
@@ -53,6 +73,54 @@ export default function CalendarPage() {
 
   const navigate = (direction: number) => { if (view === 'month') setMonth(new Date(month.getFullYear(), month.getMonth() + direction, 1)); else { const next = new Date(selectedDay); next.setDate(selectedDay.getDate() + direction * (view === 'week' ? 7 : 1)); setSelectedDay(next); setMonth(next); } };
   const selectDay = (day: Date) => { setSelectedDay(day); setMonth(day); if (view === 'month') setView('day'); };
+
+  // Open new booking modal with pre-filled date
+  const openNewBooking = (date?: Date, hour?: number) => {
+    const d = date || new Date();
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    setNewBookingDate(dateStr);
+    setNewBookingHour(hour !== undefined ? `${String(hour).padStart(2, '0')}:00` : '09:00');
+    setNewEventTypeId(eventTypes[0]?.id || '');
+    setNewGuestName('');
+    setNewGuestEmail('');
+    setNewGuestPhone('');
+    setNewNotes('');
+    setShowNewBooking(true);
+  };
+
+  // Create booking
+  const handleCreateBooking = async () => {
+    if (!newEventTypeId || !newGuestName || !newGuestEmail || !newBookingDate) {
+      toast.error('Completa todos los campos obligatorios');
+      return;
+    }
+    setCreating(true);
+    try {
+      const startTime = new Date(`${newBookingDate}T${newBookingHour}:00`);
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventTypeId: newEventTypeId,
+          guestName: newGuestName,
+          guestEmail: newGuestEmail,
+          guestPhone: newGuestPhone || undefined,
+          startTime: startTime.toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          formData: newNotes ? { notes: newNotes } : {},
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Cita creada exitosamente');
+        setShowNewBooking(false);
+        // Add to local state immediately
+        setBookings(prev => [...prev, data.data].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+      } else {
+        toast.error(data.error || 'No se pudo crear la cita');
+      }
+    } catch { toast.error('Error al crear la cita'); } finally { setCreating(false); }
+  };
 
   if (status === 'loading' || loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
@@ -74,6 +142,9 @@ export default function CalendarPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700" onClick={() => openNewBooking()}>
+            <Plus className="mr-1 h-4 w-4" />Nueva cita
+          </Button>
           <Users className="h-4 w-4 text-indigo-600" />
           <select value={teamId} onChange={e => setTeamId(e.target.value)} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm">
             <option value="all">Mi calendario</option>
@@ -96,17 +167,15 @@ export default function CalendarPage() {
         <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
       </div>
 
-      {/* Calendar grid — takes all remaining space */}
+      {/* Calendar grid */}
       <div className="flex-1 min-h-0 px-4 pb-2">
         {view === 'month' ? (
           <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            {/* Weekday headers */}
             <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
               {weekdays.map(day => (
                 <div key={day} className="px-2 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">{day}</div>
               ))}
             </div>
-            {/* Day cells — 6 rows filling the rest */}
             <div className="grid flex-1 grid-cols-7 grid-rows-6">
               {visibleDays.map(day => {
                 const dayItems = dayBookings(day);
@@ -116,7 +185,7 @@ export default function CalendarPage() {
                   <button
                     key={day.toISOString()}
                     type="button"
-                    onClick={() => selectDay(day)}
+                    onClick={() => openNewBooking(day)}
                     className={`flex flex-col border-b border-r border-slate-100 p-1.5 text-left transition hover:bg-indigo-50/40 overflow-hidden ${currentMonth ? 'bg-white' : 'bg-slate-50/50'}`}
                   >
                     <div className={`mb-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isToday ? 'bg-indigo-600 text-white' : currentMonth ? 'text-slate-700' : 'text-slate-300'}`}>
@@ -149,7 +218,6 @@ export default function CalendarPage() {
           /* Week / Day view */
           <div className="h-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="grid h-full" style={{ gridTemplateColumns: `60px repeat(${visibleDays.length}, minmax(0, 1fr))` }}>
-              {/* Header row */}
               <div className="sticky top-0 z-10 border-b bg-slate-50" />
               {visibleDays.map(day => (
                 <div key={day.toISOString()} className={`sticky top-0 z-10 border-b border-l bg-slate-50 py-2 text-center ${day.toDateString() === today.toDateString() ? 'text-indigo-600' : 'text-slate-600'}`}>
@@ -157,19 +225,22 @@ export default function CalendarPage() {
                   <span className="text-lg font-bold">{day.getDate()}</span>
                 </div>
               ))}
-              {/* Hour rows */}
               {Array.from({ length: 14 }, (_, index) => {
                 const hour = index + 7;
                 return (
                   <div key={hour} className="contents">
                     <div className="min-h-[60px] border-b bg-slate-50 px-1 pt-1 text-right text-[11px] font-medium text-slate-400">{hour}:00</div>
                     {visibleDays.map(day => (
-                      <div key={`${day.toISOString()}-${hour}`} className="relative min-h-[60px] border-b border-l border-slate-100">
+                      <div
+                        key={`${day.toISOString()}-${hour}`}
+                        className="relative min-h-[60px] border-b border-l border-slate-100 cursor-pointer hover:bg-indigo-50/30"
+                        onClick={(e) => { e.stopPropagation(); openNewBooking(day, hour); }}
+                      >
                         {dayBookings(day).filter(b => new Date(b.startTime).getHours() === hour).map(booking => (
                           <button
                             key={booking.id}
                             type="button"
-                            onClick={() => setSelectedBooking(booking)}
+                            onClick={(e) => { e.stopPropagation(); setSelectedBooking(booking); }}
                             className="absolute left-0.5 right-0.5 z-10 rounded border-l-[3px] px-1 py-0.5 text-left text-[11px] shadow-sm"
                             style={{
                               top: `${(new Date(booking.startTime).getMinutes() / 60) * 60}px`,
@@ -191,10 +262,10 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Detail modal */}
+      {/* Detail modal — existing booking */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedBooking(null)}>
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h3 className="text-lg font-semibold">Detalle de la cita</h3>
               <Button variant="ghost" size="icon" onClick={() => setSelectedBooking(null)}><X className="h-4 w-4" /></Button>
@@ -222,6 +293,73 @@ export default function CalendarPage() {
               <div className="rounded-lg bg-slate-50 p-3 text-sm">
                 <span className="font-medium">Estado: </span>{selectedBooking.status === 'CONFIRMED' ? 'Confirmada' : 'Pendiente'}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New booking modal */}
+      {showNewBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowNewBooking(false)}>
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-semibold">Nueva cita</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowNewBooking(false)}><X className="h-4 w-4" /></Button>
+            </div>
+            <div className="space-y-4 px-6 py-4">
+              {/* Event type */}
+              <div>
+                <label className="text-sm font-medium text-slate-700">Tipo de evento *</label>
+                <select value={newEventTypeId} onChange={e => setNewEventTypeId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
+                  <option value="">Seleccionar evento</option>
+                  {eventTypes.map(et => (
+                    <option key={et.id} value={et.id}>{et.name} ({et.duration} min)</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Guest name & email */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Nombre del cliente *</label>
+                  <input type="text" value={newGuestName} onChange={e => setNewGuestName(e.target.value)} placeholder="Juan Pérez" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Email del cliente *</label>
+                  <input type="email" value={newGuestEmail} onChange={e => setNewGuestEmail(e.target.value)} placeholder="juan@ejemplo.com" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="text-sm font-medium text-slate-700">Teléfono (opcional)</label>
+                <input type="tel" value={newGuestPhone} onChange={e => setNewGuestPhone(e.target.value)} placeholder="+52 123 456 7890" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+              </div>
+
+              {/* Date & time */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Fecha *</label>
+                  <input type="date" value={newBookingDate} onChange={e => setNewBookingDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Hora *</label>
+                  <input type="time" value={newBookingHour} onChange={e => setNewBookingHour(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none" />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-sm font-medium text-slate-700">Notas (opcional)</label>
+                <textarea value={newNotes} onChange={e => setNewNotes(e.target.value)} rows={2} placeholder="Notas internas sobre la cita..." className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none resize-none" />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t px-6 py-4">
+              <Button variant="outline" onClick={() => setShowNewBooking(false)}>Cancelar</Button>
+              <Button className="bg-indigo-600 text-white hover:bg-indigo-700" onClick={handleCreateBooking} disabled={creating}>
+                {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                Crear cita
+              </Button>
             </div>
           </div>
         </div>
