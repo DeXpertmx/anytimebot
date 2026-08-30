@@ -114,8 +114,25 @@ model User {
   usage        Usage?
   adminNotes   AdminNote[]
   auditLogs    AdminAuditLog[]
+  timeOffs     TimeOff[]
 
   @@map("users")
+}
+
+// Time off / vacation blocks: whole-day ranges where the owner is unavailable
+model TimeOff {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String?
+  start     DateTime
+  end       DateTime // inclusive: last blocked day at 23:59:59.999
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, start, end])
+  @@map("time_offs")
 }
 
 // Usage Quotas per Plan

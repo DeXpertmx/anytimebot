@@ -175,6 +175,22 @@ export async function POST(request: NextRequest) {
     const bookingStartTime = new Date(startTime);
     const bookingEndTime = addMinutes(bookingStartTime, eventType.duration);
 
+    // Block bookings that fall inside the owner's time off (vacations / absences)
+    const blockingTimeOff = await prisma.timeOff.findFirst({
+      where: {
+        userId: eventType.bookingPage.userId,
+        start: { lte: bookingEndTime },
+        end: { gte: bookingStartTime },
+      },
+    });
+
+    if (blockingTimeOff) {
+      return NextResponse.json(
+        { success: false, error: 'The host is unavailable during the selected time' },
+        { status: 409 }
+      );
+    }
+
     // Check for conflicts
     const conflictingBooking = await prisma.booking.findFirst({
       where: {

@@ -4,18 +4,20 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, Info } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n/hooks';
 
-const daysOfWeek = [
-  { id: 0, name: 'Sunday', short: 'Sun' },
-  { id: 1, name: 'Monday', short: 'Mon' },
-  { id: 2, name: 'Tuesday', short: 'Tue' },
-  { id: 3, name: 'Wednesday', short: 'Wed' },
-  { id: 4, name: 'Thursday', short: 'Thu' },
-  { id: 5, name: 'Friday', short: 'Fri' },
-  { id: 6, name: 'Saturday', short: 'Sat' },
+const dayKeys = [
+  { id: 0, key: 'daySun', short: 'Sun' },
+  { id: 1, key: 'dayMon', short: 'Mon' },
+  { id: 2, key: 'dayTue', short: 'Tue' },
+  { id: 3, key: 'dayWed', short: 'Wed' },
+  { id: 4, key: 'dayThu', short: 'Thu' },
+  { id: 5, key: 'dayFri', short: 'Fri' },
+  { id: 6, key: 'daySat', short: 'Sat' },
 ];
 
 export function AvailabilityManager() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       {/* Info Card */}
@@ -24,13 +26,10 @@ export function AvailabilityManager() {
           <Info className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm text-blue-900 font-medium">
-              Global Availability Settings
+              {t('availability.globalSettings')}
             </p>
             <p className="text-sm text-blue-700 mt-1">
-              Availability is configured per booking page. Go to{' '}
-              <strong>My Booking Pages</strong> and select a booking page to
-              configure its availability settings. Each booking page can have
-              different working hours and time slots.
+              {t('availability.globalSettingsDesc')}
             </p>
           </div>
         </div>
@@ -41,19 +40,19 @@ export function AvailabilityManager() {
         <div className="flex items-center mb-6">
           <Clock className="h-5 w-5 text-indigo-600 mr-2" />
           <h2 className="text-xl font-semibold text-gray-900">
-            Manage Availability
+            {t('availability.manageTitle')}
           </h2>
         </div>
 
         <div className="space-y-4">
           <p className="text-gray-600">
-            To set your working hours and availability:
+            {t('availability.manageIntro')}
           </p>
           <ol className="list-decimal list-inside space-y-2 text-gray-700">
-            <li>Navigate to <strong>My Booking Pages</strong> in the sidebar</li>
-            <li>Select the booking page you want to configure</li>
-            <li>Set your available days and time slots</li>
-            <li>Save your changes</li>
+            <li>{t('availability.step1')}</li>
+            <li>{t('availability.step2')}</li>
+            <li>{t('availability.step3')}</li>
+            <li>{t('availability.step4')}</li>
           </ol>
 
           <div className="pt-4">
@@ -61,7 +60,7 @@ export function AvailabilityManager() {
               onClick={() => (window.location.href = '/dashboard/booking-pages')}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
-              Go to Booking Pages
+              {t('availability.goToBookingPages')}
             </Button>
           </div>
         </div>
@@ -70,15 +69,14 @@ export function AvailabilityManager() {
       {/* Default Working Hours Example */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Default Working Hours Example
+          {t('availability.exampleTitle')}
         </h3>
         <p className="text-sm text-gray-600 mb-4">
-          This is an example of typical working hours. Configure actual
-          availability in your booking pages.
+          {t('availability.exampleDesc')}
         </p>
 
         <div className="space-y-3">
-          {daysOfWeek.map((day) => {
+          {dayKeys.map((day) => {
             const isWeekday = day.id >= 1 && day.id <= 5;
             return (
               <div
@@ -91,22 +89,22 @@ export function AvailabilityManager() {
               >
                 <div className="flex items-center">
                   <span className="font-medium text-gray-900 w-24">
-                    {day.name}
+                    {t(`availability.${day.key}`)}
                   </span>
                   {isWeekday ? (
                     <div className="flex items-center text-sm text-gray-600">
                       <Clock className="h-4 w-4 mr-2 text-indigo-600" />
-                      <span>9:00 AM - 5:00 PM</span>
+                      <span>{t('availability.workHours')}</span>
                     </div>
                   ) : (
-                    <span className="text-sm text-gray-500">Unavailable</span>
+                    <span className="text-sm text-gray-500">{t('availability.unavailable')}</span>
                   )}
                 </div>
                 <div className="text-sm">
                   {isWeekday ? (
-                    <span className="text-green-600 font-medium">Available</span>
+                    <span className="text-green-600 font-medium">{t('availability.available')}</span>
                   ) : (
-                    <span className="text-gray-400">Not Available</span>
+                    <span className="text-gray-400">{t('availability.notAvailable')}</span>
                   )}
                 </div>
               </div>

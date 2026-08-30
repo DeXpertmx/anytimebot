@@ -77,6 +77,28 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
     const endOfDay = new Date(requestedDate);
     endOfDay.setHours(23, 59, 59, 999);
 
+    // Owner time off (vacations / absences) blocks the whole day
+    const activeTimeOff = await prisma.timeOff.findFirst({
+      where: {
+        userId: eventType.bookingPage.userId,
+        start: { lte: endOfDay },
+        end: { gte: startOfDay },
+      },
+    });
+
+    if (activeTimeOff) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          availableSlots: [],
+          allSlots: [],
+          date: requestedDate.toISOString().split('T')[0],
+          dayOfWeek,
+          timeOff: true,
+        },
+      });
+    }
+
     const existingBookings = await prisma.booking.findMany({
       where: {
         eventTypeId,

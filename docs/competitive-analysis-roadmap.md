@@ -208,7 +208,7 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 - [x] PWA instalable (manifest, service worker, iconos) ✅
 - [x] Widget embebido para sitios web externos ✅
 - [x] Integración Zoom/Teams (crear enlace automáticamente) ✅
-- [ ] Gestión de ausencias y vacaciones
+- [x] Gestión de ausencias y vacaciones ✅
 
 ### Fase 4 — CRM y Analytics (6-8 semanas)
 - [ ] CRM básico (historial de clientes, notas, etiquetas)
