@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { useSession } from 'next-auth/react';
+import { useTranslation } from '@/lib/i18n/hooks';
 import {
   Globe,
   MoreHorizontal,
@@ -20,9 +22,11 @@ import {
   Trash,
   Calendar,
   Copy,
+  Share2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ShareEmbedDialog } from './share-embed-dialog';
 
 interface BookingPage {
 
@@ -41,7 +45,11 @@ interface BookingPage {
 export function BookingPagesList() {
   const [bookingPages, setBookingPages] = useState<BookingPage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sharePage, setSharePage] = useState<BookingPage | null>(null);
   const { toast } = useToast();
+  const { t } = useTranslation();
+  const { data: session } = useSession();
+  const username = (session?.user as any)?.username || '';
   const router = useRouter();
 
   useEffect(() => {
@@ -57,15 +65,15 @@ export function BookingPagesList() {
         setBookingPages(data.data);
       } else {
         toast({
-          title: 'Error',
-          description: 'Failed to load booking pages',
+          title: t('common.error'),
+          description: t('bookingPages.loadFailed'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Something went wrong',
+        title: t('common.error'),
+        description: t('bookingPages.loadFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -74,7 +82,7 @@ export function BookingPagesList() {
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) {
+    if (!confirm(t('bookingPages.deleteConfirm', { title }))) {
       return;
     }
 
@@ -87,33 +95,32 @@ export function BookingPagesList() {
 
       if (data.success) {
         toast({
-          title: 'Success',
-          description: 'Booking page deleted successfully',
+          title: t('common.success'),
+          description: t('bookingPages.deleted'),
         });
         fetchBookingPages();
       } else {
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to delete booking page',
+          title: t('common.error'),
+          description: data.error || t('bookingPages.deleteFailed'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Something went wrong',
+        title: t('common.error'),
+        description: t('bookingPages.deleteFailed'),
         variant: 'destructive',
       });
     }
   };
 
   const copyBookingUrl = (slug: string) => {
-    const username = document.body.dataset.username || '';
     const url = `${window.location.origin}/${username}/${slug}`;
     navigator.clipboard.writeText(url);
     toast({
-      title: 'Copied!',
-      description: 'Booking page URL copied to clipboard',
+      title: t('bookingPages.copied'),
+      description: t('bookingPages.urlCopied'),
     });
   };
 
@@ -141,9 +148,9 @@ export function BookingPagesList() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Globe className="h-16 w-16 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No booking pages yet</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('bookingPages.noPages')}</h3>
           <p className="text-gray-500 text-center mb-6 max-w-sm">
-            Create your first booking page to start accepting appointments
+            {t('bookingPages.noPagesDesc')}
           </p>
         </CardContent>
       </Card>
@@ -151,6 +158,7 @@ export function BookingPagesList() {
   }
 
   return (
+    <>
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {bookingPages.map((page) => (
         <Card key={page.id} className="hover:shadow-md transition-shadow">
@@ -179,9 +187,13 @@ export function BookingPagesList() {
                       View Page
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSharePage(page)}>
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {t('bookingPages.shareTitle')}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => copyBookingUrl(page.slug)}>
                     <Copy className="mr-2 h-4 w-4" />
-                    Copy URL
+                    {t('bookingPages.copy')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleDelete(page.id, page.title)}
@@ -195,20 +207,22 @@ export function BookingPagesList() {
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant={page.isActive ? 'default' : 'secondary'}>
-                {page.isActive ? 'Active' : 'Inactive'}
+                {page.isActive ? t('bookingPages.active') : t('bookingPages.inactive')}
               </Badge>
               <span className="text-sm text-gray-500">/{page.slug}</span>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-              {page.description || 'No description'}
+              {page.description || t('bookingPages.noDescription')}
             </p>
             <div className="flex items-center justify-between text-sm text-gray-500">
               <div className="flex items-center">
                 <Calendar className="mr-1 h-4 w-4" />
-                {page._count?.eventTypes || page.eventTypes?.length || 0} event type
-                {(page._count?.eventTypes || page.eventTypes?.length) !== 1 ? 's' : ''}
+                {(() => {
+                  const count = page._count?.eventTypes || page.eventTypes?.length || 0;
+                  return t(count === 1 ? 'bookingPages.eventTypeSingular' : 'bookingPages.eventTypePlural', { count });
+                })()}
               </div>
               <span>
                 {new Date(page.createdAt).toLocaleDateString()}
@@ -218,5 +232,13 @@ export function BookingPagesList() {
         </Card>
       ))}
     </div>
+    <ShareEmbedDialog
+      page={sharePage}
+      open={!!sharePage}
+      onOpenChange={(open) => {
+        if (!open) setSharePage(null);
+      }}
+    />
+    </>
   );
 }
