@@ -44,7 +44,7 @@ export function SignUpForm() {
       if (!formData.name || !formData.email || !formData.password) {
         toast({
           title: 'Error',
-          description: 'Please fill in all fields',
+          description: 'Completa todos los campos',
           variant: 'destructive',
         });
         return;
@@ -53,7 +53,7 @@ export function SignUpForm() {
       if (!isValidEmail(formData.email)) {
         toast({
           title: 'Error',
-          description: 'Please enter a valid email address',
+          description: 'Introduce un correo electrónico válido',
           variant: 'destructive',
         });
         return;
@@ -62,7 +62,7 @@ export function SignUpForm() {
       if (formData.password !== formData.confirmPassword) {
         toast({
           title: 'Error',
-          description: 'Passwords do not match',
+          description: 'Las contraseñas no coinciden',
           variant: 'destructive',
         });
         return;
@@ -71,7 +71,7 @@ export function SignUpForm() {
       if (formData.password.length < 6) {
         toast({
           title: 'Error',
-          description: 'Password must be at least 6 characters long',
+          description: 'La contraseña debe tener al menos 6 caracteres',
           variant: 'destructive',
         });
         return;
@@ -95,7 +95,7 @@ export function SignUpForm() {
       if (!data.success) {
         toast({
           title: 'Error',
-          description: data.error || 'Failed to create account',
+          description: data.error || 'No se pudo crear la cuenta',
           variant: 'destructive',
         });
         return;
@@ -103,7 +103,7 @@ export function SignUpForm() {
 
       toast({
         title: 'Success',
-        description: 'Account created successfully! You can now sign in.',
+        description: 'Cuenta creada correctamente. Ya puedes iniciar sesión.',
       });
 
       // Auto sign in after successful signup
@@ -121,7 +121,7 @@ export function SignUpForm() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: 'Ocurrió un error. Inténtalo de nuevo.',
         variant: 'destructive',
       });
     } finally {
@@ -136,7 +136,7 @@ export function SignUpForm() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Google sign in failed. Please try again.',
+        description: 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
         variant: 'destructive',
       });
     } finally {
@@ -172,7 +172,7 @@ export function SignUpForm() {
           ) : (
             <Chrome className="w-4 h-4 mr-2" />
           )}
-          Continue with Google
+          Continuar con Google
         </Button>
 
         <div className="relative">
@@ -180,20 +180,20 @@ export function SignUpForm() {
             <Separator className="w-full" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-muted-foreground">Or continue with</span>
+            <span className="bg-white px-2 text-muted-foreground">O continúa con</span>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="name">Nombre completo</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 id="name"
                 name="name"
                 type="text"
-                placeholder="John Doe"
+                placeholder="Juan Pérez"
                 value={formData.name}
                 onChange={handleChange}
                 required
@@ -218,14 +218,14 @@ export function SignUpForm() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Contraseña</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Create a password"
+                placeholder="Crea una contraseña"
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -234,14 +234,14 @@ export function SignUpForm() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
-                placeholder="Confirm your password"
+                placeholder="Confirma tu contraseña"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
@@ -257,19 +257,19 @@ export function SignUpForm() {
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Creating account...
+                Creando cuenta...
               </>
             ) : (
-              'Create account'
+              'Crear cuenta'
             )}
           </Button>
         </form>
       </CardContent>
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-          Already have an account?{' '}
+          ¿Ya tienes una cuenta?{' '}
           <Link href="/auth/signin" className="text-indigo-600 hover:underline">
-            Sign in
+            Iniciar sesión
           </Link>
         </p>
       </CardFooter>

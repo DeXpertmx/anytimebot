@@ -178,13 +178,13 @@ export function BookingPagesList() {
                   <DropdownMenuItem asChild>
                     <Link href={`/dashboard/booking-pages/${page.id}`}>
                       <Edit className="mr-2 h-4 w-4" />
-                      Edit
+                      Editar
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href={`/dashboard/booking-pages/${page.id}`} target="_blank">
                       <ExternalLink className="mr-2 h-4 w-4" />
-                      View Page
+                      Ver página
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSharePage(page)}>
@@ -200,7 +200,7 @@ export function BookingPagesList() {
                     className="text-red-600"
                   >
                     <Trash className="mr-2 h-4 w-4" />
-                    Delete
+                    Eliminar
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -50,11 +50,11 @@ export default function RoutingInsightsPage() {
       if (data.success) {
         setInsights(data.data);
       } else {
-        toast.error(data.error || 'Failed to fetch insights');
+        toast.error(data.error || 'No se pudieron cargar los análisis');
       }
     } catch (error) {
       console.error('Error fetching routing insights:', error);
-      toast.error('Failed to fetch routing insights');
+      toast.error('No se pudieron cargar los análisis de asignación');
     } finally {
       setLoading(false);
     }
@@ -75,13 +75,13 @@ export default function RoutingInsightsPage() {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        toast.success('Responses exported successfully');
+        toast.success('Respuestas exportadas correctamente');
       } else {
-        toast.error('Failed to export responses');
+        toast.error('No se pudieron exportar las respuestas');
       }
     } catch (error) {
       console.error('Error exporting responses:', error);
-      toast.error('Failed to export responses');
+      toast.error('No se pudieron exportar las respuestas');
     } finally {
       setExporting(false);
     }
@@ -93,7 +93,7 @@ export default function RoutingInsightsPage() {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading insights...</p>
+            <p className="text-muted-foreground">Cargando análisis...</p>
           </div>
         </div>
       </div>
@@ -104,10 +104,10 @@ export default function RoutingInsightsPage() {
     return (
       <div className="container max-w-6xl py-8">
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No routing insights available</p>
+          <p className="text-muted-foreground">No hay análisis de asignación disponibles</p>
           <Button onClick={() => router.back()} variant="outline" className="mt-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Go Back
+            Volver
           </Button>
         </Card>
       </div>
@@ -122,16 +122,16 @@ export default function RoutingInsightsPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Routing Insights</h1>
+            <h1 className="text-3xl font-bold">Análisis de asignación</h1>
             <p className="text-muted-foreground mt-1">
-              Analytics and performance metrics for your routing forms
+              Analítica y métricas de rendimiento de tus formularios de asignación
             </p>
           </div>
         </div>
 
         <Button onClick={handleExport} disabled={exporting}>
           <Download className="h-4 w-4 mr-2" />
-          {exporting ? 'Exporting...' : 'Export CSV'}
+          {exporting ? 'Exportando...' : 'Exportar CSV'}
         </Button>
       </div>
 
@@ -143,7 +143,7 @@ export default function RoutingInsightsPage() {
               <Users className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Responses</p>
+              <p className="text-sm text-muted-foreground">Total de respuestas</p>
               <p className="text-2xl font-bold">{insights.totalResponses}</p>
             </div>
           </div>
@@ -167,7 +167,7 @@ export default function RoutingInsightsPage() {
               <CheckCircle2 className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Avg. Accuracy</p>
+              <p className="text-sm text-muted-foreground">Precisión media</p>
               <p className="text-2xl font-bold">
                 {insights.assignmentAccuracy.length > 0
                   ? Math.round(
@@ -184,7 +184,7 @@ export default function RoutingInsightsPage() {
 
       {/* Question Response Breakdown */}
       <Card className="p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Question Responses</h2>
+        <h2 className="text-xl font-semibold mb-4">Respuestas a las preguntas</h2>
         <div className="space-y-6">
           {insights.questions.map((question) => (
             <div key={question.id} className="space-y-3">
@@ -216,7 +216,7 @@ export default function RoutingInsightsPage() {
                     })}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No responses yet</p>
+                <p className="text-sm text-muted-foreground">Aún no hay respuestas</p>
               )}
             </div>
           ))}
@@ -228,7 +228,7 @@ export default function RoutingInsightsPage() {
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Assignment Accuracy</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Shows which team members are most frequently assigned for each response
+            Muestra qué miembros del equipo se asignan con más frecuencia para cada respuesta
           </p>
 
           <div className="space-y-4">
@@ -240,7 +240,7 @@ export default function RoutingInsightsPage() {
                     <div>
                       <p className="font-medium">"{item.answer}"</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.totalResponses} total responses
+                        {item.totalResponses} respuestas totales
                       </p>
                     </div>
                     <div className="text-right">
@@ -253,7 +253,7 @@ export default function RoutingInsightsPage() {
 
                   {item.topAssignedMember && (
                     <div className="flex items-center gap-2 mt-2 text-sm">
-                      <span className="text-muted-foreground">Most assigned to:</span>
+                      <span className="text-muted-foreground">Asignado principalmente a:</span>
                       <span className="font-medium">
                         {item.topAssignedMember.name || item.topAssignedMember.email}
                       </span>

@@ -2,8 +2,8 @@ import { BookingPagesList } from '@/components/dashboard/booking-pages/booking-p
 import { BookingPagesHeader } from '@/components/dashboard/booking-pages/booking-pages-header';
 
 export const metadata = {
-  title: 'Booking Pages - ANYTIMEBOT',
-  description: 'Manage your booking pages',
+  title: 'Páginas de reserva - ANYTIMEBOT',
+  description: 'Gestiona tus páginas de reserva',
 };
 
 export default function BookingPagesPage() {

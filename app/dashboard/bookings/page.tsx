@@ -6,8 +6,8 @@ import { prisma } from '@/lib/db';
 import { BookingsList } from '@/components/dashboard/bookings/bookings-list';
 
 export const metadata = {
-  title: 'Bookings - ANYTIMEBOT',
-  description: 'Manage your bookings',
+  title: 'Reservas - ANYTIMEBOT',
+  description: 'Gestiona tus reservas',
 };
 
 export default async function BookingsPage() {
@@ -62,9 +62,9 @@ export default async function BookingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Bookings</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Reservas</h1>
         <p className="text-gray-600 mt-1">
-          Manage and view all your scheduled bookings
+          Gestiona y consulta todas tus reservas programadas
         </p>
       </div>
       <BookingsList bookings={allBookings} />

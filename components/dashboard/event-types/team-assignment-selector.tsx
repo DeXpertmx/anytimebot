@@ -52,22 +52,22 @@ export function TeamAssignmentSelector({
     {
       value: 'individual',
       label: 'Individual',
-      description: 'Assigned to you (standard behavior)',
+      description: 'Asignado a ti (comportamiento estándar)',
     },
     {
       value: 'collective',
-      label: 'Collective',
-      description: 'All team members attend - system finds slots available for everyone',
+      label: 'Colectiva',
+      description: 'Participan todos los miembros; el sistema busca horarios disponibles para todos',
     },
     {
       value: 'round_robin',
-      label: 'Round Robin',
-      description: 'Rotates assignments fairly among team members',
+      label: 'Turnos rotativos',
+      description: 'Rota las asignaciones de forma equilibrada entre los miembros',
     },
     {
       value: 'smart',
-      label: 'Smart Assignment',
-      description: 'AI assigns based on availability, workload, and skills matching',
+      label: 'Asignación inteligente',
+      description: 'La IA asigna según disponibilidad, carga de trabajo y coincidencia de habilidades',
     },
   ];
 
@@ -76,7 +76,7 @@ export function TeamAssignmentSelector({
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="team">Team (Optional)</Label>
+        <Label htmlFor="team">Equipo (opcional)</Label>
         <Select
           value={teamId || 'none'}
           onValueChange={(value) => {
@@ -89,10 +89,10 @@ export function TeamAssignmentSelector({
           }}
         >
           <SelectTrigger id="team">
-            <SelectValue placeholder={loading ? 'Loading teams...' : 'Select a team'} />
+            <SelectValue placeholder={loading ? 'Cargando equipos...' : 'Selecciona un equipo'} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">No Team (Individual)</SelectItem>
+            <SelectItem value="none">Sin equipo (individual)</SelectItem>
             {teams.map((team) => (
               <SelectItem key={team.id} value={team.id}>
                 {team.name} ({team.members.length} members)
@@ -101,13 +101,13 @@ export function TeamAssignmentSelector({
           </SelectContent>
         </Select>
         <p className="text-sm text-muted-foreground mt-1">
-          Assign this event type to a team for collaborative scheduling
+          Asigna este tipo de evento a un equipo para gestionar la agenda de forma colaborativa
         </p>
       </div>
 
       {teamId && (
         <div>
-          <Label htmlFor="assignmentMode">Assignment Mode</Label>
+          <Label htmlFor="assignmentMode">Modo de asignación</Label>
           <Select
             value={assignmentMode}
             onValueChange={onAssignmentModeChange}

@@ -39,7 +39,7 @@ export default async function UserPage({ params }: UserPageProps) {
   const getLocationLabel = (location: string) => {
     switch (location) {
       case 'video': return 'Video call';
-      case 'phone': return 'Phone call';
+      case 'phone': return 'Llamada telefónica';
       case 'in-person': return 'In person';
       default: return 'In person';
     }
@@ -118,7 +118,7 @@ export default async function UserPage({ params }: UserPageProps) {
               {/* Socials */}
               <div className="flex items-center justify-center md:justify-start gap-4 mt-4">
                 {user.website && (
-                  <a href={user.website} target="_blank" rel="noopener noreferrer" aria-label="Website" className="text-white/70 hover:text-white transition-colors">
+                  <a href={user.website} target="_blank" rel="noopener noreferrer" aria-label="Sitio web" className="text-white/70 hover:text-white transition-colors">
                     <Globe className="h-5 w-5" />
                   </a>
                 )}
@@ -133,11 +133,11 @@ export default async function UserPage({ params }: UserPageProps) {
                   </a>
                 )}
                 {user.phone && (
-                  <a href={`tel:${user.phone}`} aria-label="Phone" className="text-white/70 hover:text-white transition-colors">
+                  <a href={`tel:${user.phone}`} aria-label="Teléfono" className="text-white/70 hover:text-white transition-colors">
                     <Phone className="h-5 w-5" />
                   </a>
                 )}
-                <a href={`mailto:${user.email}`} aria-label="Email" className="text-white/70 hover:text-white transition-colors">
+                <a href={`mailto:${user.email}`} aria-label="Correo electrónico" className="text-white/70 hover:text-white transition-colors">
                   <Mail className="h-5 w-5" />
                 </a>
               </div>
@@ -150,7 +150,7 @@ export default async function UserPage({ params }: UserPageProps) {
                     className="inline-flex items-center gap-2 bg-white text-indigo-700 font-semibold px-6 py-3 rounded-full shadow-lg hover:bg-indigo-50 transition-all hover:scale-105"
                   >
                     <Calendar className="h-5 w-5" />
-                    Book now
+                    Reservar ahora
                   </Link>
                 </div>
               )}
@@ -159,11 +159,11 @@ export default async function UserPage({ params }: UserPageProps) {
         </div>
       </div>
 
-      {/* Services */}
+      {/* Servicios */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex items-end justify-between mb-10">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900">Services</h2>
+            <h2 className="text-3xl font-bold text-gray-900">Servicios</h2>
             <p className="text-gray-500 mt-1">
               {services.length} {services.length === 1 ? 'service' : 'services'} available
             </p>
@@ -204,7 +204,7 @@ export default async function UserPage({ params }: UserPageProps) {
                       {formatPrice(et.price, et.currency)}
                     </span>
                   ) : (
-                    <span className="text-sm font-medium text-emerald-600">Free</span>
+                    <span className="text-sm font-medium text-emerald-600">Gratis</span>
                   )}
                   <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 group-hover:gap-2 transition-all">
                     Book

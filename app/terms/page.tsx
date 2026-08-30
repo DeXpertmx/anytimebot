@@ -3,8 +3,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Terms of Service - ANYTIMEBOT',
-  description: 'Terms of Service for ANYTIMEBOT scheduling platform',
+  title: 'Términos del servicio - ANYTIMEBOT',
+  description: 'Términos del servicio de la plataforma de agenda ANYTIMEBOT',
 };
 
 export default function TermsPage() {
@@ -35,30 +35,30 @@ export default function TermsPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-lg shadow-sm p-8 md:p-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Terms of Service
+            Términos del servicio
           </h1>
           <p className="text-sm text-gray-500 mb-8">
-            Last Updated: October 18, 2025
+            Última actualización: 18 de octubre de 2025
           </p>
 
           <div className="prose prose-indigo max-w-none">
             <p className="text-lg text-gray-700 mb-8">
-              Welcome to ANYTIMEBOT. By using our services, you agree to be bound by these Terms of Service. Please read them carefully.
+              Te damos la bienvenida a ANYTIMEBOT. Al utilizar nuestros servicios aceptas estos Términos del servicio. Léelos atentamente.
             </p>
 
             <div className="space-y-8">
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  1. Acceptance of Terms
+                  1. Aceptación de los términos
                 </h2>
                 <p className="text-gray-700">
-                  By accessing or using ANYTIMEBOT, you agree to be bound by these Terms of Service and all applicable laws and regulations. If you do not agree with any of these terms, you are prohibited from using this service.
+                  Al acceder o utilizar ANYTIMEBOT aceptas estos Términos del servicio y todas las leyes y normativas aplicables. Si no estás de acuerdo con alguno de estos términos, no podrás utilizar el servicio.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  2. Description of Service
+                  2. Descripción del servicio
                 </h2>
                 <p className="text-gray-700">
                   ANYTIMEBOT is a scheduling platform that allows users to create events, manage availability, and facilitate bookings. We reserve the right to modify, suspend, or discontinue any aspect of the service at any time.
@@ -67,7 +67,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  3. User Accounts
+                  3. Cuentas de usuario
                 </h2>
                 <p className="text-gray-700">
                   You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to provide accurate and complete information when creating your account.
@@ -76,7 +76,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  4. User Conduct
+                  4. Conducta del usuario
                 </h2>
                 <p className="text-gray-700">
                   You agree not to use ANYTIMEBOT for any unlawful purpose or in any way that could damage, disable, overburden, or impair the service. You may not attempt to gain unauthorized access to any portion of the platform.
@@ -85,7 +85,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  5. User Content
+                  5. Contenido del usuario
                 </h2>
                 <p className="text-gray-700">
                   You retain all rights to the content you submit to ANYTIMEBOT. By submitting content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, and display such content as necessary to provide the service.
@@ -94,7 +94,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  6. Intellectual Property
+                  6. Propiedad intelectual
                 </h2>
                 <p className="text-gray-700">
                   The service and its original content, features, and functionality are owned by ANYTIMEBOT and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
@@ -103,7 +103,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  7. Termination
+                  7. Terminación
                 </h2>
                 <p className="text-gray-700">
                   We may terminate or suspend your account and access to the service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.
@@ -112,7 +112,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  8. Limitation of Liability
+                  8. Limitación de responsabilidad
                 </h2>
                 <p className="text-gray-700">
                   In no event shall ANYTIMEBOT, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential, or punitive damages arising out of your use of the service.
@@ -121,7 +121,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  9. Governing Law
+                  9. Ley aplicable
                 </h2>
                 <p className="text-gray-700">
                   These Terms shall be governed and construed in accordance with the laws of the jurisdiction in which ANYTIMEBOT operates, without regard to its conflict of law provisions.
@@ -130,7 +130,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  10. Changes to Terms
+                  10. Cambios en los términos
                 </h2>
                 <p className="text-gray-700">
                   We reserve the right to modify or replace these Terms at any time. We will provide notice of any material changes by posting the new Terms on this page.
@@ -139,7 +139,7 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  11. Contact Information
+                  11. Información de contacto
                 </h2>
                 <p className="text-gray-700">
                   If you have any questions about these Terms, please contact us at support@anytimebot.app
@@ -154,7 +154,7 @@ export default function TermsPage() {
       <footer className="border-t bg-white mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-500">
-            <p>&copy; 2025 ANYTIMEBOT. All rights reserved.</p>
+            <p>&copy; 2025 ANYTIMEBOT. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

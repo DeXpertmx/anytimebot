@@ -154,7 +154,7 @@ export function BookingAnalytics() {
           </ResponsiveContainer>
         </Card>
 
-        {/* Peak Booking Hours */}
+        {/* Horas de mayor demanda */}
         <Card className="p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-6">Horas de mayor demanda</h2>
           <ResponsiveContainer width="100%" height={300}>

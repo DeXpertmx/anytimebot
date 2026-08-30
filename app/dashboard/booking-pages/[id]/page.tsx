@@ -41,13 +41,13 @@ export default async function EditBookingPagePage({ params }: Props) {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/booking-pages">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              Atrás
             </Link>
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Edit Booking Page</h1>
             <p className="text-gray-600 mt-1">
-              Update your booking page settings
+              Actualiza la configuración de tu página de reserva
             </p>
           </div>
         </div>

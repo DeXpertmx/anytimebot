@@ -2,8 +2,8 @@ import { EventTypesList } from '@/components/dashboard/event-types/event-types-l
 import { EventTypesHeader } from '@/components/dashboard/event-types/event-types-header';
 
 export const metadata = {
-  title: 'Event Types - ANYTIMEBOT',
-  description: 'Manage your event types',
+  title: 'Tipos de eventos - ANYTIMEBOT',
+  description: 'Gestiona tus tipos de eventos',
 };
 
 export default function EventTypesPage() {

@@ -92,7 +92,7 @@ export function ConversionMetrics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.conversionRate || 0}%
               </p>
-              <p className="text-sm text-gray-600">Conversion Rate</p>
+              <p className="text-sm text-gray-600">Tasa de conversión</p>
             </div>
           </div>
           

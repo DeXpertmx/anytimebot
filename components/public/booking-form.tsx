@@ -381,7 +381,7 @@ export function BookingForm({
         </div>
       )}
 
-      {/* Guest Information */}
+      {/* Información del invitado */}
       {selectedTime && (
         <div className="space-y-4 border-t pt-6">
           <h4 className="font-semibold text-gray-900">Your Information</h4>
@@ -418,7 +418,7 @@ export function BookingForm({
           </div>
 
           <div>
-            <Label htmlFor="guestPhone">Phone (optional)</Label>
+            <Label htmlFor="guestPhone">Teléfono (opcional)</Label>
             <Input
               id="guestPhone"
               type="tel"
@@ -552,7 +552,7 @@ export function BookingForm({
             disabled={isLoading}
             className="w-full bg-indigo-600 hover:bg-indigo-700"
           >
-            {isLoading ? 'Processing...' : selectedEventType?.collectPayment && selectedEventType.price > 0 ? 'Continue to Payment' : 'Confirm Booking'}
+            {isLoading ? 'Procesando...' : selectedEventType?.collectPayment && selectedEventType.price > 0 ? 'Continuar al pago' : 'Confirmar reserva'}
           </Button>
         </div>
       )}

@@ -39,7 +39,7 @@ export default function TeamsPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/auth/signin');
     } else if (status === 'authenticated') {
       fetchTeams();
     }
@@ -53,11 +53,11 @@ export default function TeamsPage() {
       if (data.success) {
         setTeams(data.data);
       } else {
-        toast.error(data.error || 'Failed to fetch teams');
+        toast.error(data.error || 'No se pudieron cargar los equipos');
       }
     } catch (error) {
       console.error('Error fetching teams:', error);
-      toast.error('Failed to fetch teams');
+      toast.error('No se pudieron cargar los equipos');
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,7 @@ export default function TeamsPage() {
     e.preventDefault();
 
     if (!formData.name) {
-      toast.error('Team name is required');
+      toast.error('El nombre del equipo es obligatorio');
       return;
     }
 
@@ -81,21 +81,21 @@ export default function TeamsPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Team created successfully');
+        toast.success('Equipo creado correctamente');
         setIsCreateDialogOpen(false);
         setFormData({ name: '', description: '' });
         fetchTeams();
       } else {
-        toast.error(data.error || 'Failed to create team');
+        toast.error(data.error || 'No se pudo crear el equipo');
       }
     } catch (error) {
       console.error('Error creating team:', error);
-      toast.error('Failed to create team');
+      toast.error('No se pudo crear el equipo');
     }
   };
 
   const handleDeleteTeam = async (teamId: string) => {
-    if (!confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
+    if (!confirm('¿Seguro que quieres eliminar este equipo? Esta acción no se puede deshacer.')) {
       return;
     }
 
@@ -107,14 +107,14 @@ export default function TeamsPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Team deleted successfully');
+        toast.success('Equipo eliminado correctamente');
         fetchTeams();
       } else {
-        toast.error(data.error || 'Failed to delete team');
+        toast.error(data.error || 'No se pudo eliminar el equipo');
       }
     } catch (error) {
       console.error('Error deleting team:', error);
-      toast.error('Failed to delete team');
+      toast.error('No se pudo eliminar el equipo');
     }
   };
 
@@ -127,54 +127,54 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto max-w-7xl px-4 py-8 pb-10">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Team Scheduling</h1>
+          <h1 className="text-3xl font-bold">Gestión de equipos</h1>
           <p className="text-muted-foreground mt-2">
-            Create teams and manage collaborative scheduling
+            Crea equipos y gestiona la agenda de forma colaborativa
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              Create Team
+              Crear equipo
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Team</DialogTitle>
+              <DialogTitle>Crear nuevo equipo</DialogTitle>
               <DialogDescription>
-                Create a team to enable collaborative scheduling with multiple members
+                Crea un equipo para gestionar la agenda de forma colaborativa con varios miembros
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateTeam} className="space-y-4">
               <div>
-                <Label htmlFor="name">Team Name</Label>
+                <Label htmlFor="name">Nombre del equipo</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Sales Team, Support Team"
+                  placeholder="ej., Equipo de ventas, Equipo de soporte"
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="description">Description (Optional)</Label>
+                <Label htmlFor="description">Descripción (opcional)</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Brief description of the team's purpose"
+                  placeholder="Breve descripción del objetivo del equipo"
                   rows={3}
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
+                  Cancelar
                 </Button>
-                <Button type="submit">Create Team</Button>
+                <Button type="submit">Crear equipo</Button>
               </div>
             </form>
           </DialogContent>
@@ -185,13 +185,13 @@ export default function TeamsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Users className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Teams Yet</h3>
+            <h3 className="text-xl font-semibold mb-2">Aún no hay equipos</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Create your first team to enable collaborative scheduling
+              Crea tu primer equipo para activar la agenda colaborativa
             </p>
             <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Create Team
+              Crear equipo
             </Button>
           </CardContent>
         </Card>
@@ -205,11 +205,11 @@ export default function TeamsPage() {
                     <CardTitle className="flex items-center gap-2">
                       {team.name}
                       {!team.isActive && (
-                        <Badge variant="secondary">Inactive</Badge>
+                        <Badge variant="secondary">Inactivo</Badge>
                       )}
                     </CardTitle>
                     <CardDescription className="mt-2">
-                      {team.description || 'No description'}
+                      {team.description || 'Sin descripción'}
                     </CardDescription>
                   </div>
                 </div>
@@ -217,11 +217,11 @@ export default function TeamsPage() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Members</span>
+                    <span className="text-muted-foreground">Miembros</span>
                     <Badge variant="outline">{team.members.length}</Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Event Types</span>
+                    <span className="text-muted-foreground">Tipos de eventos</span>
                     <Badge variant="outline">{team._count.eventTypes}</Badge>
                   </div>
                   <div className="flex gap-2 pt-4 border-t">
@@ -231,7 +231,7 @@ export default function TeamsPage() {
                       onClick={() => router.push(`/dashboard/teams/${team.id}`)}
                     >
                       <Settings className="mr-2 h-4 w-4" />
-                      Manage
+                      Gestionar
                     </Button>
                     <Button
                       variant="outline"

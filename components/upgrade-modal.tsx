@@ -111,7 +111,7 @@ export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' 
               disabled={loading}
               className="w-full py-3 px-4 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Loading...' : `Upgrade to ${plan.name} - $${plan.price}/mo`}
+              {loading ? 'Cargando...' : `Mejorar a ${plan.name} - $${plan.price}/mes`}
             </button>
 
             <button

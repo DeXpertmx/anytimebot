@@ -1,6 +1,6 @@
 
 /**
- * Booking Details Modal
+ * Modal de detalles de la reserva
  * Shows detailed information about a booking including briefings
  */
 
@@ -81,21 +81,21 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Booking Details</DialogTitle>
+          <DialogTitle className="text-2xl">Detalles de la reserva</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Status Badge */}
+          {/* Indicador de estado */}
           <div className="flex items-center justify-between">
             <Badge className={statusColors[booking.status] || 'bg-gray-100 text-gray-800'}>
               {booking.status}
             </Badge>
             <span className="text-sm text-muted-foreground">
-              Booking ID: {booking.id.slice(0, 8)}...
+              ID de reserva: {booking.id.slice(0, 8)}...
             </span>
           </div>
 
-          {/* Event Information */}
+          {/* Información del evento */}
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100">
             <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
               <Calendar className="h-5 w-5 text-purple-600" />
@@ -117,7 +117,7 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
               <div className="mt-3">
                 <Button asChild variant="outline" size="sm">
                   <a href={booking.eventType.videoLink} target="_blank" rel="noopener noreferrer">
-                    Join Meeting
+                    Unirse a la reunión
                   </a>
                 </Button>
               </div>
@@ -126,11 +126,11 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
 
           <Separator />
 
-          {/* Guest Information */}
+          {/* Información del invitado */}
           <div>
             <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
               <User className="h-5 w-5" />
-              Guest Information
+              Información del invitado
             </h3>
             <div className="grid gap-2 text-sm">
               <div className="flex items-center gap-2">
@@ -154,14 +154,14 @@ export function BookingDetailsModal({ booking, isOpen, onClose }: BookingDetails
             </div>
           </div>
 
-          {/* Form Responses */}
+          {/* Respuestas del formulario */}
           {booking.formData && Object.keys(booking.formData).length > 0 && (
             <>
               <Separator />
               <div>
                 <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Form Responses
+                  Respuestas del formulario
                 </h3>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                   {Object.entries(booking.formData).map(([key, value]) => (

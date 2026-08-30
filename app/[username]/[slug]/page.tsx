@@ -46,10 +46,10 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
           <div className="bg-white rounded-lg shadow-lg p-8">
             <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Page Not Available
+              Página no disponible
             </h1>
             <p className="text-gray-600">
-              This booking page is currently inactive.
+              Esta página de reserva está inactiva actualmente.
             </p>
           </div>
         </div>
@@ -92,7 +92,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
           className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700 mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to all events
+          Volver a todos los eventos
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -134,7 +134,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
 
               <div className="border-t pt-4 mt-4 space-y-4">
                 <h4 className="font-semibold text-gray-900 mb-3">
-                  Available Event Types
+                  Tipos de eventos disponibles
                 </h4>
                 {bookingPage.eventTypes.map((eventType: EventType & { formFields: BookingFormField[] }) => (
                   <div
@@ -147,7 +147,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                     </h5>
                     <div className="flex items-center text-sm text-gray-600 mt-1">
                       <Clock className="h-4 w-4 mr-1" />
-                      <span>{eventType.duration} minutes</span>
+                      <span>{eventType.duration} minutos</span>
                     </div>
                     <div className="flex items-center text-sm text-gray-600 mt-1">
                       {getLocationIcon(eventType.location)}
@@ -170,7 +170,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                Schedule Your Meeting
+                Agenda tu reunión
               </h3>
               <BookingForm
                 bookingPage={bookingPage}
@@ -200,7 +200,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
               <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
             </div>
             <p className="text-gray-500 ml-4">
-              © 2024 ANYTIMEBOT. Smart scheduling made simple.
+              © 2024 ANYTIMEBOT. Agendar nunca fue tan sencillo.
             </p>
           </div>
         </div>

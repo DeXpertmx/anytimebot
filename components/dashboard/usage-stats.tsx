@@ -65,14 +65,14 @@ export function UsageStats() {
     <div className="bg-white rounded-lg shadow">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Usage This Month</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Uso este mes</h3>
           {hasWarning && (
             <Link
               href="/pricing"
               className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-orange-700 bg-orange-100 rounded-full hover:bg-orange-200"
             >
               <AlertTriangle className="w-3 h-3" />
-              Approaching Limit
+              Límite próximo
             </Link>
           )}
         </div>
@@ -82,7 +82,7 @@ export function UsageStats() {
         {usage.aiInteractions.limit > 0 && (
           <UsageBar
             icon={<Bot className="w-5 h-5 text-purple-600" />}
-            label="AI Interactions"
+            label="Interacciones de IA"
             used={usage.aiInteractions.used}
             limit={usage.aiInteractions.limit}
             percentage={usage.aiInteractions.percentage}
@@ -92,7 +92,7 @@ export function UsageStats() {
         {usage.videoMinutes.limit > 0 && (
           <UsageBar
             icon={<Video className="w-5 h-5 text-blue-600" />}
-            label="Video Minutes"
+            label="Minutos de video"
             used={usage.videoMinutes.used}
             limit={usage.videoMinutes.limit}
             percentage={usage.videoMinutes.percentage}
@@ -102,7 +102,7 @@ export function UsageStats() {
         {usage.whatsappMessages.limit > 0 && (
           <UsageBar
             icon={<MessageCircle className="w-5 h-5 text-green-600" />}
-            label="WhatsApp Messages"
+            label="Mensajes de WhatsApp"
             used={usage.whatsappMessages.used}
             limit={usage.whatsappMessages.limit}
             percentage={usage.whatsappMessages.percentage}
@@ -112,7 +112,7 @@ export function UsageStats() {
         {usage.telegramMessages.limit > 0 && (
           <UsageBar
             icon={<Send className="w-5 h-5 text-blue-500" />}
-            label="Telegram Messages"
+            label="Mensajes de Telegram"
             used={usage.telegramMessages.used}
             limit={usage.telegramMessages.limit}
             percentage={usage.telegramMessages.percentage}
@@ -124,7 +124,7 @@ export function UsageStats() {
             href="/pricing"
             className="block w-full py-3 px-4 text-center text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            Upgrade Plan for More
+            Mejorar el plan para obtener más
           </Link>
         )}
       </div>
@@ -175,7 +175,7 @@ function UsageBar({
       </div>
       {percentage >= 80 && limit > 0 && (
         <p className="text-xs text-orange-600">
-          {percentage >= 100 ? 'Limit reached' : `${percentage}% used - consider upgrading`}
+          {percentage >= 100 ? 'Límite alcanzado' : `${percentage}% used - considera mejorar tu plan`}
         </p>
       )}
     </div>

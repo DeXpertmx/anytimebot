@@ -139,14 +139,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({ title: 'Passwords do not match', variant: 'destructive' });
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {        toast({ title: 'Las contraseñas no coinciden', variant: 'destructive' });
       return;
     }
     if (passwordForm.newPassword.length < 6) {
       toast({
-        title: 'Password too short',
-        description: 'New password must be at least 6 characters long.',
+        title: 'Contraseña demasiado corta',
+        description: 'La nueva contraseña debe tener al menos 6 caracteres.',
         variant: 'destructive',
       });
       return;
@@ -164,16 +163,16 @@ export function SettingsForm({ user }: SettingsFormProps) {
       });
 
       if (response.ok) {
-        toast({ title: 'Password Changed', description: 'Your password has been updated successfully.' });
+        toast({ title: 'Contraseña actualizada', description: 'Tu contraseña se ha actualizado correctamente.' });
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
         setShowPasswordModal(false);
       } else {
         const error = await response.json();
-        toast({ title: 'Change Failed', description: error.error || 'Failed to change password', variant: 'destructive' });
+        toast({ title: 'No se pudo cambiar la contraseña', description: error.error || 'No se pudo cambiar la contraseña', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error changing password:', error);
-      toast({ title: 'Error', description: 'An error occurred while changing your password', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Ocurrió un error al cambiar tu contraseña', variant: 'destructive' });
     } finally {
       setIsChangingPassword(false);
     }
@@ -188,9 +187,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
       if (formData.username) {
         const usernameRegex = /^[a-zA-Z0-9_-]+$/;
         if (!usernameRegex.test(formData.username)) {
-          toast({
-            title: 'Invalid Username',
-            description: 'Username can only contain letters, numbers, hyphens, and underscores.',
+          toast({              title: 'Usuario no válido',
+              description: 'El usuario solo puede contener letras, números, guiones y guiones bajos.',
             variant: 'destructive',
           });
           setIsLoading(false);
@@ -206,15 +204,15 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
       if (response.ok) {
         toast({
-          title: 'Settings Updated',
-          description: 'Your settings have been saved successfully.',
+          title: 'Configuración actualizada',
+          description: 'Tu configuración se ha guardado correctamente.',
         });
         router.refresh();
       } else {
         const error = await response.json();
         toast({
-          title: 'Update Failed',
-          description: error.error || 'Failed to update settings',
+          title: 'No se pudo actualizar',
+          description: error.error || 'No se pudo actualizar la configuración',
           variant: 'destructive',
         });
       }
@@ -222,7 +220,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
       console.error('Error updating settings:', error);
       toast({
         title: 'Error',
-        description: 'An error occurred while updating your settings',
+        description: 'Ocurrió un error al actualizar tu configuración',
         variant: 'destructive',
       });
     } finally {
@@ -647,7 +645,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-red-600">Delete Account</h3>
+              <h3 className="text-lg font-semibold text-red-600">Eliminar cuenta</h3>
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}

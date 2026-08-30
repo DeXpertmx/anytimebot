@@ -43,7 +43,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
   const loadBooking = async () => {
     try {
       const response = await fetch(`/api/bookings/${params.id}`);
-      if (!response.ok) throw new Error('Failed to load booking');
+      if (!response.ok) throw new Error('No se pudo cargar la reserva');
       
       const data = await response.json();
       if (data.success) {
@@ -51,7 +51,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
       }
     } catch (error) {
       console.error('Error loading booking:', error);
-      toast.error('Failed to load booking');
+      toast.error('No se pudo cargar la reserva');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading booking...</p>
+          <p className="mt-4 text-muted-foreground">Cargando reserva...</p>
         </div>
       </div>
     );
@@ -72,9 +72,9 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-muted-foreground">Booking not found</p>
+          <p className="text-muted-foreground">No se encontró la reserva</p>
           <Button onClick={() => router.push('/dashboard/bookings')} className="mt-4">
-            Back to Bookings
+            Volver a reservas
           </Button>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
             onClick={() => router.push('/dashboard/bookings')}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            Atrás
           </Button>
           <div>
             <h1 className="text-3xl font-bold">{booking.eventType.name}</h1>
@@ -130,27 +130,27 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
 
       <Tabs defaultValue="details" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="briefing">Pre-Meeting Brief</TabsTrigger>
+          <TabsTrigger value="details">Detalles</TabsTrigger>
+          <TabsTrigger value="briefing">Resumen previo a la reunión</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">
-          {/* Guest Information */}
+          {/* Información del invitado */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Guest Information
+                Información del invitado
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Name</label>
+                  <label className="text-sm font-medium text-muted-foreground">Nombre</label>
                   <p className="text-lg">{booking.guestName}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <label className="text-sm font-medium text-muted-foreground">Correo electrónico</label>
                   <p className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
                     {booking.guestEmail}
@@ -158,7 +158,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                 </div>
                 {booking.guestPhone && (
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                    <label className="text-sm font-medium text-muted-foreground">Teléfono</label>
                     <p className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       {booking.guestPhone}
@@ -169,21 +169,21 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
             </CardContent>
           </Card>
 
-          {/* Meeting Details */}
+          {/* Detalles de la reunión */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Meeting Details
+                Detalles de la reunión
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Date</label>
+                  <label className="text-sm font-medium text-muted-foreground">Fecha</label>
                   <p className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {startDate.toLocaleDateString('en-US', {
+                    {startDate.toLocaleDateString('es-ES', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -192,30 +192,30 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Time</label>
+                  <label className="text-sm font-medium text-muted-foreground">Hora</label>
                   <p className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    {startDate.toLocaleTimeString('en-US', {
+                    {startDate.toLocaleTimeString('es-ES', {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}{' '}
                     -{' '}
-                    {endDate.toLocaleTimeString('en-US', {
+                    {endDate.toLocaleTimeString('es-ES', {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Duration</label>
+                  <label className="text-sm font-medium text-muted-foreground">Duración</label>
                   <p>{booking.eventType.duration} minutes</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Timezone</label>
+                  <label className="text-sm font-medium text-muted-foreground">Zona horaria</label>
                   <p>{booking.timezone}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Location</label>
+                  <label className="text-sm font-medium text-muted-foreground">Ubicación</label>
                   <p className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
                     {booking.eventType.location}
@@ -223,7 +223,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                 </div>
                 {booking.eventType.videoLink && (
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Video Link</label>
+                    <label className="text-sm font-medium text-muted-foreground">Enlace de video</label>
                     <a
                       href={booking.eventType.videoLink}
                       target="_blank"
@@ -231,7 +231,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                       className="flex items-center gap-2 text-primary hover:underline"
                     >
                       <Video className="h-4 w-4" />
-                      Join Meeting
+                      Unirse a la reunión
                     </a>
                   </div>
                 )}
@@ -243,7 +243,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
           {booking.formData && Object.keys(booking.formData).length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Form Responses</CardTitle>
+                <CardTitle>Respuestas del formulario</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -255,7 +255,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                     return (
                       <div key={key}>
                         <label className="text-sm font-medium text-muted-foreground">{label}</label>
-                        <p className="mt-1">{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</p>
+                        <p className="mt-1">{typeof value === 'boolean' ? (value ? 'Sí' : 'No') : String(value)}</p>
                       </div>
                     );
                   })}

@@ -59,7 +59,7 @@ export default function TeamDetailPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/auth/signin');
     } else if (status === 'authenticated' && teamId) {
       fetchTeam();
     }
@@ -73,12 +73,12 @@ export default function TeamDetailPage() {
       if (data.success) {
         setTeam(data.data);
       } else {
-        toast.error(data.error || 'Failed to fetch team');
+        toast.error(data.error || 'No se pudo cargar el equipo');
         router.push('/dashboard/teams');
       }
     } catch (error) {
       console.error('Error fetching team:', error);
-      toast.error('Failed to fetch team');
+      toast.error('No se pudo cargar el equipo');
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function TeamDetailPage() {
     e.preventDefault();
 
     if (!memberForm.email) {
-      toast.error('Email is required');
+      toast.error('El correo electrónico es obligatorio');
       return;
     }
 
@@ -108,7 +108,7 @@ export default function TeamDetailPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Member added successfully');
+        toast.success('Miembro añadido correctamente');
         setIsAddMemberDialogOpen(false);
         setMemberForm({
           email: '',
@@ -119,16 +119,16 @@ export default function TeamDetailPage() {
         });
         fetchTeam();
       } else {
-        toast.error(data.error || 'Failed to add member');
+        toast.error(data.error || 'No se pudo añadir el miembro');
       }
     } catch (error) {
       console.error('Error adding member:', error);
-      toast.error('Failed to add member');
+      toast.error('No se pudo añadir el miembro');
     }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('Are you sure you want to remove this member?')) {
+    if (!confirm('¿Seguro que quieres eliminar este miembro?')) {
       return;
     }
 
@@ -140,14 +140,14 @@ export default function TeamDetailPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Member removed successfully');
+        toast.success('Miembro eliminado correctamente');
         fetchTeam();
       } else {
-        toast.error(data.error || 'Failed to remove member');
+        toast.error(data.error || 'No se pudo eliminar el miembro');
       }
     } catch (error) {
       console.error('Error removing member:', error);
-      toast.error('Failed to remove member');
+      toast.error('No se pudo eliminar el miembro');
     }
   };
 
@@ -164,14 +164,14 @@ export default function TeamDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto max-w-7xl px-4 py-8 pb-10">
       <Button
         variant="ghost"
         className="mb-6"
         onClick={() => router.push('/dashboard/teams')}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Teams
+        Volver a equipos
       </Button>
 
       <div className="flex justify-between items-start mb-8">
@@ -185,19 +185,19 @@ export default function TeamDetailPage() {
           <DialogTrigger asChild>
             <Button>
               <UserPlus className="mr-2 h-4 w-4" />
-              Add Member
+              Añadir miembro
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Team Member</DialogTitle>
+              <DialogTitle>Añadir miembro al equipo</DialogTitle>
               <DialogDescription>
-                Add a new member to this team. They can be existing users or external members.
+                Añade un miembro al equipo. Puede ser un usuario existente o externo.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddMember} className="space-y-4">
               <div>
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Correo electrónico</Label>
                 <Input
                   id="email"
                   type="email"
@@ -208,7 +208,7 @@ export default function TeamDetailPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="timezone">Timezone</Label>
+                <Label htmlFor="timezone">Zona horaria</Label>
                 <Select
                   value={memberForm.timezone}
                   onValueChange={(value) => setMemberForm({ ...memberForm, timezone: value })}
@@ -218,36 +218,36 @@ export default function TeamDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="UTC">UTC</SelectItem>
-                    <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                    <SelectItem value="America/Chicago">Central Time</SelectItem>
-                    <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                    <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                    <SelectItem value="Europe/London">London</SelectItem>
-                    <SelectItem value="Europe/Paris">Paris</SelectItem>
-                    <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                    <SelectItem value="America/New_York">Hora del este</SelectItem>
+                    <SelectItem value="America/Chicago">Hora central</SelectItem>
+                    <SelectItem value="America/Denver">Hora de montaña</SelectItem>
+                    <SelectItem value="America/Los_Angeles">Hora del Pacífico</SelectItem>
+                    <SelectItem value="Europe/London">Londres</SelectItem>
+                    <SelectItem value="Europe/Paris">París</SelectItem>
+                    <SelectItem value="Asia/Tokyo">Tokio</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="skills">Skills (comma-separated)</Label>
+                <Label htmlFor="skills">Habilidades (separadas por comas)</Label>
                 <Input
                   id="skills"
                   value={memberForm.skills}
                   onChange={(e) => setMemberForm({ ...memberForm, skills: e.target.value })}
-                  placeholder="e.g., billing, support, technical"
+                  placeholder="ej., facturación, soporte, técnico"
                 />
               </div>
               <div>
-                <Label htmlFor="languages">Languages (comma-separated)</Label>
+                <Label htmlFor="languages">Idiomas (separados por comas)</Label>
                 <Input
                   id="languages"
                   value={memberForm.languages}
                   onChange={(e) => setMemberForm({ ...memberForm, languages: e.target.value })}
-                  placeholder="e.g., english, spanish, german"
+                  placeholder="ej., español, inglés, alemán"
                 />
               </div>
               <div>
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role">Rol</Label>
                 <Select
                   value={memberForm.role}
                   onValueChange={(value) => setMemberForm({ ...memberForm, role: value })}
@@ -256,16 +256,16 @@ export default function TeamDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="MEMBER">Member</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    <SelectItem value="MEMBER">Miembro</SelectItem>
+                    <SelectItem value="ADMIN">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsAddMemberDialogOpen(false)}>
-                  Cancel
+                  Cancelar
                 </Button>
-                <Button type="submit">Add Member</Button>
+                <Button type="submit">Añadir miembro</Button>
               </div>
             </form>
           </DialogContent>
@@ -275,13 +275,13 @@ export default function TeamDetailPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Team Members ({team.members.length})</CardTitle>
-            <CardDescription>Manage your team members and their settings</CardDescription>
+            <CardTitle>Miembros del equipo ({team.members.length})</CardTitle>
+            <CardDescription>Gestiona los miembros del equipo y su configuración</CardDescription>
           </CardHeader>
           <CardContent>
             {team.members.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No members yet. Add your first team member to get started.
+                Aún no hay miembros. Añade el primero para comenzar.
               </div>
             ) : (
               <div className="space-y-4">
@@ -296,12 +296,12 @@ export default function TeamDetailPage() {
                         {member.user?.calendarSyncEnabled ? (
                           <Badge variant="default" className="text-xs">
                             <Check className="h-3 w-3 mr-1" />
-                            Calendar
+                            Calendario
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="text-xs">
                             <X className="h-3 w-3 mr-1" />
-                            No Calendar
+                            Sin calendario
                           </Badge>
                         )}
                       </div>
@@ -343,13 +343,13 @@ export default function TeamDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Event Types ({team.eventTypes.length})</CardTitle>
-            <CardDescription>Event types using this team</CardDescription>
+            <CardTitle>Tipos de eventos ({team.eventTypes.length})</CardTitle>
+            <CardDescription>Tipos de eventos que usan este equipo</CardDescription>
           </CardHeader>
           <CardContent>
             {team.eventTypes.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No event types using this team yet.
+                Aún no hay tipos de eventos que usen este equipo.
               </div>
             ) : (
               <div className="space-y-2">

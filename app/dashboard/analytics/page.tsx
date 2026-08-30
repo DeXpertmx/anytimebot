@@ -27,8 +27,8 @@ const ConversionMetrics = dynamic(() => import('@/components/dashboard/analytics
 });
 
 export const metadata = {
-  title: 'Analytics & Reports - ANYTIMEBOT',
-  description: 'View detailed analytics and reports for your bookings and bot conversations',
+  title: 'Analítica e informes - ANYTIMEBOT',
+  description: 'Consulta analítica e informes detallados de tus reservas y conversaciones del bot',
 };
 
 export default async function AnalyticsPage() {
@@ -42,9 +42,9 @@ export default async function AnalyticsPage() {
     <div className="min-w-0 space-y-6 pb-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics & Reports</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Analítica e informes</h1>
           <p className="text-gray-600 mt-1">
-            Track your performance and get insights into your bookings and bot interactions
+            Consulta tu rendimiento y obtén información sobre tus reservas y conversaciones del bot
           </p>
         </div>
       </div>

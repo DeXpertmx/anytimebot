@@ -2,8 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Privacy Policy - ANYTIMEBOT',
-  description: 'Privacy Policy for ANYTIMEBOT scheduling platform',
+  title: 'Política de privacidad - ANYTIMEBOT',
+  description: 'Política de privacidad de la plataforma de agenda ANYTIMEBOT',
 };
 
 export default function PrivacyPage() {
@@ -24,18 +24,18 @@ export default function PrivacyPage() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-lg shadow-sm p-8 md:p-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Privacy Policy</h1>
-          <p className="text-sm text-gray-500 mb-8">Last Updated: August 29, 2026 · Version 2026-08</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Política de privacidad</h1>
+          <p className="text-sm text-gray-500 mb-8">Última actualización: 29 de agosto de 2026 · Versión 2026-08</p>
 
           <div className="prose prose-indigo max-w-none">
             <p className="text-lg text-gray-700 mb-8">
-              This Privacy Policy explains how ANYTIMEBOT processes personal data when you create an account,
-              schedule or host meetings, use the AI assistant, or connect a messaging or calendar service.
+              Esta Política de privacidad explica cómo ANYTIMEBOT trata los datos personales cuando creas una cuenta,
+              agendas o diriges reuniones, utilizas el asistente de IA o conectas un servicio de mensajería o calendario.
             </p>
 
             <div className="space-y-8">
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Data controller and roles</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Responsable y roles</h2>
                 <p className="text-gray-700">
                   ANYTIMEBOT is the controller for account, billing, security and platform-usage data. For data
                   submitted by a business through its booking page, that business may be the controller and
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Data we process</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Datos que tratamos</h2>
                 <ul className="list-disc pl-6 text-gray-700 space-y-2">
                   <li>Account data: name, email, username, profile image, timezone and authentication provider.</li>
                   <li>Scheduling data: booking pages, event types, availability, guest name, email, phone, booking and form data.</li>
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">3. Purposes and legal bases</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">3. Finalidades y bases jurídicas</h2>
                 <ul className="list-disc pl-6 text-gray-700 space-y-2">
                   <li>Account and contract administration: performance of the service contract.</li>
                   <li>Bookings and notifications: performance of the requested service and, where required, consent.</li>
@@ -69,7 +69,7 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Subprocessors and service providers</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Encargados y proveedores de servicios</h2>
                 <p className="text-gray-700 mb-3">
                   We use the following providers for the purposes shown below. The exact region and applicable
                   contractual safeguards must be confirmed in the current data-processing agreements and provider
@@ -99,7 +99,7 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">5. International transfers</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Transferencias internacionales</h2>
                 <p className="text-gray-700">
                   Some providers may process data outside the European Economic Area. In particular, the current
                   PostgreSQL production endpoint is hosted by Neon on AWS in us-east-1, United States. Where a transfer
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Your GDPR rights</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Tus derechos conforme al RGPD</h2>
                 <p className="text-gray-700">
                   Subject to applicable law, you may request access, correction, erasure, restriction, objection,
                   portability, or withdrawal of consent. Authenticated users can export their data from Settings and
@@ -142,7 +142,7 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Contact</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Contacto</h2>
                 <p className="text-gray-700">
                   Questions or rights requests: privacy@anytimebot.app. The controller should designate and publish a
                   data-protection contact or DPO where legally required.

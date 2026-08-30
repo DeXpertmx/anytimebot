@@ -43,13 +43,13 @@ interface EditBookingPageFormProps {
 }
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
+  { value: 0, label: 'Domingo' },
+  { value: 1, label: 'Lunes' },
+  { value: 2, label: 'Martes' },
+  { value: 3, label: 'Miércoles' },
+  { value: 4, label: 'Jueves' },
+  { value: 5, label: 'Viernes' },
+  { value: 6, label: 'Sábado' },
 ];
 
 const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
@@ -184,9 +184,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
             <div className="flex items-center">
               <Globe className="h-8 w-8 text-indigo-600 mr-4" />
               <div>
-                <p className="text-sm font-medium text-gray-600">Status</p>
+                <p className="text-sm font-medium text-gray-600">Estado</p>
                 <Badge variant={formData.isActive ? 'default' : 'secondary'} className="mt-1">
-                  {formData.isActive ? 'Active' : 'Inactive'}
+                  {formData.isActive ? 'Activa' : 'Inactiva'}
                 </Badge>
               </div>
             </div>
@@ -198,7 +198,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
             <div className="flex items-center">
               <Calendar className="h-8 w-8 text-green-600 mr-4" />
               <div>
-                <p className="text-sm font-medium text-gray-600">Event Types</p>
+                <p className="text-sm font-medium text-gray-600">Tipos de eventos</p>
                 <p className="text-2xl font-bold text-gray-900">{bookingPage.eventTypes.length}</p>
               </div>
             </div>
@@ -222,14 +222,14 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
         {/* Edit Form */}
         <Card>
           <CardHeader>
-            <CardTitle>Page Settings</CardTitle>
+            <CardTitle>Configuración de la página</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="title">Page Title</Label>
+              <Label htmlFor="title">Título de la página</Label>
               <Input
                 id="title"
-                placeholder="e.g., Schedule a Meeting with John"
+                placeholder="ej., Agenda una reunión conmigo"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 required
@@ -237,7 +237,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="slug">URL Slug</Label>
+              <Label htmlFor="slug">Slug de la URL</Label>
               <div className="flex items-center">
                 <span className="text-sm text-gray-500 mr-1">
                   {typeof window !== 'undefined' ? window.location.origin : ''}/username/
@@ -251,15 +251,15 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                 />
               </div>
               <p className="text-xs text-gray-500">
-                This will be your booking page URL. Use only letters, numbers, hyphens, and underscores.
+                Esta será la URL de tu página de reserva. Usa solo letras, números, guiones y guiones bajos.
               </p>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description">Descripción (opcional)</Label>
               <Textarea
                 id="description"
-                placeholder="Tell your clients what they can book..."
+                placeholder="Indica a tus clientes qué pueden reservar..."
                 rows={4}
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -290,9 +290,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
 
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="space-y-0.5">
-                <Label htmlFor="is-active" className="text-base">Active Status</Label>
+                <Label htmlFor="is-active" className="text-base">Estado activo</Label>
                 <p className="text-sm text-gray-500">
-                  Make this page available for bookings
+                  Haz que esta página esté disponible para reservas
                 </p>
               </div>
               <Switch
@@ -311,9 +311,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Availability Schedule</CardTitle>
+                <CardTitle>Horario de disponibilidad</CardTitle>
                 <p className="text-sm text-gray-600 mt-1">
-                  Set your working hours for this booking page
+                  Configura tu horario laboral para esta página de reserva
                 </p>
               </div>
               <Button
@@ -323,7 +323,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                 onClick={addAvailabilitySlot}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Slot
+                Añadir horario
               </Button>
             </div>
           </CardHeader>
@@ -332,8 +332,8 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
               {availability.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Clock className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p>No availability slots configured.</p>
-                  <p className="text-sm mt-1">Click "Add Slot" to get started.</p>
+                  <p>No hay horarios de disponibilidad configurados.</p>
+                  <p className="text-sm mt-1">Click "Añadir horario" to get started.</p>
                 </div>
               ) : (
                 availability.map((slot, index) => (
@@ -343,7 +343,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                   >
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <Label className="text-xs">Day of Week</Label>
+                        <Label className="text-xs">Día de la semana</Label>
                         <Select
                           value={slot.dayOfWeek.toString()}
                           onValueChange={(value) =>
@@ -364,7 +364,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                       </div>
 
                       <div>
-                        <Label className="text-xs">Start Time</Label>
+                        <Label className="text-xs">Hora de inicio</Label>
                         <Select
                           value={slot.startTime}
                           onValueChange={(value) =>
@@ -385,7 +385,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                       </div>
 
                       <div>
-                        <Label className="text-xs">End Time</Label>
+                        <Label className="text-xs">Hora de finalización</Label>
                         <Select
                           value={slot.endTime}
                           onValueChange={(value) =>
@@ -431,12 +431,12 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Saving...
+                Guardando...
               </>
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                Save All Changes
+                Guardar todos los cambios
               </>
             )}
           </Button>
