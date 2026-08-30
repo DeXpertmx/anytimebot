@@ -1,6 +1,6 @@
 
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
+import { getBookingPageData } from '@/lib/public-booking';
 import { BookingForm } from '@/components/public/booking-form';
 import { Calendar, Clock, MapPin, Video, Phone, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -16,34 +16,8 @@ interface BookingPageProps {
 export default async function PublicBookingPage({ params }: BookingPageProps) {
   const { username, slug } = params;
 
-  // Find the user by username (case-insensitive)
-  const user = await prisma.user.findFirst({
-    where: { 
-      username: {
-        equals: username,
-        mode: 'insensitive',
-      }
-    },
-    include: {
-      bookingPages: {
-        where: {
-          slug,
-          isActive: true,
-        },
-        include: {
-          eventTypes: {
-            include: {
-              formFields: true,
-            },
-          },
-          availability: {
-            where: { isAvailable: true },
-            orderBy: { dayOfWeek: 'asc' },
-          },
-        },
-      },
-    },
-  });
+  // Find the user by username (case-insensitive) with their active booking page
+  const user = await getBookingPageData(username, slug);
 
   if (!user || !user.bookingPages[0]) {
     notFound();

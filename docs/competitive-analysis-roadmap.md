@@ -205,8 +205,8 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 - [ ] Facturación básica
 
 ### Fase 3 — Experiencia (4-6 semanas)
-- [ ] PWA o App móvil con notificaciones push
-- [ ] Widget embebido para sitios web externos
+- [x] PWA instalable (manifest, service worker, iconos) ✅
+- [x] Widget embebido para sitios web externos ✅
 - [x] Integración Zoom/Teams (crear enlace automáticamente) ✅
 - [ ] Gestión de ausencias y vacaciones
 
