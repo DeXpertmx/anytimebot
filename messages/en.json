@@ -124,7 +124,8 @@
     "view": "View",
     "noBookings": "No bookings yet",
     "noEventTypes": "No event types yet",
-    "customers": "Customers"
+    "customers": "Customers",
+    "feedback": "Feedback"
   },
   "auth": {
     "signIn": "Sign In",
@@ -273,6 +274,9 @@
   "crm": {
     "subtitle": "History, notes and tags for your customers",
     "searchPlaceholder": "Search by name, email, phone or tag...",
+    "segments": "Segments",
+    "allCustomers": "All",
+    "exportCsv": "Export CSV",
     "empty": "No customers yet",
     "emptyDesc": "Customers appear automatically when someone books a meeting",
     "editTitle": "Edit customer",

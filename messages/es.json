@@ -124,7 +124,8 @@
     "view": "Ver",
     "noBookings": "No hay reservas aún",
     "noEventTypes": "No hay tipos de eventos aún",
-    "customers": "Clientes"
+    "customers": "Clientes",
+    "feedback": "Opiniones"
   },
   "auth": {
     "signIn": "Iniciar Sesión",
@@ -273,6 +274,9 @@
   "crm": {
     "subtitle": "Historial, notas y etiquetas de tus clientes",
     "searchPlaceholder": "Buscar por nombre, email, teléfono o etiqueta...",
+    "segments": "Segmentos",
+    "allCustomers": "Todos",
+    "exportCsv": "Exportar CSV",
     "empty": "Aún no tienes clientes",
     "emptyDesc": "Los clientes aparecen automáticamente cuando alguien reserva una cita",
     "editTitle": "Editar cliente",

@@ -25,6 +25,8 @@ export default function CalendarPage() {
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [timeOffs, setTimeOffs] = useState<TimeOff[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [guestHistory, setGuestHistory] = useState<Booking[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>('month');
@@ -65,6 +67,19 @@ export default function CalendarPage() {
   };
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/auth/signin'); }, [status, router]);
+
+  // Load guest history when a booking detail is opened
+  useEffect(() => {
+    if (!selectedBooking) { setGuestHistory([]); return; }
+    let cancelled = false;
+    setHistoryLoading(true);
+    fetch(`/api/bookings?guestEmail=${encodeURIComponent(selectedBooking.guestEmail)}&limit=20&status=all`)
+      .then((res) => res.json())
+      .then((data) => { if (!cancelled && data.success) setGuestHistory(data.data.bookings || []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedBooking]);
   useEffect(() => { if (session) load(); }, [session]);
   useEffect(() => { if (searchParams.get('success') === 'true') { toast.success('Google Calendar conectado exitosamente'); window.history.replaceState({}, '', '/dashboard/calendar'); } }, [searchParams]);
 
@@ -321,6 +336,45 @@ export default function CalendarPage() {
               </div>
               <div className="rounded-lg bg-slate-50 p-3 text-sm">
                 <span className="font-medium">Estado: </span>{selectedBooking.status === 'CONFIRMED' ? 'Confirmada' : 'Pendiente'}
+              </div>
+
+              {/* Customer history */}
+              <div className="border-t pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Historial del cliente</p>
+                {historyLoading ? (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
+                  </div>
+                ) : guestHistory.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">Sin citas anteriores</p>
+                ) : (
+                  <ul className="mt-2 max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                    {guestHistory.map((item) => (
+                      <li
+                        key={item.id}
+                        className={`flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm ${
+                          item.id === selectedBooking.id ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'bg-slate-50'
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{item.eventType.name}</span>
+                        <span className="shrink-0 text-xs text-slate-500">
+                          {new Date(item.startTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            item.status === 'CONFIRMED'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : item.status === 'CANCELLED'
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {item.status === 'CONFIRMED' ? 'Confirmada' : item.status === 'CANCELLED' ? 'Cancelada' : 'Pendiente'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>

@@ -20,6 +20,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  Download,
   Loader2,
   Mail,
   Phone,
@@ -54,6 +55,8 @@ export function CustomersList() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<{ name: string; count: number }[]>([]);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', notes: '', tags: [] as string[] });
@@ -64,10 +67,13 @@ export function CustomersList() {
   const { toast } = useToast();
   const { t } = useTranslation();
 
-  const fetchCustomers = useCallback(async (q = '') => {
+  const fetchCustomers = useCallback(async (q = '', tag: string | null = activeTag) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (tag) params.set('tag', tag);
+      const response = await fetch(`/api/customers?${params.toString()}`);
       const data = await response.json();
       if (data.success) {
         setCustomers(data.data);
@@ -88,17 +94,40 @@ export function CustomersList() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t]);
+  }, [t, activeTag]);
+
+  const fetchTags = useCallback(async () => {
+    try {
+      const response = await fetch('/api/customers?tags=1');
+      const data = await response.json();
+      if (data.success) setAvailableTags(data.data);
+    } catch (error) {
+      // silent
+    }
+  }, []);
 
   useEffect(() => {
     fetchCustomers();
-  }, [fetchCustomers]);
+    fetchTags();
+  }, [fetchCustomers, fetchTags]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchCustomers(query), 350);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [query, activeTag]);
+
+  const selectTag = (tag: string | null) => {
+    setActiveTag(tag);
+  };
+
+  const exportCsv = () => {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (activeTag) params.set('tag', activeTag);
+    const qs = params.toString();
+    window.open(`/api/customers/export${qs ? `?${qs}` : ''}`, '_blank');
+  };
 
   const openEdit = (customer: Customer) => {
     setEditing(customer);
@@ -138,6 +167,7 @@ export function CustomersList() {
         toast({ title: t('common.success'), description: t('crm.saved') });
         setEditing(null);
         fetchCustomers(query);
+        fetchTags();
       } else {
         toast({
           title: t('common.error'),
@@ -164,6 +194,7 @@ export function CustomersList() {
       if (data.success) {
         toast({ title: t('common.success'), description: t('crm.deleted') });
         fetchCustomers(query);
+        fetchTags();
       } else {
         toast({
           title: t('common.error'),
@@ -209,15 +240,56 @@ export function CustomersList() {
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('crm.searchPlaceholder')}
-          className="pl-9"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-md flex-1 min-w-[220px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('crm.searchPlaceholder')}
+            className="pl-9"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={exportCsv} className="shrink-0">
+          <Download className="mr-2 h-4 w-4" />
+          {t('crm.exportCsv')}
+        </Button>
       </div>
+
+      {availableTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-medium text-gray-500">{t('crm.segments')}:</span>
+          <button
+            type="button"
+            onClick={() => selectTag(null)}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              activeTag === null
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {t('crm.allCustomers')}
+          </button>
+          {availableTags.map(({ name, count }) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => selectTag(name)}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                activeTag === name
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+              }`}
+            >
+              <Tag className="h-3 w-3" />
+              {name}
+              <span className={activeTag === name ? 'text-indigo-200' : 'text-amber-500'}>
+                ({count})
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-gray-500">

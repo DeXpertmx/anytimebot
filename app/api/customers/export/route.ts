@@ -5,8 +5,7 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/customers - list the owner's CRM contacts with booking stats
-// Query params: q (search), tag (filter by tag), tags=1 (return only available tags)
+// GET /api/customers/export - CSV export of the owner's customers (optional ?q= / ?tag= filters)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,27 +17,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q')?.trim();
     const tag = searchParams.get('tag')?.trim().toLowerCase();
-
-    // Tag-only mode: return all distinct tags for quick filter chips
-    if (searchParams.get('tags')) {
-      const customers = await prisma.customer.findMany({
-        where: { userId },
-        select: { tags: true },
-      });
-      const tagCounts = new Map<string, number>();
-      for (const customer of customers) {
-        for (const item of customer.tags) {
-          tagCounts.set(item, (tagCounts.get(item) || 0) + 1);
-        }
-      }
-      const tags = Array.from(tagCounts.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-      return NextResponse.json({ success: true, data: tags });
-    }
-
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
 
     const where: any = { userId };
     if (tag) {
@@ -58,14 +36,8 @@ export async function GET(request: NextRequest) {
       delete where.tags;
     }
 
-    const [customers, total, totalsByMail, confirmedByMail] = await Promise.all([
-      prisma.customer.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.customer.count({ where }),
+    const [customers, totalsByMail, confirmedByMail] = await Promise.all([
+      prisma.customer.findMany({ where, orderBy: { createdAt: 'desc' } }),
       prisma.booking
         .groupBy({
           by: ['guestEmail'],
@@ -103,23 +75,56 @@ export async function GET(request: NextRequest) {
     const totalMap = new Map(totalsByMail.map((row) => [row.email, row]));
     const confirmedMap = new Map(confirmedByMail.map((row) => [row.email, row.count]));
 
-    const data = customers.map((customer) => {
+    const csvEscape = (value: unknown): string => {
+      const str = value == null ? '' : String(value);
+      if (/[",\n\r]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const header = [
+      'name',
+      'email',
+      'phone',
+      'tags',
+      'notes',
+      'total_bookings',
+      'confirmed_bookings',
+      'last_booking_at',
+      'created_at',
+    ];
+    const rows = customers.map((customer) => {
       const stats = totalMap.get(customer.email.toLowerCase());
-      return {
-        ...customer,
-        totalBookings: stats?.count || 0,
-        confirmedBookings: confirmedMap.get(customer.email.toLowerCase()) || 0,
-        lastBookingAt: stats?.last || null,
-      };
+      return [
+        customer.name || '',
+        customer.email,
+        customer.phone || '',
+        customer.tags.join('; '),
+        customer.notes || '',
+        stats?.count || 0,
+        confirmedMap.get(customer.email.toLowerCase()) || 0,
+        stats?.last ? stats.last.toISOString() : '',
+        customer.createdAt.toISOString(),
+      ]
+        .map(csvEscape)
+        .join(',');
     });
 
-    return NextResponse.json({
-      success: true,
-      data,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    // BOM so Excel opens UTF-8 correctly
+    const csv = '\uFEFF' + [header.join(','), ...rows].join('\r\n');
+
+    const filenameTag = tag ? `-${tag}` : '';
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="customers${filenameTag}.csv"`,
+        'Cache-Control': 'no-store',
+      },
     });
   } catch (error) {
-    console.error('Error fetching customers:', error);
+    console.error('Error exporting customers:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

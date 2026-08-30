@@ -140,6 +140,18 @@ model Customer {
 }
 
 // Time off / vacation blocks: whole-day ranges where the owner is unavailable
+model Feedback {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique @map("booking_id")
+  rating      Int // 1-5 stars
+  comment     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("feedbacks")
+}
+
 model TimeOff {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
@@ -338,6 +350,7 @@ model Booking {
   routingResponse RoutingFormResponse?
   videoSession VideoSession?
   meetingBriefings MeetingBriefing[]
+  feedback Feedback?
 
   @@map("bookings")
 }
