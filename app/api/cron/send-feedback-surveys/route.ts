@@ -7,8 +7,9 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Cron job: send post-booking feedback surveys.
- * Finds confirmed bookings that ended 2-4 hours ago without feedback and
- * emails the guest a survey link (one attempt per booking).
+ * Finds confirmed bookings that ended between 2 and 26 hours ago without
+ * feedback and emails the guest a survey link (one attempt per booking —
+ * the feedback record itself is the dedup marker).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -21,12 +22,12 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    const twentySixHoursAgo = new Date(now.getTime() - 26 * 60 * 60 * 1000);
 
-    // Confirmed bookings that ended 2-4h ago, guest has no feedback yet
+    // Confirmed bookings that ended 2-26h ago, guest has no feedback yet
     const bookings = await prisma.booking.findMany({
       where: {
-        endTime: { gte: fourHoursAgo, lte: twoHoursAgo },
+        endTime: { gte: twentySixHoursAgo, lte: twoHoursAgo },
         status: 'CONFIRMED',
         guestEmail: { not: '' },
         feedback: null,
