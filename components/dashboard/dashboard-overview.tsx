@@ -13,6 +13,7 @@ import {
   Plus,
   ArrowRight,
   TrendingUp,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -23,6 +24,8 @@ interface DashboardStats {
   totalBookings: number;
   upcomingBookings: number;
   recentBookings: any[];
+  averageRating: number | null;
+  feedbackCount: number;
 }
 
 export function DashboardOverview() {
@@ -35,16 +38,18 @@ export function DashboardOverview() {
       if (!session?.user) return;
 
       try {
-        const [bookingPagesRes, eventTypesRes, bookingsRes] = await Promise.all([
+        const [bookingPagesRes, eventTypesRes, bookingsRes, feedbackRes] = await Promise.all([
           fetch('/api/booking-pages'),
           fetch('/api/event-types'),
           fetch('/api/bookings?limit=5'),
+          fetch('/api/feedback'),
         ]);
 
-        const [bookingPagesData, eventTypesData, bookingsData] = await Promise.all([
+        const [bookingPagesData, eventTypesData, bookingsData, feedbackData] = await Promise.all([
           bookingPagesRes.json(),
           eventTypesRes.json(),
           bookingsRes.json(),
+          feedbackRes.json(),
         ]);
 
         if (bookingPagesData?.success && eventTypesData?.success && bookingsData?.success) {
@@ -59,6 +64,12 @@ export function DashboardOverview() {
             totalBookings: bookingsData.data?.pagination?.total || 0,
             upcomingBookings: upcomingBookings.length,
             recentBookings: bookingsData.data?.bookings?.slice(0, 3) || [],
+            averageRating: feedbackData?.success
+              ? feedbackData.data?.summary?.total > 0
+                ? feedbackData.data.summary.average
+                : null
+              : null,
+            feedbackCount: feedbackData?.success ? feedbackData.data?.summary?.total || 0 : 0,
           });
         }
       } catch (error) {
@@ -119,12 +130,20 @@ export function DashboardOverview() {
       bgColor: 'bg-orange-50',
       href: '/dashboard/bookings?status=confirmed',
     },
+    {
+      title: 'Avg Rating',
+      value: stats?.averageRating != null ? `${stats.averageRating} ★` : '—',
+      icon: Star,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      href: '/dashboard/feedback',
+    },
   ];
 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         {statsCards.map((stat) => (
           <Link key={stat.title} href={stat.href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
