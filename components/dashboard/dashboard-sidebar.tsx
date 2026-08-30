@@ -23,6 +23,7 @@ import {
   CreditCard,
   Shield,
   MessageSquareQuote,
+  Wallet,
 } from 'lucide-react';
 
 export function DashboardSidebar() {
@@ -82,9 +83,9 @@ export function DashboardSidebar() {
       icon: MessageSquareQuote,
     },
     {
-      name: t('dashboard.feedback'),
-      href: '/dashboard/feedback',
-      icon: MessageSquareQuote,
+      name: t('dashboard.revenue'),
+      href: '/dashboard/revenue',
+      icon: Wallet,
     },
     {
       name: t('dashboard.availability'),

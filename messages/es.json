@@ -125,7 +125,8 @@
     "noBookings": "No hay reservas aún",
     "noEventTypes": "No hay tipos de eventos aún",
     "customers": "Clientes",
-    "feedback": "Opiniones"
+    "feedback": "Opiniones",
+    "revenue": "Ingresos"
   },
   "auth": {
     "signIn": "Iniciar Sesión",
@@ -495,5 +496,16 @@
         "answer": "¡Sí! El plan gratuito admite enlaces de video externos de Zoom, Google Meet y Microsoft Teams. Las Smart Video Rooms con grabación/transcripción integradas requieren Pro o superior."
       }
     ]
+  },
+  "revenue": {
+    "netTotal": "Ingresos netos",
+    "gross": "Bruto",
+    "paidBookings": "Reservas pagadas",
+    "avgBooking": "Ticket promedio",
+    "refunded": "Reembolsado",
+    "monthlyTitle": "Ingresos por mes (últimos 12 meses)",
+    "byTypeTitle": "Ingresos por tipo de evento",
+    "noData": "Aún no hay pagos registrados.",
+    "loadError": "No se pudo cargar el reporte de ingresos."
   }
 }

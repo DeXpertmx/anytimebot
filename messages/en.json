@@ -125,7 +125,8 @@
     "noBookings": "No bookings yet",
     "noEventTypes": "No event types yet",
     "customers": "Customers",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "revenue": "Revenue"
   },
   "auth": {
     "signIn": "Sign In",
@@ -495,5 +496,16 @@
         "answer": "Yes! The free plan supports external video links from Zoom, Google Meet, and Microsoft Teams. Smart Video Rooms with built-in recording/transcription require Pro or higher."
       }
     ]
+  },
+  "revenue": {
+    "netTotal": "Net revenue",
+    "gross": "Gross",
+    "paidBookings": "Paid bookings",
+    "avgBooking": "Average booking",
+    "refunded": "Refunded",
+    "monthlyTitle": "Revenue by month (last 12 months)",
+    "byTypeTitle": "Revenue by event type",
+    "noData": "No payments recorded yet.",
+    "loadError": "Failed to load the revenue report."
   }
 }
