@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { feedbackToken } from '../route';
+import { feedbackToken } from '@/lib/feedback-token';
 
 export const dynamic = 'force-dynamic';
 

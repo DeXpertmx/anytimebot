@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import crypto from 'crypto';
+import { feedbackToken } from '@/lib/feedback-token';
 
 export const dynamic = 'force-dynamic';
-
-// HMAC token so only the emailed link can submit feedback for a booking
-export function feedbackToken(bookingId: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || 'anytimebot-dev-secret';
-  return crypto.createHmac('sha256', secret).update(`feedback:${bookingId}`).digest('hex').slice(0, 32);
-}
 
 // POST /api/feedback - submit feedback for a booking (public, token-protected)
 export async function POST(request: NextRequest) {

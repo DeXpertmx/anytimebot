@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
-import { feedbackToken } from '@/app/api/feedback/route';
+import { feedbackToken } from '@/lib/feedback-token';
 
 export const dynamic = 'force-dynamic';
 
