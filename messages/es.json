@@ -299,6 +299,9 @@
     "deleteFailed": "Error al eliminar el cliente",
     "history": "Historial de reservas",
     "historyEmpty": "Sin reservas registradas",
+    "customerFeedback": "Opiniones del cliente",
+    "feedbackEmpty": "Este cliente aún no ha dejado opiniones",
+    "feedbackCount": "{count} opiniones",
     "loading": "Cargando..."
   },
   "availability": {

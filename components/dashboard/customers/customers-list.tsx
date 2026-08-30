@@ -25,6 +25,7 @@ import {
   Mail,
   Phone,
   Search,
+  Star,
   Tag,
   Trash2,
   UserRound,
@@ -51,6 +52,15 @@ interface HistoryItem {
   eventType: { name: string };
 }
 
+interface FeedbackItem {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+  eventTypeName: string;
+  startTime: string;
+}
+
 export function CustomersList() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +74,9 @@ export function CustomersList() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [feedbackSummary, setFeedbackSummary] = useState<{ total: number; average: number } | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
 
@@ -219,6 +232,9 @@ export function CustomersList() {
     setExpanded(customer.id);
     setHistory([]);
     setHistoryLoading(true);
+    setFeedbacks([]);
+    setFeedbackSummary(null);
+    setFeedbackLoading(true);
     try {
       const response = await fetch(`/api/bookings?guestEmail=${encodeURIComponent(customer.email)}&limit=20&status=all`);
       const data = await response.json();
@@ -227,6 +243,18 @@ export function CustomersList() {
       // silent
     } finally {
       setHistoryLoading(false);
+    }
+    try {
+      const response = await fetch(`/api/customers/${customer.id}/feedback`);
+      const data = await response.json();
+      if (data.success) {
+        setFeedbacks(data.data.feedbacks);
+        setFeedbackSummary(data.data.summary);
+      }
+    } catch (error) {
+      // silent
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -379,7 +407,68 @@ export function CustomersList() {
                 </div>
 
                 {expanded === customer.id && (
-                  <div className="mt-4 space-y-2 border-t pt-3">
+                  <div className="mt-4 space-y-3 border-t pt-3">
+                    {/* Customer feedback */}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        {t('crm.customerFeedback')}
+                      </p>
+                      {feedbackLoading ? (
+                        <div className="mt-1.5 flex items-center gap-2 text-sm text-gray-500">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {t('crm.loading')}
+                        </div>
+                      ) : !feedbackSummary || feedbackSummary.total === 0 ? (
+                        <p className="mt-1.5 text-sm text-gray-500">{t('crm.feedbackEmpty')}</p>
+                      ) : (
+                        <>
+                          <p className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-700">
+                            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                            <span className="font-semibold">{feedbackSummary.average}</span>
+                            <span className="text-gray-500">
+                              · {t('crm.feedbackCount', { count: feedbackSummary.total })}
+                            </span>
+                          </p>
+                          <ul className="mt-1.5 space-y-1.5">
+                            {feedbacks.map((item) => (
+                              <li
+                                key={item.id}
+                                className="rounded-md bg-amber-50/60 px-3 py-1.5 text-sm"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center gap-0.5">
+                                    {Array.from({ length: 5 }, (_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`h-3 w-3 ${
+                                          i < item.rating
+                                            ? 'fill-amber-400 text-amber-400'
+                                            : 'text-gray-300'
+                                        }`}
+                                      />
+                                    ))}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {item.eventTypeName} ·{' '}
+                                    {new Date(item.startTime).toLocaleDateString(undefined, {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                </div>
+                                {item.comment && (
+                                  <p className="mt-1 text-gray-700">“{item.comment}”</p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Booking history */}
+                    <div>
                     {historyLoading ? (
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -410,6 +499,7 @@ export function CustomersList() {
                         ))}
                       </ul>
                     )}
+                    </div>
                   </div>
                 )}
               </CardContent>

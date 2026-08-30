@@ -299,6 +299,9 @@
     "deleteFailed": "Failed to delete customer",
     "history": "Booking history",
     "historyEmpty": "No bookings recorded",
+    "customerFeedback": "Customer feedback",
+    "feedbackEmpty": "This customer hasn't left feedback yet",
+    "feedbackCount": "{count} reviews",
     "loading": "Loading..."
   },
   "availability": {
