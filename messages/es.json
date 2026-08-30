@@ -297,6 +297,8 @@
     "widgetButton": "Botón flotante (popup)",
     "widgetButtonHint": "Pega este código para mostrar un botón flotante que abre el calendario en una ventana emergente. Personaliza data-label y data-color si quieres.",
     "copy": "Copiar",
+    "copyLink": "Copiar enlace",
+    "ownerBar": "Esta es tu página de reserva — compártela o insértala en tu sitio web",
     "widgetButtonDefaultLabel": "Agendar"
   },
   "pricing": {

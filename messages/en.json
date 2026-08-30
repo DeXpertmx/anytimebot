@@ -297,6 +297,8 @@
     "widgetButton": "Floating button (popup)",
     "widgetButtonHint": "Paste this code to show a floating button that opens the calendar in a popup. Customize data-label and data-color if you like.",
     "copy": "Copy",
+    "copyLink": "Copy link",
+    "ownerBar": "This is your booking page — share it or embed it on your website",
     "widgetButtonDefaultLabel": "Book now"
   },
   "pricing": {

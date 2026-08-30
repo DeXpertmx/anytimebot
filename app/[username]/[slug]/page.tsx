@@ -1,7 +1,10 @@
 
 import { notFound } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getBookingPageData } from '@/lib/public-booking';
 import { BookingForm } from '@/components/public/booking-form';
+import { OwnerShareBar } from '@/components/public/owner-share-bar';
 import { Calendar, Clock, MapPin, Video, Phone, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { EventType, BookingFormField } from '@prisma/client';
@@ -24,6 +27,13 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
   }
 
   const bookingPage = user.bookingPages[0];
+
+  // Owner-only share bar (Calendly-style)
+  const session = await getServerSession(authOptions);
+  const isOwner =
+    !!session?.user &&
+    !!(session.user as any).id &&
+    (session.user as any).id === user.id;
 
   if (!bookingPage.isActive) {
     return (
@@ -57,7 +67,7 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50">
+    <div className={`min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 ${isOwner ? 'pb-24' : ''}`}>
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -168,6 +178,11 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Owner share bar */}
+      {isOwner && user.username && (
+        <OwnerShareBar username={user.username} slug={bookingPage.slug} />
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t mt-16">
