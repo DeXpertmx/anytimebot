@@ -14,6 +14,7 @@ import {
   FileText,
   Settings,
   Users,
+  UsersRound,
   BarChart3,
   Globe,
   Bot,
@@ -68,6 +69,11 @@ export function DashboardSidebar() {
       name: t('dashboard.bookings'),
       href: '/dashboard/bookings',
       icon: FileText,
+    },
+    {
+      name: t('dashboard.customers'),
+      href: '/dashboard/customers',
+      icon: UsersRound,
     },
     {
       name: t('dashboard.availability'),

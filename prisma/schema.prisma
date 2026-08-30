@@ -115,8 +115,28 @@ model User {
   adminNotes   AdminNote[]
   auditLogs    AdminAuditLog[]
   timeOffs     TimeOff[]
+  customers    Customer[]
 
   @@map("users")
+}
+
+// CRM: contact record per owner guest (auto-synced from bookings)
+model Customer {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  email     String
+  name      String?
+  phone     String?
+  notes     String?
+  tags      String[] @default([])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+  @@index([userId, createdAt])
+  @@map("customers")
 }
 
 // Time off / vacation blocks: whole-day ranges where the owner is unavailable

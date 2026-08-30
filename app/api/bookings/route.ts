@@ -12,6 +12,7 @@ import { assignTeamMember } from '@/lib/team-assignment';
 import { createVideoSession } from '@/lib/video-session';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
+import { upsertCustomerFromBooking } from '@/lib/crm';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const guestEmail = searchParams.get('guestEmail');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
 
@@ -41,6 +43,10 @@ export async function GET(request: NextRequest) {
 
     if (status && status !== 'all') {
       where.status = status.toUpperCase();
+    }
+
+    if (guestEmail) {
+      where.guestEmail = { equals: guestEmail, mode: 'insensitive' };
     }
 
     const [bookings, total] = await Promise.all([
@@ -170,6 +176,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // CRM: keep the guest's contact record up to date
+    await upsertCustomerFromBooking(eventType.bookingPage.userId, {
+      email: guestEmail,
+      name: guestName,
+      phone: guestPhone,
+    });
 
     // Calculate end time
     const bookingStartTime = new Date(startTime);

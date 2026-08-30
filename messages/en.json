@@ -1,4 +1,3 @@
-
 {
   "landing": {
     "title": "AI-Powered Scheduling",
@@ -124,7 +123,8 @@
     "edit": "Edit",
     "view": "View",
     "noBookings": "No bookings yet",
-    "noEventTypes": "No event types yet"
+    "noEventTypes": "No event types yet",
+    "customers": "Customers"
   },
   "auth": {
     "signIn": "Sign In",
@@ -269,6 +269,33 @@
     "requiredField": "Required field",
     "saving": "Saving...",
     "saveChanges": "Save Changes"
+  },
+  "crm": {
+    "subtitle": "History, notes and tags for your customers",
+    "searchPlaceholder": "Search by name, email, phone or tag...",
+    "empty": "No customers yet",
+    "emptyDesc": "Customers appear automatically when someone books a meeting",
+    "editTitle": "Edit customer",
+    "name": "Name",
+    "phone": "Phone",
+    "notes": "Notes",
+    "notesPlaceholder": "Internal notes about this customer...",
+    "tags": "Tags",
+    "tagsPlaceholder": "Type a tag and press Enter",
+    "totalBookings": "{{count}} bookings",
+    "confirmed": "{{count}} confirmed",
+    "lastBooking": "Last: {{date}}",
+    "never": "No bookings",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this customer? Their bookings will be kept.",
+    "saved": "Customer updated successfully",
+    "saveFailed": "Failed to save customer",
+    "deleted": "Customer deleted",
+    "deleteFailed": "Failed to delete customer",
+    "history": "Booking history",
+    "historyEmpty": "No bookings recorded",
+    "loading": "Loading..."
   },
   "availability": {
     "subtitle": "Set your working hours and availability for bookings",
