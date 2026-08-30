@@ -623,8 +623,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
         </div>
       </Card>
 
-      {/* Danger Zone */}
-      <Card className="p-6 border-red-200">
+      {/* Danger Zone — intentionally kept as the final section of this form */}
+      <Card className="order-last p-6 border-red-200">
         <div className="flex items-center mb-6">
           <div className="w-5 h-5 text-red-600 mr-2">⚠️</div>
           <h2 className="text-xl font-semibold text-red-600">Danger Zone</h2>
