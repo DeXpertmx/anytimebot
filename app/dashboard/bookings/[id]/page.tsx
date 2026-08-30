@@ -27,6 +27,7 @@ interface Booking {
     duration: number;
     location: string;
     videoLink?: string;
+    formFields?: Array<{ id: string; label: string }>;
   };
 }
 
@@ -246,14 +247,18 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {Object.entries(booking.formData).map(([key, value]) => (
-                    <div key={key}>
-                      <label className="text-sm font-medium text-muted-foreground capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </label>
-                      <p className="mt-1">{String(value)}</p>
-                    </div>
-                  ))}
+                  {Object.entries(booking.formData).map(([key, value]) => {
+                    // Resolve the human-readable label from the event type's
+                    // custom form fields; fall back to the raw key (guestName etc.)
+                    const field = booking.eventType?.formFields?.find((f: { id: string }) => f.id === key);
+                    const label = field?.label ?? key.replace(/([A-Z])/g, ' $1').trim();
+                    return (
+                      <div key={key}>
+                        <label className="text-sm font-medium text-muted-foreground">{label}</label>
+                        <p className="mt-1">{typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

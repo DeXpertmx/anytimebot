@@ -177,6 +177,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Server-side validation of required custom form fields
+    const missingRequired = (eventType.formFields || []).filter((f) => {
+      const v = formData?.[f.id];
+      return f.required && (v === undefined || v === null || v === '' || v === false);
+    });
+    if (missingRequired.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `Missing required fields: ${missingRequired.map((f) => f.label).join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     // CRM: keep the guest's contact record up to date
     await upsertCustomerFromBooking(eventType.bookingPage.userId, {
       email: guestEmail,

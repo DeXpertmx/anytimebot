@@ -148,6 +148,19 @@ export function BookingForm({
       return;
     }
 
+    // Validate required custom form fields
+    const missingRequired = (selectedEventType.formFields || []).filter(
+      (f) => f.required && (formData[f.id] === undefined || formData[f.id] === '' || formData[f.id] === false)
+    );
+    if (missingRequired.length > 0) {
+      toast({
+        title: 'Missing Information',
+        description: `Please fill in: ${missingRequired.map((f) => f.label).join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -477,6 +490,44 @@ export function BookingForm({
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+              {field.type === 'EMAIL' && (
+                <Input
+                  id={field.id}
+                  type="email"
+                  value={formData[field.id] || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, [field.id]: e.target.value })
+                  }
+                  required={field.required}
+                  placeholder={field.placeholder || 'name@example.com'}
+                />
+              )}
+              {field.type === 'PHONE' && (
+                <Input
+                  id={field.id}
+                  type="tel"
+                  value={formData[field.id] || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, [field.id]: e.target.value })
+                  }
+                  required={field.required}
+                  placeholder={field.placeholder || '+1 (555) 123-4567'}
+                />
+              )}
+              {field.type === 'CHECKBOX' && (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                  <input
+                    id={field.id}
+                    type="checkbox"
+                    checked={formData[field.id] === true}
+                    onChange={(e) =>
+                      setFormData({ ...formData, [field.id]: e.target.checked })
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  {field.placeholder || field.label}
+                </label>
               )}
             </div>
           ))}
