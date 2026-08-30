@@ -153,7 +153,7 @@ export default function CalendarPage() {
   if (status === 'loading' || loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="h-[calc(100vh-4rem)] -m-6 flex flex-col overflow-hidden bg-slate-50/70">
+    <div className="-m-6 flex min-h-[calc(100vh-4rem)] flex-col bg-slate-50/70">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0">
         <div className="flex items-center gap-3">
@@ -197,15 +197,15 @@ export default function CalendarPage() {
       </div>
 
       {/* Calendar grid */}
-      <div className="flex-1 min-h-0 px-4 pb-2">
+      <div className="min-h-[34rem] flex-1 px-4 pb-6">
         {view === 'month' ? (
-          <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex min-h-[34rem] flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
               {weekdays.map(day => (
                 <div key={day} className="px-2 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">{day}</div>
               ))}
             </div>
-            <div className="grid flex-1 grid-cols-7 grid-rows-6">
+            <div className="grid min-h-[30rem] flex-1 grid-cols-7 grid-rows-6">
               {visibleDays.map(day => {
                 const dayItems = dayBookings(day);
                 const currentMonth = day.getMonth() === month.getMonth();
@@ -254,7 +254,7 @@ export default function CalendarPage() {
           </div>
         ) : (
           /* Week / Day view */
-          <div className="h-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="min-h-[34rem] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="grid h-full" style={{ gridTemplateColumns: `60px repeat(${visibleDays.length}, minmax(0, 1fr))` }}>
               <div className="sticky top-0 z-10 border-b bg-slate-50" />
               {visibleDays.map(day => (

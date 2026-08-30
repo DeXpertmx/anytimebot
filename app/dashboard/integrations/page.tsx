@@ -239,7 +239,7 @@ export default function IntegrationsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6 pb-8">
       <div className="flex items-start gap-3">
         <div className="rounded-lg bg-indigo-600 p-2.5 text-white">
           <Smartphone className="h-5 w-5" />

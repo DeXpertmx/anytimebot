@@ -223,7 +223,7 @@ export default function BotConfigPage() {
   const AvatarIcon = getAvatarIcon(botConfig.avatar);
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div className="container mx-auto max-w-6xl px-4 py-8 pb-12">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">

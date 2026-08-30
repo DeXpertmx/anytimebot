@@ -18,7 +18,7 @@ export default async function AvailabilityPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6 pb-8">
       <AvailabilityHeader />
       <AvailabilityManager />
       <TimeOffManager />
