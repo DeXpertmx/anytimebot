@@ -213,7 +213,7 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 ### Fase 4 — CRM y Analytics (6-8 semanas)
 - [ ] CRM básico (historial de clientes, notas, etiquetas)
 - [ ] Encuesta post-cita
-- [ ] Landing page del negocio
+- [x] Landing page del negocio ✅
 - [ ] Reportes avanzados de ingresos
 
 ### Fase 5 — Escalabilidad (8+ semanas)
