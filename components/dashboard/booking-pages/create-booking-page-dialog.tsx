@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -35,8 +35,43 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
   });
   const [loading, setLoading] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+
+  // Load the signed-in user's username so the URL preview shows the real
+  // public path (anytimebot.app/<username>/<slug>) instead of a placeholder.
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res?.success && res.data?.username) {
+          setUsername(res.data.username);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Live slug availability check (debounced) — slugs are unique per user,
+  // so we check against the signed-in user's existing pages.
+  useEffect(() => {
+    if (!formData.slug.trim()) {
+      setSlugAvailable(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/booking-pages`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const pages = Array.isArray(data?.data) ? data.data : [];
+        setSlugAvailable(!pages.some((p: { slug: string }) => p.slug === formData.slug));
+      } catch {
+        // ignore transient errors; server-side validation still applies
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [formData.slug]);
 
   const handleTitleChange = (title: string) => {
     setFormData(prev => {
@@ -139,7 +174,7 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
             <Label htmlFor="slug">URL Slug</Label>
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-1">
-                {typeof window !== 'undefined' ? window.location.origin : 'https://anytimebot.app'}/username/
+                {typeof window !== 'undefined' ? window.location.origin : 'https://anytimebot.app'}/{username || 'username'}/
               </span>
               <Input
                 id="slug"
@@ -152,6 +187,12 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
             <p className="text-xs text-gray-500">
               This will be your booking page URL. The username is configured in your profile and the slug is unique for your account.
             </p>
+            {formData.slug.trim() && slugAvailable === false && (
+              <p className="text-xs text-red-600">This slug is already taken. Choose another one.</p>
+            )}
+            {formData.slug.trim() && slugAvailable === true && (
+              <p className="text-xs text-emerald-600">Slug available.</p>
+            )}
           </div>
           
           <div className="space-y-2">
@@ -185,7 +226,7 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button type="submit" disabled={loading || slugAvailable === false} className="bg-indigo-600 hover:bg-indigo-700">
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
