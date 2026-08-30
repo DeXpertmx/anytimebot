@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
         email: true,
         username: true,
         timezone: true,
+        country: true,
+        currency: true,
         whatsappPhone: true,
         whatsappEnabled: true,
         evolutionApiUrl: true,
@@ -102,7 +104,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, username, timezone, bio, company, website, linkedin, twitter, phone, address } = body;
+    const { name, username, timezone, country, currency, bio, company, website, linkedin, twitter, phone, address } = body;
 
     // Check if username is taken (if it's being changed)
     if (username && username !== user.username) {
@@ -125,6 +127,8 @@ export async function PATCH(request: NextRequest) {
         ...(name !== undefined && { name }),
         ...(username !== undefined && { username }),
         ...(timezone !== undefined && { timezone }),
+        ...(country !== undefined && { country }),
+        ...(currency !== undefined && { currency }),
         ...(bio !== undefined && { bio }),
         ...(company !== undefined && { company }),
         ...(website !== undefined && { website }),

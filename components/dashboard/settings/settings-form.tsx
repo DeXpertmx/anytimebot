@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { User, Globe, Bell, Lock, X, Download } from 'lucide-react';
+import { PhoneCountryInput, getDialCode } from '@/components/ui/phone-country-input';
 
 interface User {
   id: string;
@@ -25,6 +26,8 @@ interface User {
   username: string | null;
   image: string | null;
   timezone: string;
+  country: string;
+  currency: string;
 }
 
 interface SettingsFormProps {
@@ -63,6 +66,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
     username: user.username || '',
     email: user.email,
     timezone: user.timezone,
+    country: user.country || 'ES',
+    currency: user.currency || 'EUR',
     bio: (user as any).bio || '',
     company: (user as any).company || '',
     website: (user as any).website || '',
@@ -387,16 +392,16 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 placeholder="https://twitter.com/yourprofile"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          </div>          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="phone">Teléfono</Label>
-              <Input
+              <PhoneCountryInput
                 id="phone"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+1 (555) 123-4567"
+                country={formData.country}
+                onCountryChange={(country) => setFormData({ ...formData, country })}
+                onChange={(phone) => setFormData({ ...formData, phone: `${getDialCode(formData.country)} ${phone.replace(/^\+\d+\s*/, '')}` })}
+                placeholder="612 345 678"
               />
             </div>
             <div>
@@ -405,7 +410,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 id="address"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Your business address"
+                placeholder="Dirección de tu negocio"
               />
             </div>
           </div>
@@ -438,7 +443,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
               const response = await fetch('/api/user/settings', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ timezone: formData.timezone }),
+                body: JSON.stringify({ timezone: formData.timezone, country: formData.country, currency: formData.currency }),
               });
 
               if (response.ok) {
@@ -460,6 +465,36 @@ export function SettingsForm({ user }: SettingsFormProps) {
           }}
           className="space-y-4"
         >
+          <div>
+            <Label htmlFor="country">País donde operas</Label>
+            <Select value={formData.country} onValueChange={(value) => setFormData({ ...formData, country: value })}>
+              <SelectTrigger id="country"><SelectValue placeholder="Selecciona un país" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ES">España (+34)</SelectItem>
+                <SelectItem value="MX">México (+52)</SelectItem>
+                <SelectItem value="US">Estados Unidos (+1)</SelectItem>
+                <SelectItem value="CA">Canadá (+1)</SelectItem>
+                <SelectItem value="GB">Reino Unido (+44)</SelectItem>
+                <SelectItem value="FR">Francia (+33)</SelectItem>
+                <SelectItem value="DE">Alemania (+49)</SelectItem>
+                <SelectItem value="IT">Italia (+39)</SelectItem>
+                <SelectItem value="PT">Portugal (+351)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="currency">Moneda de operación</Label>
+            <Select value={formData.currency} onValueChange={(value) => setFormData({ ...formData, currency: value })}>
+              <SelectTrigger id="currency"><SelectValue placeholder="Selecciona una moneda" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EUR">EUR — Euro</SelectItem>
+                <SelectItem value="USD">USD — Dólar estadounidense</SelectItem>
+                <SelectItem value="MXN">MXN — Peso mexicano</SelectItem>
+                <SelectItem value="GBP">GBP — Libra esterlina</SelectItem>
+                <SelectItem value="CAD">CAD — Dólar canadiense</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div>
             <Label htmlFor="timezone">Zona horaria</Label>
             <Select

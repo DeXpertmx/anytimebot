@@ -18,6 +18,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { TimezoneSelect } from '@/components/ui/timezone-select';
+import { PhoneCountryInput, getDialCode } from '@/components/ui/phone-country-input';
 
 interface EventType {
   id: string;
@@ -87,6 +88,7 @@ export function BookingForm({
     guestName: '',
     guestEmail: '',
     guestPhone: '',
+    guestCountry: 'ES',
   });
 
   // Generate week dates
@@ -239,6 +241,7 @@ export function BookingForm({
           guestName: '',
           guestEmail: '',
           guestPhone: '',
+          guestCountry: 'ES',
         });
       } else {
         const error = await response.json();
@@ -419,14 +422,13 @@ export function BookingForm({
 
           <div>
             <Label htmlFor="guestPhone">Teléfono (opcional)</Label>
-            <Input
+            <PhoneCountryInput
               id="guestPhone"
-              type="tel"
               value={formData.guestPhone}
-              onChange={(e) =>
-                setFormData({ ...formData, guestPhone: e.target.value })
-              }
-              placeholder="+1 (555) 123-4567"
+              country={formData.guestCountry}
+              onCountryChange={(guestCountry) => setFormData({ ...formData, guestCountry })}
+              onChange={(phone) => setFormData({ ...formData, guestPhone: `${getDialCode(formData.guestCountry)} ${phone.replace(/^\+\d+\s*/, '')}` })}
+              placeholder="612 345 678"
             />
           </div>
 

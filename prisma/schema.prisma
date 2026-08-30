@@ -50,6 +50,8 @@ model User {
   image         String?
   password      String?   @map("password") @db.Text // bcrypt hash for credentials login
   timezone      String    @default("UTC")
+  country       String    @default("ES")
+  currency      String    @default("EUR")
   emailVerified DateTime? @map("email_verified")
   
   // Role-based access control
@@ -72,7 +74,7 @@ model User {
   whatsappEnabled Boolean @default(false) @map("whatsapp_enabled")
   whatsappProvider String @default("evolution") @map("whatsapp_provider") // "evolution" or "twilio"
   
-  // Evolution API
+  // WhatsApp connection service
   evolutionApiUrl String?  @map("evolution_api_url")
   evolutionApiKey String?  @map("evolution_api_key")
   evolutionInstanceName String? @map("evolution_instance_name")
