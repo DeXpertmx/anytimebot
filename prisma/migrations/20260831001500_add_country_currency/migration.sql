@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN "country" TEXT NOT NULL DEFAULT 'ES';
+ALTER TABLE "users" ADD COLUMN "currency" TEXT NOT NULL DEFAULT 'EUR';
