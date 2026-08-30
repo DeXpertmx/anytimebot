@@ -35,6 +35,12 @@ describe('bot response engine', () => {
       requestBody = JSON.parse(String(init?.body));
       return new Response(JSON.stringify({
         choices: [{ message: { content: 'Respuesta generada correctamente.' } }],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 10,
+          prompt_cache_hit_tokens: 80,
+          prompt_cache_miss_tokens: 20,
+        },
       }), { status: 200 });
     }) as typeof fetch;
 
@@ -49,7 +55,8 @@ describe('bot response engine', () => {
       });
 
       assert.equal(response, 'Respuesta generada correctamente.');
-      assert.equal(requestBody.model, 'gpt-4.1-mini');
+      const model = process.env.LLM_MODEL || 'deepseek-v4-flash';
+      assert.equal(requestBody.model, model);
       assert.equal(requestBody.messages.at(-1).content, 'Necesito ayuda');
     } finally {
       globalThis.fetch = originalFetch;

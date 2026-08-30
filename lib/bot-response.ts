@@ -1,5 +1,6 @@
 import { findSimilarDocuments } from '@/lib/embeddings';
 import { getPublicAppUrl } from '@/lib/public-url';
+import { computeLlmUsage, logLlmUsage } from '@/lib/llm-usage';
 
 type BotDocument = {
   id: string;
@@ -77,25 +78,60 @@ Mensaje actual del usuario:
 ${message}`;
 }
 
+// Cache-friendly ordering: STATIC content (system prompt, persona, base de
+// conocimiento) goes first and stays byte-identical across calls so DeepSeek
+// reuses its prefix cache. Dynamic content (user message) always goes last.
+function buildDeepSeekPayload(context: BotResponseContext) {
+  const system = buildBotPrompt(context);
+  const conversation = context.conversation || [];
+  const alreadyIncluded = conversation.some(
+    (item) => item.role === 'user' && item.content === context.message
+  );
+  return {
+    model: process.env.LLM_MODEL || 'deepseek-v4-flash',
+    messages: [
+      { role: 'system' as const, content: system },
+      // Static, ordered history first (keeps the token prefix stable), append
+      // current user turn last.
+      ...conversation.slice(-8),
+      ...(alreadyIncluded ? [] : [{ role: 'user' as const, content: context.message }]),
+    ],
+    max_tokens: context.channel === 'whatsapp' ? 600 : 1000,
+    temperature: 0.7,
+  };
+}
+
+const DEEPSEEK_URL = process.env.LLM_BASE_URL || 'https://api.deepseek.com/chat/completions';
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Exponential backoff with jitter for 429 (rate limit). Keeps bursts from
+// hammering the API and keeps the shared cache prefix warm.
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 4) {
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt >= attempts) {
+      return res;
+    }
+    const base = 500 * 2 ** (attempt - 1);
+    const delay = base + Math.random() * base;
+    await sleep(delay);
+  }
+}
+
 export async function generateBotResponse(context: BotResponseContext): Promise<string> {
-  const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.LLM_API_KEY || '';
+  const payload = buildDeepSeekPayload(context);
+
+  const response = await fetchWithRetry(DEEPSEEK_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.ABACUSAI_API_KEY || ''}`,
+      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: 'gpt-4.1-mini',
-      messages: [
-        { role: 'system', content: buildBotPrompt(context) },
-        ...(context.conversation || []).slice(-8),
-        ...(context.conversation?.some((item) => item.role === 'user' && item.content === context.message)
-          ? []
-          : [{ role: 'user' as const, content: context.message }]),
-      ],
-      max_tokens: context.channel === 'whatsapp' ? 600 : 1000,
-      temperature: 0.7,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -107,6 +143,11 @@ export async function generateBotResponse(context: BotResponseContext): Promise<
   const content = data.choices?.[0]?.message?.content;
   if (typeof content !== 'string' || !content.trim()) {
     throw new Error('LLM returned an empty response');
+  }
+
+  // DeepSeek cache telemetry: top-level usage fields.
+  if (data.usage) {
+    logLlmUsage(computeLlmUsage(payload.model, data.usage));
   }
 
   return content
