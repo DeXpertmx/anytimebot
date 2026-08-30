@@ -83,9 +83,9 @@ export function BookingAnalytics() {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Booking Trends</h2>
+            <h2 className="text-xl font-bold text-gray-900">Tendencia de reservas</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Track your bookings over time
+              Consulta tus reservas a lo largo del tiempo
             </p>
           </div>
           <div className="flex gap-2">
@@ -94,21 +94,21 @@ export function BookingAnalytics() {
               size="sm"
               onClick={() => setRange('7')}
             >
-              7 days
+              7 días
             </Button>
             <Button
               variant={range === '30' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setRange('30')}
             >
-              30 days
+              30 días
             </Button>
             <Button
               variant={range === '90' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setRange('90')}
             >
-              90 days
+              90 días
             </Button>
           </div>
         </div>
@@ -123,8 +123,8 @@ export function BookingAnalytics() {
             <Tooltip />
             <Legend />
             <Line type="monotone" dataKey="total" stroke="#6366f1" name="Total" />
-            <Line type="monotone" dataKey="confirmed" stroke="#10b981" name="Confirmed" />
-            <Line type="monotone" dataKey="cancelled" stroke="#ef4444" name="Cancelled" />
+            <Line type="monotone" dataKey="confirmed" stroke="#10b981" name="Confirmadas" />
+            <Line type="monotone" dataKey="cancelled" stroke="#ef4444" name="Canceladas" />
           </LineChart>
         </ResponsiveContainer>
       </Card>
@@ -132,7 +132,7 @@ export function BookingAnalytics() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* Bookings by Event Type */}
         <Card className="p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">By Event Type</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Por tipo de evento</h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -156,7 +156,7 @@ export function BookingAnalytics() {
 
         {/* Peak Booking Hours */}
         <Card className="p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Peak Booking Hours</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Horas de mayor demanda</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data?.byHour || []}>
               <CartesianGrid strokeDasharray="3 3" />

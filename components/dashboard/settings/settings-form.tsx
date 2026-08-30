@@ -236,19 +236,18 @@ export function SettingsForm({ user }: SettingsFormProps) {
       <Card className="p-6">
         <div className="flex items-center mb-6">
           <User className="h-5 w-5 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">Profile</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Perfil</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="name">Nombre completo</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
-              }
-              placeholder="John Doe"
+              }                placeholder="Juan Pérez"
             />
           </div>
 
@@ -267,14 +266,14 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 required
               />
               <div className="mt-1 text-sm text-gray-500">
-                Your booking page will be: anytimebot.app/
+                Tu página de reservas será: anytimebot.app/
                 {formData.username || 'username'}
               </div>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Correo electrónico</Label>
             <Input
               id="email"
               type="email"
@@ -283,7 +282,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
               className="bg-gray-50 cursor-not-allowed"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Email cannot be changed
+              El correo electrónico no se puede cambiar
             </p>
           </div>
 
@@ -292,7 +291,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             disabled={isLoading}
             className="bg-indigo-600 hover:bg-indigo-700"
           >
-            {isLoading ? 'Saving...' : 'Save Profile'}
+            {isLoading ? 'Guardando...' : 'Guardar perfil'}
           </Button>
         </form>
       </Card>
@@ -301,10 +300,10 @@ export function SettingsForm({ user }: SettingsFormProps) {
       <Card className="p-6">
         <div className="flex items-center mb-6">
           <Globe className="h-5 w-5 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">Public Profile</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Perfil público</h2>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          Configure your public profile that clients will see at{' '}
+          Configura el perfil público que verán tus clientes en{' '}
           <span className="font-mono text-indigo-600">anytimebot.app/{formData.username || 'username'}</span>
         </p>
 
@@ -327,7 +326,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 }),
               });
               if (response.ok) {
-                toast({ title: 'Profile Updated', description: 'Your public profile has been updated.' });
+                toast({ title: 'Perfil actualizado', description: 'Tu perfil público se ha actualizado correctamente.' });
                 router.refresh();
               }
             } catch (error) {
@@ -339,12 +338,12 @@ export function SettingsForm({ user }: SettingsFormProps) {
           className="space-y-4"
         >
           <div>
-            <Label htmlFor="bio">Bio</Label>
+            <Label htmlFor="bio">Biografía</Label>
             <textarea
               id="bio"
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-              placeholder="Tell clients about yourself..."
+              placeholder="Cuéntales a tus clientes sobre ti..."
               rows={3}
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
@@ -352,21 +351,21 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="company">Company</Label>
+              <Label htmlFor="company">Empresa</Label>
               <Input
                 id="company"
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                placeholder="Your company name"
+                placeholder="Nombre de tu empresa"
               />
             </div>
             <div>
-              <Label htmlFor="website">Website</Label>
+              <Label htmlFor="website">Sitio web</Label>
               <Input
                 id="website"
                 value={formData.website}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                placeholder="https://yourwebsite.com"
+                placeholder="https://tusitio.com"
               />
             </div>
           </div>
@@ -394,7 +393,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Teléfono</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -403,7 +402,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
               />
             </div>
             <div>
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Dirección</Label>
               <Input
                 id="address"
                 value={formData.address}
@@ -418,7 +417,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             disabled={isLoading}
             className="bg-indigo-600 hover:bg-indigo-700"
           >
-            {isLoading ? 'Saving...' : 'Save Public Profile'}
+            {isLoading ? 'Guardando...' : 'Guardar perfil público'}
           </Button>
         </form>
       </Card>
@@ -428,7 +427,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         <div className="flex items-center mb-6">
           <Globe className="h-5 w-5 text-indigo-600 mr-2" />
           <h2 className="text-xl font-semibold text-gray-900">
-            Regional Settings
+            Configuración regional
           </h2>
         </div>
 
@@ -446,8 +445,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
               if (response.ok) {
                 toast({
-                  title: 'Timezone Updated',
-                  description: 'Your timezone has been updated successfully.',
+                  title: 'Zona horaria actualizada',
+                  description: 'Tu zona horaria se ha actualizado correctamente.',
                 });
                 router.refresh();
               }
@@ -464,7 +463,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
           className="space-y-4"
         >
           <div>
-            <Label htmlFor="timezone">Timezone</Label>
+            <Label htmlFor="timezone">Zona horaria</Label>
             <Select
               value={formData.timezone}
               onValueChange={(value) =>
@@ -483,7 +482,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
               </SelectContent>
             </Select>
             <p className="mt-1 text-sm text-gray-500">
-              This timezone will be used for all your bookings
+              Esta zona horaria se utilizará para todas tus reservas
             </p>
           </div>
 
@@ -492,7 +491,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             disabled={isLoading}
             className="bg-indigo-600 hover:bg-indigo-700"
           >
-            {isLoading ? 'Saving...' : 'Save Timezone'}
+            {isLoading ? 'Guardando...' : 'Guardar zona horaria'}
           </Button>
         </form>
       </Card>
@@ -501,38 +500,38 @@ export function SettingsForm({ user }: SettingsFormProps) {
       <Card className="p-6">
         <div className="flex items-center mb-6">
           <Bell className="h-5 w-5 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">Notifications</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Notificaciones</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Email Notifications</p>
+              <p className="font-medium text-gray-900">Notificaciones por correo</p>
               <p className="text-sm text-gray-600">
-                Receive booking confirmations and updates via email
+                Recibe confirmaciones y actualizaciones de tus reservas por correo
               </p>
             </div>
-            <div className="text-sm text-indigo-600 font-medium">Enabled</div>
+            <div className="text-sm text-indigo-600 font-medium">Activado</div>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Booking Reminders</p>
+              <p className="font-medium text-gray-900">Recordatorios de reservas</p>
               <p className="text-sm text-gray-600">
-                Send reminders 24 hours before scheduled meetings
+                Envía recordatorios 24 horas antes de las reuniones programadas
               </p>
             </div>
-            <div className="text-sm text-indigo-600 font-medium">Enabled</div>
+            <div className="text-sm text-indigo-600 font-medium">Activado</div>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Cancellation Alerts</p>
+              <p className="font-medium text-gray-900">Alertas de cancelación</p>
               <p className="text-sm text-gray-600">
-                Get notified when a booking is cancelled
+                Recibe una notificación cuando se cancele una reserva
               </p>
             </div>
-            <div className="text-sm text-indigo-600 font-medium">Enabled</div>
+            <div className="text-sm text-indigo-600 font-medium">Activado</div>
           </div>
         </div>
       </Card>
@@ -541,7 +540,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
       <Card className="p-6">
         <div className="flex items-center mb-6">
           <Lock className="h-5 w-5 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">Security</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Seguridad</h2>
         </div>
 
         <div className="space-y-4">
@@ -556,13 +555,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </p>
             {!user.image && (
               <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
-                Change Password
+                Cambiar contraseña
               </Button>
             )}
           </div>
 
           <div className="border-t pt-4">
-            <p className="font-medium text-gray-900 mb-2">Connected Accounts</p>
+            <p className="font-medium text-gray-900 mb-2">Cuentas conectadas</p>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-10 h-10 bg-white border rounded-lg flex items-center justify-center mr-3">
@@ -588,13 +587,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 <div>
                   <p className="font-medium text-gray-900">Google</p>
                   <p className="text-sm text-gray-600">
-                    {user.image ? 'Connected' : 'Not connected'}
+                    {user.image ? 'Conectada' : 'No conectada'}
                   </p>
                 </div>
               </div>
               {user.image ? (
                 <div className="text-sm text-green-600 font-medium">
-                  Connected
+                  Conectada
                 </div>
               ) : (
                 <Button variant="outline" size="sm">
@@ -610,7 +609,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
       <Card className="p-6">
         <div className="flex items-center mb-6">
           <Download className="h-5 w-5 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-gray-900">Privacy and Data</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Privacidad y datos</h2>
         </div>
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
@@ -624,21 +623,20 @@ export function SettingsForm({ user }: SettingsFormProps) {
       </Card>
 
       {/* Danger Zone — intentionally kept as the final section of this form */}
-      <Card className="order-last p-6 border-red-200">
+      <Card className="order-last border-red-200 p-6">
         <div className="flex items-center mb-6">
           <div className="w-5 h-5 text-red-600 mr-2">⚠️</div>
-          <h2 className="text-xl font-semibold text-red-600">Danger Zone</h2>
+          <h2 className="text-xl font-semibold text-red-600">Zona de peligro</h2>
         </div>
 
         <div className="space-y-4">
           <div>
-            <p className="font-medium text-gray-900 mb-2">Delete Account</p>
+            <p className="font-medium text-gray-900 mb-2">Eliminar cuenta</p>
             <p className="text-sm text-gray-600 mb-4">
-              Once you delete your account, there is no going back. Please be
-              certain.
+              Al eliminar tu cuenta no podrás deshacer esta acción. Confirma que deseas continuar.
             </p>
             <Button variant="destructive" onClick={() => setShowDeleteModal(true)}>
-              Delete Account
+              Eliminar cuenta
             </Button>
           </div>
         </div>
@@ -680,14 +678,14 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   variant="outline"
                   onClick={() => { setShowDeleteModal(false); setDeleteConfirm(''); }}
                 >
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={handleDeleteAccount}
                   disabled={isDeleting || deleteConfirm.toLowerCase() !== 'delete'}
                 >
-                  {isDeleting ? 'Deleting...' : 'Delete Account'}
+                  {isDeleting ? 'Eliminando...' : 'Eliminar cuenta'}
                 </Button>
               </div>
             </div>
@@ -695,12 +693,12 @@ export function SettingsForm({ user }: SettingsFormProps) {
         </div>
       )}
 
-      {/* Change Password Modal */}
+      {/* Cambiar contraseña Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Cambiar contraseña</h3>
               <button
                 type="button"
                 onClick={() => setShowPasswordModal(false)}
@@ -712,7 +710,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </div>
             <form onSubmit={handleChangePassword} className="px-6 py-4 space-y-4">
               <div>
-                <Label htmlFor="current-password">Current Password</Label>
+                <Label htmlFor="current-password">Contraseña actual</Label>
                 <Input
                   id="current-password"
                   type="password"
@@ -720,12 +718,12 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   onChange={(e) =>
                     setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
                   }
-                  placeholder="Your current password"
+                  placeholder="Tu contraseña actual"
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="new-password">New Password</Label>
+                <Label htmlFor="new-password">Nueva contraseña</Label>
                 <Input
                   id="new-password"
                   type="password"
@@ -733,13 +731,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   onChange={(e) =>
                     setPasswordForm({ ...passwordForm, newPassword: e.target.value })
                   }
-                  placeholder="New password (min 6 characters)"
+                  placeholder="Nueva contraseña (mínimo 6 caracteres)"
                   required
                   minLength={6}
                 />
               </div>
               <div>
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Label htmlFor="confirm-password">Confirmar nueva contraseña</Label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -747,7 +745,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   onChange={(e) =>
                     setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
                   }
-                  placeholder="Re-enter new password"
+                  placeholder="Vuelve a escribir la nueva contraseña"
                   required
                   minLength={6}
                 />
@@ -758,10 +756,10 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   variant="outline"
                   onClick={() => setShowPasswordModal(false)}
                 >
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button type="submit" disabled={isChangingPassword}>
-                  {isChangingPassword ? 'Saving...' : 'Update Password'}
+                  {isChangingPassword ? 'Guardando...' : 'Actualizar contraseña'}
                 </Button>
               </div>
             </form>

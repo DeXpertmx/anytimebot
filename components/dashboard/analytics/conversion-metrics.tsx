@@ -80,7 +80,7 @@ export function ConversionMetrics() {
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Conversion Metrics</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">Métricas de conversión</h2>
         
         {/* Overview Stats */}
         <div className="grid gap-4 md:grid-cols-4 mb-8">
@@ -104,7 +104,7 @@ export function ConversionMetrics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.confirmedBookings || 0}
               </p>
-              <p className="text-sm text-gray-600">Confirmed Bookings</p>
+              <p className="text-sm text-gray-600">Reservas confirmadas</p>
             </div>
           </div>
           
@@ -116,7 +116,7 @@ export function ConversionMetrics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.cancellationRate || 0}%
               </p>
-              <p className="text-sm text-gray-600">Cancellation Rate</p>
+              <p className="text-sm text-gray-600">Tasa de cancelación</p>
             </div>
           </div>
           
@@ -128,14 +128,14 @@ export function ConversionMetrics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.totalBookings || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Bookings</p>
+              <p className="text-sm text-gray-600">Total de reservas</p>
             </div>
           </div>
         </div>
 
         {/* Conversion Timeline */}
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversion Rate Over Time</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tasa de conversión a lo largo del tiempo</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={data?.timeline || []}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -146,7 +146,7 @@ export function ConversionMetrics() {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="rate" stroke="#10b981" name="Conversion Rate %" />
+              <Line type="monotone" dataKey="rate" stroke="#10b981" name="Tasa de conversión %" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -154,7 +154,7 @@ export function ConversionMetrics() {
         <div className="grid gap-6 md:grid-cols-2">
           {/* Conversion by Event Type */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">By Event Type</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Por tipo de evento</h3>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={data?.byEventType || []}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -162,14 +162,14 @@ export function ConversionMetrics() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="rate" fill="#10b981" name="Conversion %" />
+                <Bar dataKey="rate" fill="#10b981" name="Conversión %" />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           {/* Top Performing Pages */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Booking Pages</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Páginas de reserva destacadas</h3>
             <div className="space-y-3">
               {data?.topPages?.map((page, index) => (
                 <div key={page.slug} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -189,7 +189,7 @@ export function ConversionMetrics() {
                 </div>
               ))}
               {(!data?.topPages || data.topPages.length === 0) && (
-                <p className="text-center text-gray-500 py-8">No data available</p>
+                <p className="text-center text-gray-500 py-8">No hay datos disponibles</p>
               )}
             </div>
           </div>

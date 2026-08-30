@@ -99,7 +99,7 @@ export function DashboardOverview() {
 
   const statsCards = [
     {
-      title: 'Booking Pages',
+      title: 'Páginas de reserva',
       value: stats?.bookingPages || 0,
       icon: Globe,
       color: 'text-indigo-600',
@@ -107,7 +107,7 @@ export function DashboardOverview() {
       href: '/dashboard/booking-pages',
     },
     {
-      title: 'Event Types',
+      title: 'Tipos de eventos',
       value: stats?.eventTypes || 0,
       icon: Calendar,
       color: 'text-green-600',
@@ -115,7 +115,7 @@ export function DashboardOverview() {
       href: '/dashboard/event-types',
     },
     {
-      title: 'Total Bookings',
+      title: 'Total de reservas',
       value: stats?.totalBookings || 0,
       icon: Users,
       color: 'text-blue-600',
@@ -123,7 +123,7 @@ export function DashboardOverview() {
       href: '/dashboard/bookings',
     },
     {
-      title: 'Upcoming',
+      title: 'Próximas',
       value: stats?.upcomingBookings || 0,
       icon: Clock,
       color: 'text-orange-600',
@@ -131,7 +131,7 @@ export function DashboardOverview() {
       href: '/dashboard/bookings?status=confirmed',
     },
     {
-      title: 'Avg Rating',
+      title: 'Calificación media',
       value: stats?.averageRating != null ? `${stats.averageRating} ★` : '—',
       icon: Star,
       color: 'text-amber-600',
@@ -169,26 +169,26 @@ export function DashboardOverview() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <TrendingUp className="mr-2 h-5 w-5 text-indigo-600" />
-              Quick Actions
+              Acciones rápidas
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button asChild className="w-full justify-start" variant="outline">
               <Link href="/dashboard/booking-pages">
                 <Plus className="mr-2 h-4 w-4" />
-                Create Booking Page
+                Crear página de reserva
               </Link>
             </Button>
             <Button asChild className="w-full justify-start" variant="outline">
               <Link href="/dashboard/event-types">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Event Type
+                Añadir tipo de evento
               </Link>
             </Button>
             <Button asChild className="w-full justify-start" variant="outline">
               <Link href="/dashboard/availability">
                 <Clock className="mr-2 h-4 w-4" />
-                Set Availability
+                Configurar disponibilidad
               </Link>
             </Button>
           </CardContent>
@@ -197,10 +197,10 @@ export function DashboardOverview() {
         {/* Recent Bookings */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Bookings</CardTitle>
+            <CardTitle>Reservas recientes</CardTitle>
             <Button asChild variant="ghost" size="sm">
               <Link href="/dashboard/bookings">
-                View all
+                Ver todas
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -241,8 +241,8 @@ export function DashboardOverview() {
             ) : (
               <div className="text-center py-6 text-gray-500">
                 <Users className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-                <p>No bookings yet</p>
-                <p className="text-sm">Create a booking page to get started</p>
+                <p>Aún no hay reservas</p>
+                <p className="text-sm">Crea una página de reserva para comenzar</p>
               </div>
             )}
           </CardContent>

@@ -51,10 +51,10 @@ const statusColors = {
 };
 
 const statusLabels = {
-  PENDING: 'Pending',
-  CONFIRMED: 'Confirmed',
-  CANCELLED: 'Cancelled',
-  COMPLETED: 'Completed',
+  PENDING: 'Pendiente',
+  CONFIRMED: 'Confirmada',
+  CANCELLED: 'Cancelada',
+  COMPLETED: 'Completada',
 };
 
 export function BookingsList({ bookings }: BookingsListProps) {
@@ -112,11 +112,11 @@ export function BookingsList({ bookings }: BookingsListProps) {
     <div className="space-y-4">
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-          <TabsTrigger value="past">Past</TabsTrigger>
+          <TabsTrigger value="all">Todas</TabsTrigger>
+          <TabsTrigger value="upcoming">Próximas</TabsTrigger>
+          <TabsTrigger value="pending">Pendientes</TabsTrigger>
+          <TabsTrigger value="confirmed">Confirmadas</TabsTrigger>
+          <TabsTrigger value="past">Pasadas</TabsTrigger>
         </TabsList>
 
         <TabsContent value={selectedTab} className="mt-6 space-y-4">
@@ -125,12 +125,12 @@ export function BookingsList({ bookings }: BookingsListProps) {
               <div className="text-center">
                 <Calendar className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-4 text-lg font-semibold text-gray-900">
-                  No bookings found
+                  No se encontraron reservas
                 </h3>
                 <p className="mt-2 text-sm text-gray-600">
                   {selectedTab === 'all'
-                    ? 'You don\'t have any bookings yet.'
-                    : `No ${selectedTab} bookings.`}
+                    ? 'Aún no tienes reservas.'
+                    : `No hay reservas ${selectedTab}.`}
                 </p>
               </div>
             </Card>
@@ -201,7 +201,7 @@ export function BookingsList({ bookings }: BookingsListProps) {
                               rel="noopener noreferrer"
                               className="ml-2 text-indigo-600 hover:text-indigo-700 underline"
                             >
-                              Join
+                              Unirse
                             </a>
                           )}
                         </div>
@@ -217,7 +217,7 @@ export function BookingsList({ bookings }: BookingsListProps) {
                         className="flex items-center gap-2"
                       >
                         <Eye className="h-4 w-4" />
-                        View Details & Briefing
+                        Ver detalles y resumen
                       </Button>
                     </div>
                   </div>
@@ -231,14 +231,14 @@ export function BookingsList({ bookings }: BookingsListProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleViewDetails(booking.id)}>
                         <Eye className="h-4 w-4 mr-2" />
-                        View Details
+                        Ver detalles
                       </DropdownMenuItem>
                       {booking.status === 'PENDING' && (
                         <DropdownMenuItem
                           onClick={() => handleCancelBooking(booking.id)}
                           className="text-red-600"
                         >
-                          Cancel Booking
+                          Cancelar reserva
                         </DropdownMenuItem>
                       )}
                       {booking.status === 'CONFIRMED' && (
@@ -246,7 +246,7 @@ export function BookingsList({ bookings }: BookingsListProps) {
                           onClick={() => handleCancelBooking(booking.id)}
                           className="text-red-600"
                         >
-                          Cancel Booking
+                          Cancelar reserva
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>

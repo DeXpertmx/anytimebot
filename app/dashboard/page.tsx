@@ -55,10 +55,10 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back{session?.user?.name ? `, ${session.user.name}` : ''}!
+            {session?.user?.name ? `¡Bienvenido de nuevo, ${session.user.name}!` : '¡Bienvenido de nuevo!'}
           </h1>
           <p className="text-gray-600 mt-1">
-            Here's what's happening with your scheduling
+            Esto es lo que está sucediendo con tu agenda
           </p>
         </div>
         {user && <PlanBadge plan={user.plan as any} />}

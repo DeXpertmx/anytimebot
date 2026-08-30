@@ -57,7 +57,7 @@ export function AnalyticsOverview() {
 
   const cards = [
     {
-      title: 'Total Bookings',
+      title: 'Total de reservas',
       value: data?.bookings.total || 0,
       change: data?.bookings.change || 0,
       icon: Calendar,
@@ -65,7 +65,7 @@ export function AnalyticsOverview() {
       bgColor: 'bg-blue-50',
     },
     {
-      title: 'Confirmed',
+      title: 'Confirmadas',
       value: data?.confirmed.total || 0,
       change: data?.confirmed.change || 0,
       icon: CheckCircle,
@@ -73,7 +73,7 @@ export function AnalyticsOverview() {
       bgColor: 'bg-green-50',
     },
     {
-      title: 'Cancelled',
+      title: 'Canceladas',
       value: data?.cancelled.total || 0,
       change: null,
       icon: XCircle,
@@ -81,7 +81,7 @@ export function AnalyticsOverview() {
       bgColor: 'bg-red-50',
     },
     {
-      title: 'Bot Conversations',
+      title: 'Conversaciones del bot',
       value: data?.conversations.total || 0,
       change: data?.conversations.change || 0,
       icon: MessageSquare,
@@ -89,7 +89,7 @@ export function AnalyticsOverview() {
       bgColor: 'bg-purple-50',
     },
     {
-      title: 'WhatsApp Messages',
+      title: 'Mensajes de WhatsApp',
       value: data?.whatsapp.total || 0,
       change: data?.whatsapp.change || 0,
       icon: Send,
@@ -123,7 +123,7 @@ export function AnalyticsOverview() {
             <h3 className="text-2xl font-bold text-gray-900">{card.value}</h3>
             <p className="text-sm text-gray-600 mt-1">{card.title}</p>
             {card.change !== null && card.change !== undefined && (
-              <p className="text-xs text-gray-500 mt-1">vs last month</p>
+              <p className="text-xs text-gray-500 mt-1">frente al mes anterior</p>
             )}
           </div>
         </Card>

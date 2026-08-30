@@ -7,8 +7,8 @@ import { SettingsForm } from '@/components/dashboard/settings/settings-form';
 import { EmailTemplates } from '@/components/dashboard/settings/email-templates';
 
 export const metadata = {
-  title: 'Settings - ANYTIMEBOT',
-  description: 'Manage your account settings',
+  title: 'Configuración - ANYTIMEBOT',
+  description: 'Gestiona la configuración de tu cuenta',
 };
 
 export default async function SettingsPage() {
@@ -29,9 +29,9 @@ export default async function SettingsPage() {
   return (
     <div className="min-w-0 space-y-6 pb-10">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
         <p className="text-gray-600 mt-1">
-          Manage your account settings and preferences
+          Gestiona la configuración y las preferencias de tu cuenta
         </p>
       </div>
       <SettingsForm user={user} />

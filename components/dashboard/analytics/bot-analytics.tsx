@@ -69,7 +69,7 @@ export function BotAnalytics() {
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Bot Performance</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">Rendimiento del bot</h2>
         
         {/* Overview Stats */}
         <div className="grid gap-4 md:grid-cols-4 mb-8">
@@ -81,7 +81,7 @@ export function BotAnalytics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.totalConversations || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Conversations</p>
+              <p className="text-sm text-gray-600">Total de conversaciones</p>
             </div>
           </div>
           
@@ -93,7 +93,7 @@ export function BotAnalytics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.totalMessages || 0}
               </p>
-              <p className="text-sm text-gray-600">Total Messages</p>
+              <p className="text-sm text-gray-600">Total de mensajes</p>
             </div>
           </div>
           
@@ -105,7 +105,7 @@ export function BotAnalytics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.activeConversations || 0}
               </p>
-              <p className="text-sm text-gray-600">Active (7 days)</p>
+              <p className="text-sm text-gray-600">Activas (7 días)</p>
             </div>
           </div>
           
@@ -117,14 +117,14 @@ export function BotAnalytics() {
               <p className="text-2xl font-bold text-gray-900">
                 {data?.overview.avgMessagesPerConversation || 0}
               </p>
-              <p className="text-sm text-gray-600">Avg Msg/Conv</p>
+              <p className="text-sm text-gray-600">Prom. mensajes/conversación</p>
             </div>
           </div>
         </div>
 
         {/* Timeline Chart */}
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversation Activity</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Actividad de conversaciones</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={data?.timeline || []}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -135,15 +135,15 @@ export function BotAnalytics() {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="conversations" stroke="#8b5cf6" name="Conversations" />
-              <Line type="monotone" dataKey="messages" stroke="#6366f1" name="Messages" />
+              <Line type="monotone" dataKey="conversations" stroke="#8b5cf6" name="Conversaciones" />
+              <Line type="monotone" dataKey="messages" stroke="#6366f1" name="Mensajes" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Hourly Activity */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Activity by Hour</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Actividad por hora</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={data?.hourlyActivity || []}>
               <CartesianGrid strokeDasharray="3 3" />

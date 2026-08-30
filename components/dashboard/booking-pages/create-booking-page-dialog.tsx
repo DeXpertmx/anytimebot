@@ -163,9 +163,9 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create Booking Page</DialogTitle>
+          <DialogTitle>Crear página de reserva</DialogTitle>
           <DialogDescription>
-            Create a new booking page where clients can schedule meetings with you.
+            Crea una página de reserva donde tus clientes puedan agendar reuniones contigo.
           </DialogDescription>
         </DialogHeader>
         {quotaReached && (
@@ -179,10 +179,10 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
         )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Page Title</Label>
+            <Label htmlFor="title">Título de la página</Label>
             <Input
               id="title"
-              placeholder="e.g., Schedule a Meeting with John"
+              placeholder="ej., Agenda una reunión conmigo"
               value={formData.title}
               onChange={(e) => handleTitleChange(e.target.value)}
               required
@@ -190,7 +190,7 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="slug">URL Slug</Label>
+            <Label htmlFor="slug">Slug de la URL</Label>
             <div className="flex items-center">
               <span className="text-sm text-gray-500 mr-1">
                 {typeof window !== 'undefined' ? window.location.origin : 'https://anytimebot.app'}/{username || 'username'}/
@@ -204,21 +204,21 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
               />
             </div>
             <p className="text-xs text-gray-500">
-              This will be your booking page URL. The username is configured in your profile and the slug is unique for your account.
+              Esta será la URL de tu página de reserva. El usuario se configura en tu perfil y el slug es único para tu cuenta.
             </p>
             {formData.slug.trim() && slugAvailable === false && (
-              <p className="text-xs text-red-600">This slug is already taken. Choose another one.</p>
+              <p className="text-xs text-red-600">Este slug ya está ocupado. Elige otro.</p>
             )}
             {formData.slug.trim() && slugAvailable === true && (
-              <p className="text-xs text-emerald-600">Slug available.</p>
+              <p className="text-xs text-emerald-600">Slug disponible.</p>
             )}
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
+            <Label htmlFor="description">Descripción (opcional)</Label>
             <Textarea
               id="description"
-              placeholder="Tell your clients what they can book..."
+              placeholder="Indica a tus clientes qué pueden reservar..."
               rows={3}
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -227,9 +227,9 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
           
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="is-active">Active</Label>
+              <Label htmlFor="is-active">Activa</Label>
               <p className="text-sm text-gray-500">
-                Make this page available for bookings
+                Haz que esta página esté disponible para reservas
               </p>
             </div>
             <Switch
@@ -243,16 +243,16 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
           
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button type="submit" disabled={loading || slugAvailable === false || quotaReached} className="bg-indigo-600 hover:bg-indigo-700">
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Creating...
+                  Creando...
                 </>
               ) : (
-                'Create Page'
+                'Crear página'
               )}
             </Button>
           </DialogFooter>
