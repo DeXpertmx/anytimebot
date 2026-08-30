@@ -45,14 +45,13 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
     );
 
     if (dayAvailability.length === 0) {
-      return NextResponse.json({
+      return {
         success: true,
-        data: {
-          availableSlots: [],
-          date: requestedDate.toISOString().split('T')[0],
-          dayOfWeek,
-        },
-      });
+        availableSlots: [],
+        allSlots: [],
+        date: requestedDate.toISOString().split('T')[0],
+        dayOfWeek,
+      };
     }
 
     // Generate all possible time slots for this day
@@ -87,16 +86,14 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
     });
 
     if (activeTimeOff) {
-      return NextResponse.json({
+      return {
         success: true,
-        data: {
-          availableSlots: [],
-          allSlots: [],
-          date: requestedDate.toISOString().split('T')[0],
-          dayOfWeek,
-          timeOff: true,
-        },
-      });
+        availableSlots: [],
+        allSlots: [],
+        date: requestedDate.toISOString().split('T')[0],
+        dayOfWeek,
+        timeOff: true,
+      };
     }
 
     const existingBookings = await prisma.booking.findMany({
