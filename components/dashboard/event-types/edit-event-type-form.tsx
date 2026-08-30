@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/lib/i18n/hooks';
 import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 
 interface FormField {
@@ -89,7 +90,34 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
   const [formFields, setFormFields] = useState<FormField[]>(eventType.formFields);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
+
+  const locationLabel = (value: string) =>
+    value === 'video'
+      ? t('eventTypes.videoCall')
+      : value === 'phone'
+        ? t('eventTypes.phoneCall')
+        : t('eventTypes.inPerson');
+
+  const durationLabel = (duration: number) =>
+    duration < 60
+      ? t('eventTypes.durationMinutes', { count: duration })
+      : duration === 60
+        ? t('eventTypes.oneHour')
+        : duration === 90
+          ? t('eventTypes.hourAndHalf')
+          : t('eventTypes.twoHours');
+
+  const fieldTypeLabel = (value: string) =>
+    ({
+      TEXT: t('eventTypes.fieldTypeText'),
+      TEXTAREA: t('eventTypes.fieldTypeTextarea'),
+      EMAIL: t('eventTypes.fieldTypeEmail'),
+      PHONE: t('eventTypes.fieldTypePhone'),
+      SELECT: t('eventTypes.fieldTypeSelect'),
+      CHECKBOX: t('eventTypes.fieldTypeCheckbox'),
+    }[value] || value);
 
   const addFormField = () => {
     setFormFields([
@@ -121,8 +149,8 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     try {
       if (!formData.name.trim()) {
         toast({
-          title: 'Error',
-          description: 'Event type name is required',
+          title: t('common.error'),
+          description: t('eventTypes.nameRequired'),
           variant: 'destructive',
         });
         setLoading(false);
@@ -144,22 +172,22 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
 
       if (data.success) {
         toast({
-          title: 'Success',
-          description: 'Event type updated successfully',
+          title: t('common.success'),
+          description: t('eventTypes.updated'),
         });
         router.push('/dashboard/event-types');
         router.refresh();
       } else {
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to update event type',
+          title: t('common.error'),
+          description: data.error || t('eventTypes.updateFailed'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Something went wrong',
+        title: t('common.error'),
+        description: t('eventTypes.updateFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -172,14 +200,14 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
       {/* Basic Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
+          <CardTitle>{t('eventTypes.basicInfo')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="name">Event Type Name</Label>
+            <Label htmlFor="name">{t('eventTypes.name')}</Label>
             <Input
               id="name"
-              placeholder="e.g., 30-Minute Meeting"
+              placeholder={t('eventTypes.namePlaceholder')}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
@@ -187,7 +215,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="bookingPage">Booking Page</Label>
+            <Label htmlFor="bookingPage">{t('eventTypes.bookingPage')}</Label>
             <Select
               value={formData.bookingPageId}
               onValueChange={(value) => setFormData({ ...formData, bookingPageId: value })}
@@ -207,7 +235,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration (minutes)</Label>
+              <Label htmlFor="duration">{t('eventTypes.duration')}</Label>
               <Select
                 value={formData.duration.toString()}
                 onValueChange={(value) =>
@@ -220,7 +248,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                 <SelectContent>
                   {DURATION_OPTIONS.map((duration) => (
                     <SelectItem key={duration} value={duration.toString()}>
-                      {duration} minutes
+                      {durationLabel(duration)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -228,7 +256,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="bufferTime">Buffer Time (minutes)</Label>
+              <Label htmlFor="bufferTime">{t('eventTypes.bufferTime')}</Label>
               <Input
                 id="bufferTime"
                 type="number"
@@ -240,13 +268,13 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                 }
               />
               <p className="text-xs text-gray-500">
-                Time between meetings to prepare
+                {t('eventTypes.bufferTimeHint')}
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="location">Location Type</Label>
+            <Label htmlFor="location">{t('eventTypes.location')}</Label>
             <Select
               value={formData.location}
               onValueChange={(value) => setFormData({ ...formData, location: value })}
@@ -257,7 +285,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               <SelectContent>
                 {LOCATION_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {locationLabel(option.value)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -266,7 +294,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
 
           {formData.location === 'video' && (
             <div className="space-y-2">
-              <Label htmlFor="videoLink">Video Conference Link (optional)</Label>
+              <Label htmlFor="videoLink">{t('eventTypes.videoConferenceLink')}</Label>
               <Input
                 id="videoLink"
                 type="url"
@@ -275,13 +303,13 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                 onChange={(e) => setFormData({ ...formData, videoLink: e.target.value })}
               />
               <p className="text-xs text-gray-500">
-                Leave empty to generate automatically
+                {t('eventTypes.videoLinkHint')}
               </p>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="color">Color</Label>
+            <Label htmlFor="color">{t('eventTypes.color')}</Label>
             <div className="flex items-center space-x-2">
               <Input
                 id="color"
@@ -302,10 +330,10 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="space-y-0.5">
               <Label htmlFor="requiresConfirmation" className="text-base">
-                Requires Confirmation
+                {t('eventTypes.requiresConfirmation')}
               </Label>
               <p className="text-sm text-gray-500">
-                Manually approve bookings before they are confirmed
+                {t('eventTypes.requiresConfirmationDesc')}
               </p>
             </div>
             <Switch
@@ -323,14 +351,14 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
       {formData.location === 'video' && (
         <Card>
           <CardHeader>
-            <CardTitle>Smart Video Rooms</CardTitle>
+            <CardTitle>{t('eventTypes.smartVideoRooms')}</CardTitle>
             <p className="text-sm text-gray-600 mt-1">
-              Configure native video conferencing with AI-powered features
+              {t('eventTypes.smartVideoRoomsDesc')}
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="videoProvider">Video Provider</Label>
+              <Label htmlFor="videoProvider">{t('eventTypes.videoProvider')}</Label>
               <Select
                 value={formData.videoProvider}
                 onValueChange={(value) => setFormData({ ...formData, videoProvider: value })}
@@ -339,15 +367,15 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DAILY">Daily.co (Recommended - Native Integration)</SelectItem>
-                  <SelectItem value="GOOGLE_MEET">Google Meet</SelectItem>
-                  <SelectItem value="ZOOM">Zoom</SelectItem>
-                  <SelectItem value="TEAMS">Microsoft Teams</SelectItem>
-                  <SelectItem value="CUSTOM">Custom URL</SelectItem>
+                  <SelectItem value="DAILY">{t('eventTypes.dailyRecommendedFull')}</SelectItem>
+                  <SelectItem value="GOOGLE_MEET">{t('eventTypes.googleMeet')}</SelectItem>
+                  <SelectItem value="ZOOM">{t('eventTypes.zoom')}</SelectItem>
+                  <SelectItem value="TEAMS">{t('eventTypes.teams')}</SelectItem>
+                  <SelectItem value="CUSTOM">{t('eventTypes.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                Daily.co provides native video rooms with AI features. Other providers use external links.
+                {t('eventTypes.dailyHint')}
               </p>
             </div>
 
@@ -356,10 +384,10 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                   <div className="space-y-0.5">
                     <Label htmlFor="enableEmbeddedVideo" className="text-base">
-                      Enable Embedded Video
+                      {t('eventTypes.enableEmbeddedVideo')}
                     </Label>
                     <p className="text-sm text-gray-600">
-                      Embed video call directly in MeetMind (requires Daily.co)
+                      {t('eventTypes.enableEmbeddedVideoDesc')}
                     </p>
                   </div>
                   <Switch
@@ -374,10 +402,10 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                   <div className="space-y-0.5">
                     <Label htmlFor="enableRecording" className="text-base">
-                      Enable Recording
+                      {t('eventTypes.enableRecording')}
                     </Label>
                     <p className="text-sm text-gray-600">
-                      Automatically record meetings (with guest consent)
+                      {t('eventTypes.enableRecordingDesc')}
                     </p>
                   </div>
                   <Switch
@@ -392,10 +420,10 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                   <div className="space-y-0.5">
                     <Label htmlFor="enableTranscription" className="text-base">
-                      Enable Transcription
+                      {t('eventTypes.enableTranscription')}
                     </Label>
                     <p className="text-sm text-gray-600">
-                      Generate automatic transcripts of meetings
+                      {t('eventTypes.enableTranscriptionDesc')}
                     </p>
                   </div>
                   <Switch
@@ -411,14 +439,14 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <Label htmlFor="enableLiveAI" className="text-base">
-                        Enable Live AI Assistant
+                        {t('eventTypes.enableLiveAI')}
                       </Label>
                       <span className="text-xs font-semibold bg-purple-600 text-white px-2 py-0.5 rounded-full">
-                        PREMIUM
+                        {t('eventTypes.premium')}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Real-time transcription, action items, and meeting notes during the call
+                      {t('eventTypes.enableLiveAIDesc')}
                     </p>
                   </div>
                   <Switch
@@ -432,13 +460,13 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
 
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <h4 className="font-medium text-sm text-green-900 mb-2">
-                    Post-Meeting Automation Included:
+                    {t('eventTypes.postMeetingAutomation')}
                   </h4>
                   <ul className="text-sm text-green-800 space-y-1">
-                    <li>• AI-generated meeting summaries</li>
-                    <li>• Automatic action item extraction</li>
-                    <li>• Key points and sentiment analysis</li>
-                    <li>• Follow-up email automation</li>
+                    <li>{t('eventTypes.aiSummaries')}</li>
+                    <li>{t('eventTypes.actionItems')}</li>
+                    <li>{t('eventTypes.keyPoints')}</li>
+                    <li>{t('eventTypes.followUpEmail')}</li>
                   </ul>
                 </div>
               </>
@@ -446,7 +474,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
 
             {formData.videoProvider === 'CUSTOM' && (
               <div className="space-y-2">
-                <Label htmlFor="customVideoLink">Custom Video URL</Label>
+                <Label htmlFor="customVideoLink">{t('eventTypes.customVideoUrl')}</Label>
                 <Input
                   id="customVideoLink"
                   type="url"
@@ -455,7 +483,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   onChange={(e) => setFormData({ ...formData, videoLink: e.target.value })}
                 />
                 <p className="text-xs text-gray-500">
-                  Enter your custom video conference URL (Jitsi, Microsoft Teams, etc.)
+                  {t('eventTypes.customVideoUrlHint')}
                 </p>
               </div>
             )}
@@ -468,22 +496,22 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Custom Form Fields</CardTitle>
+              <CardTitle>{t('eventTypes.customFormFields')}</CardTitle>
               <p className="text-sm text-gray-600 mt-1">
-                Add additional fields to collect information from guests
+                {t('eventTypes.customFormFieldsDesc')}
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={addFormField}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Field
+              {t('eventTypes.addField')}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {formFields.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p>No custom fields added yet.</p>
-              <p className="text-sm mt-1">Click "Add Field" to get started.</p>
+              <p>{t('eventTypes.noCustomFields')}</p>
+              <p className="text-sm mt-1">{t('eventTypes.noCustomFieldsHint')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -493,7 +521,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   className="p-4 border rounded-lg bg-gray-50 space-y-4"
                 >
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Field {index + 1}</h4>
+                    <h4 className="font-medium text-sm">{t('eventTypes.field', { number: index + 1 })}</h4>
                     <Button
                       type="button"
                       variant="ghost"
@@ -507,18 +535,18 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs">Label</Label>
+                      <Label className="text-xs">{t('eventTypes.fieldLabel')}</Label>
                       <Input
                         value={field.label}
                         onChange={(e) =>
                           updateFormField(index, 'label', e.target.value)
                         }
-                        placeholder="Field label"
+                        placeholder={t('eventTypes.fieldLabelPlaceholder')}
                       />
                     </div>
 
                     <div>
-                      <Label className="text-xs">Type</Label>
+                      <Label className="text-xs">{t('eventTypes.fieldType')}</Label>
                       <Select
                         value={field.type}
                         onValueChange={(value) =>
@@ -531,7 +559,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                         <SelectContent>
                           {FIELD_TYPES.map((type) => (
                             <SelectItem key={type.value} value={type.value}>
-                              {type.label}
+                              {fieldTypeLabel(type.value)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -539,20 +567,19 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                     </div>
                   </div>
 
-                  <div>
-                    <Label className="text-xs">Placeholder (optional)</Label>
-                    <Input
-                      value={field.placeholder || ''}
-                      onChange={(e) =>
-                        updateFormField(index, 'placeholder', e.target.value)
-                      }
-                      placeholder="Placeholder text"
-                    />
+                  <div>                      <Label className="text-xs">{t('eventTypes.fieldPlaceholder')}</Label>
+                      <Input
+                        value={field.placeholder || ''}
+                        onChange={(e) =>
+                          updateFormField(index, 'placeholder', e.target.value)
+                        }
+                        placeholder={t('eventTypes.fieldPlaceholderHint')}
+                      />
                   </div>
 
                   {field.type === 'SELECT' && (
                     <div>
-                      <Label className="text-xs">Options (comma-separated)</Label>
+                      <Label className="text-xs">{t('eventTypes.fieldOptions')}</Label>
                       <Input
                         value={field.options.join(', ')}
                         onChange={(e) =>
@@ -562,7 +589,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                             e.target.value.split(',').map((s) => s.trim())
                           )
                         }
-                        placeholder="Option 1, Option 2, Option 3"
+                        placeholder={t('eventTypes.fieldOptionsPlaceholder')}
                       />
                     </div>
                   )}
@@ -574,7 +601,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                         updateFormField(index, 'required', checked)
                       }
                     />
-                    <Label className="text-sm">Required field</Label>
+                    <Label className="text-sm">{t('eventTypes.requiredField')}</Label>
                   </div>
                 </div>
               ))}
@@ -592,12 +619,12 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Saving...
+              {t('eventTypes.saving')}
             </>
           ) : (
             <>
               <Save className="w-4 h-4 mr-2" />
-              Save Changes
+              {t('eventTypes.saveChanges')}
             </>
           )}
         </Button>

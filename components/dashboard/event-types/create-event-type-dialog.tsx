@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/lib/i18n/hooks';
 import { getEventTypeColors } from '@/lib/utils';
 import { Loader2, Palette } from 'lucide-react';
 import { TeamAssignmentSelector } from './team-assignment-selector';
@@ -59,6 +60,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
 
   useEffect(() => {
@@ -92,8 +94,8 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
       // Validation
       if (!formData.name.trim() || !formData.bookingPageId) {
         toast({
-          title: 'Error',
-          description: 'Name and booking page are required',
+          title: t('common.error'),
+          description: t('eventTypes.nameAndPageRequired'),
           variant: 'destructive',
         });
         return;
@@ -115,8 +117,8 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
 
       if (data.success) {
         toast({
-          title: 'Success',
-          description: 'Event type created successfully',
+          title: t('common.success'),
+          description: t('eventTypes.created'),
         });
         setOpen(false);
         setFormData({
@@ -138,15 +140,15 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
         router.refresh();
       } else {
         toast({
-          title: 'Error',
-          description: data.error || 'Failed to create event type',
+          title: t('common.error'),
+          description: data.error || t('eventTypes.createFailed'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Something went wrong',
+        title: t('common.error'),
+        description: t('eventTypes.createFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -155,26 +157,41 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
   };
 
   const durationOptions = [
-    { value: '15', label: '15 minutes' },
-    { value: '30', label: '30 minutes' },
-    { value: '45', label: '45 minutes' },
-    { value: '60', label: '1 hour' },
-    { value: '90', label: '1.5 hours' },
-    { value: '120', label: '2 hours' },
+    { value: '15', label: t('eventTypes.durationMinutes', { count: 15 }) },
+    { value: '30', label: t('eventTypes.durationMinutes', { count: 30 }) },
+    { value: '45', label: t('eventTypes.durationMinutes', { count: 45 }) },
+    { value: '60', label: t('eventTypes.oneHour') },
+    { value: '90', label: t('eventTypes.hourAndHalf') },
+    { value: '120', label: t('eventTypes.twoHours') },
   ];
 
   const bufferTimeOptions = [
-    { value: '0', label: 'No buffer' },
-    { value: '5', label: '5 minutes' },
-    { value: '10', label: '10 minutes' },
-    { value: '15', label: '15 minutes' },
-    { value: '30', label: '30 minutes' },
+    { value: '0', label: t('eventTypes.noBuffer') },
+    { value: '5', label: t('eventTypes.durationMinutes', { count: 5 }) },
+    { value: '10', label: t('eventTypes.durationMinutes', { count: 10 }) },
+    { value: '15', label: t('eventTypes.durationMinutes', { count: 15 }) },
+    { value: '30', label: t('eventTypes.durationMinutes', { count: 30 }) },
   ];
 
   const locationOptions = [
-    { value: 'video', label: 'Video Call' },
-    { value: 'phone', label: 'Phone Call' },
-    { value: 'in-person', label: 'In Person' },
+    { value: 'video', label: t('eventTypes.videoCall') },
+    { value: 'phone', label: t('eventTypes.phoneCall') },
+    { value: 'in-person', label: t('eventTypes.inPerson') },
+  ];
+
+  const videoProviderOptions = [
+    { value: 'DAILY', label: t('eventTypes.dailyRecommended') },
+    { value: 'GOOGLE_MEET', label: t('eventTypes.googleMeet') },
+    { value: 'ZOOM', label: t('eventTypes.zoom') },
+    { value: 'TEAMS', label: t('eventTypes.teams') },
+    { value: 'CUSTOM', label: t('eventTypes.custom') },
+  ];
+
+  const currencyOptions = [
+    { value: 'usd', label: t('eventTypes.currencyUsd') },
+    { value: 'eur', label: t('eventTypes.currencyEur') },
+    { value: 'mxn', label: t('eventTypes.currencyMxn') },
+    { value: 'gbp', label: t('eventTypes.currencyGbp') },
   ];
 
   const colors = getEventTypeColors();
@@ -186,14 +203,14 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Event Type</DialogTitle>
+          <DialogTitle>{t('eventTypes.create')}</DialogTitle>
           <DialogDescription>
-            Create a new type of meeting that clients can book.
+            {t('eventTypes.createDescription')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="bookingPage">Booking Page</Label>
+            <Label htmlFor="bookingPage">{t('eventTypes.bookingPage')}</Label>
             <Select
               value={formData.bookingPageId || "all"}
               onValueChange={(value) => 
@@ -201,7 +218,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select a booking page" />
+                <SelectValue placeholder={t('eventTypes.bookingPageSelect')} />
               </SelectTrigger>
               <SelectContent>
                 {bookingPages.map((page) => (
@@ -214,10 +231,10 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Event Name</Label>
+            <Label htmlFor="name">{t('eventTypes.name')}</Label>
             <Input
               id="name"
-              placeholder="e.g., 30 Minute Meeting"
+              placeholder={t('eventTypes.namePlaceholder')}
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               required
@@ -226,7 +243,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration</Label>
+              <Label htmlFor="duration">{t('eventTypes.duration')}</Label>
               <Select
                 value={formData.duration || "30"}
                 onValueChange={(value) => 
@@ -234,7 +251,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select duration" />
+                  <SelectValue placeholder={t('eventTypes.selectDuration')} />
                 </SelectTrigger>
                 <SelectContent>
                   {durationOptions.map((option) => (
@@ -247,7 +264,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="bufferTime">Buffer Time</Label>
+              <Label htmlFor="bufferTime">{t('eventTypes.bufferTime')}</Label>
               <Select
                 value={formData.bufferTime || "5"}
                 onValueChange={(value) => 
@@ -255,7 +272,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select buffer time" />
+                  <SelectValue placeholder={t('eventTypes.selectBufferTime')} />
                 </SelectTrigger>
                 <SelectContent>
                   {bufferTimeOptions.map((option) => (
@@ -269,7 +286,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
+            <Label htmlFor="location">{t('eventTypes.location')}</Label>
             <Select
               value={formData.location || "video"}
               onValueChange={(value) => 
@@ -277,7 +294,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select location type" />
+                <SelectValue placeholder={t('eventTypes.selectLocation')} />
               </SelectTrigger>
               <SelectContent>
                 {locationOptions.map((option) => (
@@ -292,7 +309,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           {formData.location === 'video' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="videoProvider">Video Provider</Label>
+                <Label htmlFor="videoProvider">{t('eventTypes.videoProvider')}</Label>
                 <Select
                   value={formData.videoProvider}
                   onValueChange={(value) => 
@@ -300,25 +317,25 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select video provider" />
+                    <SelectValue placeholder={t('eventTypes.selectVideoProvider')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="DAILY">Daily.co (Recommended)</SelectItem>
-                    <SelectItem value="GOOGLE_MEET">Google Meet</SelectItem>
-                    <SelectItem value="ZOOM">Zoom</SelectItem>
-                    <SelectItem value="TEAMS">Microsoft Teams</SelectItem>
-                    <SelectItem value="CUSTOM">Custom URL</SelectItem>
+                    {videoProviderOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
-                  Select the video conferencing provider for this event type.
+                  {t('eventTypes.videoProviderHint')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="videoLink">Video Link (Optional)</Label>
+                <Label htmlFor="videoLink">{t('eventTypes.videoLink')}</Label>
                 <Input
                   id="videoLink"
-                  placeholder="e.g., https://zoom.us/j/123456789"
+                  placeholder="https://zoom.us/j/123456789"
                   value={formData.videoLink}
                   onChange={(e) => setFormData(prev => ({ ...prev, videoLink: e.target.value }))}
                 />
@@ -327,7 +344,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           )}
 
           <div className="space-y-2">
-            <Label>Color</Label>
+            <Label>{t('eventTypes.color')}</Label>
             <div className="flex items-center space-x-2">
               <Palette className="h-4 w-4 text-gray-500" />
               <div className="flex space-x-2">
@@ -356,10 +373,10 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="space-y-0.5">
               <Label htmlFor="requires-confirmation" className="text-base">
-                Requires Confirmation
+                {t('eventTypes.requiresConfirmation')}
               </Label>
               <p className="text-sm text-gray-500">
-                Manually approve each booking request
+                {t('eventTypes.requiresConfirmationDesc')}
               </p>
             </div>
             <Switch
@@ -374,10 +391,10 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="space-y-0.5">
               <Label htmlFor="collect-payment" className="text-base">
-                Collect Payment
+                {t('eventTypes.collectPayment')}
               </Label>
               <p className="text-sm text-gray-500">
-                Require payment to complete booking
+                {t('eventTypes.collectPaymentDesc')}
               </p>
             </div>
             <Switch
@@ -392,7 +409,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           {formData.collectPayment && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">Price (cents)</Label>
+                <Label htmlFor="price">{t('eventTypes.price')}</Label>
                 <Input
                   id="price"
                   type="number"
@@ -402,11 +419,11 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
                   onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                 />
                 <p className="text-xs text-gray-500">
-                  Enter price in cents (e.g., 5000 = $50.00)
+                  {t('eventTypes.priceHint')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
+                <Label htmlFor="currency">{t('eventTypes.currency')}</Label>
                 <Select
                   value={formData.currency}
                   onValueChange={(value) => 
@@ -414,13 +431,14 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select currency" />
+                    <SelectValue placeholder={t('eventTypes.currency')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="usd">USD - US Dollar</SelectItem>
-                    <SelectItem value="eur">EUR - Euro</SelectItem>
-                    <SelectItem value="mxn">MXN - Mexican Peso</SelectItem>
-                    <SelectItem value="gbp">GBP - British Pound</SelectItem>
+                    {currencyOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -429,7 +447,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button 
               type="submit" 
@@ -439,10 +457,10 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Creating...
+                  {t('eventTypes.creating')}
                 </>
               ) : (
-                'Create Event Type'
+                t('eventTypes.create')
               )}
             </Button>
           </DialogFooter>
