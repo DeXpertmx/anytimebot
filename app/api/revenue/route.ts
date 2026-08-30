@@ -1,14 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/revenue — advanced revenue reports for the authenticated owner.
-// Aggregates paid bookings (paymentStatus PAID, excluding REFUNDED) over the
-// last 12 months: totals, monthly series and per-event-type breakdown.
-export async function GET() {
+function parseDate(value: string | null, endOfDay = false): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  if (endOfDay && value.length <= 10) {
+    // Date-only "to" filter should include the whole day
+    date.setHours(23, 59, 59, 999);
+  }
+  return date;
+}
+
+// GET /api/revenue?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Advanced revenue reports for the authenticated owner. Aggregates paid
+// bookings (paymentStatus PAID, refunds tracked separately) over the last
+// 12 months (or the given date range): totals, monthly series and
+// per-event-type breakdown.
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -16,14 +29,35 @@ export async function GET() {
     }
 
     const userId = (session.user as any).id as string;
+    const { searchParams } = new URL(request.url);
+    const from = parseDate(searchParams.get('from'));
+    const to = parseDate(searchParams.get('to'), true);
+
+    const paidWhere: any = {
+      paymentStatus: 'PAID',
+      eventType: { bookingPage: { userId } },
+    };
+    const refundedWhere: any = {
+      paymentStatus: 'REFUNDED',
+      eventType: { bookingPage: { userId } },
+    };
+
+    const applyRange = (target: any) => {
+      const paidAtFilter: any = {};
+      if (from) paidAtFilter.gte = from;
+      if (to) paidAtFilter.lte = to;
+      if (Object.keys(paidAtFilter).length > 0) {
+        target.OR = [
+          { paidAt: paidAtFilter },
+          { paidAt: null, createdAt: paidAtFilter },
+        ];
+      }
+    };
+    applyRange(paidWhere);
+    applyRange(refundedWhere);
 
     const paidBookings = await prisma.booking.findMany({
-      where: {
-        paymentStatus: 'PAID',
-        eventType: {
-          bookingPage: { userId },
-        },
-      },
+      where: paidWhere,
       select: {
         id: true,
         paymentAmount: true,
@@ -38,27 +72,28 @@ export async function GET() {
 
     // Refunded bookings tracked separately for net calculation
     const refunded = await prisma.booking.findMany({
-      where: {
-        paymentStatus: 'REFUNDED',
-        eventType: { bookingPage: { userId } },
-      },
+      where: refundedWhere,
       select: { paymentAmount: true, paymentCurrency: true },
     });
 
     const grossCents = paidBookings.reduce((sum, b) => sum + (b.paymentAmount || 0), 0);
     const refundedCents = refunded.reduce((sum, b) => sum + (b.paymentAmount || 0), 0);
 
-    // Monthly series for the last 12 months (based on paidAt, fallback createdAt)
+    // Monthly series (based on paidAt, fallback createdAt). When a custom
+    // range is given, buckets are still calendar months within the window.
     const now = new Date();
+    const anchorFrom = from || new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const anchorTo = to || new Date();
     const months: Array<{ key: string; label: string; revenue: number; bookings: number }> = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const cursor = new Date(anchorFrom.getFullYear(), anchorFrom.getMonth(), 1);
+    while (cursor <= anchorTo) {
       months.push({
-        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        label: d.toLocaleDateString('es', { month: 'short' }),
+        key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: cursor.toLocaleDateString('es', { month: 'short' }),
         revenue: 0,
         bookings: 0,
       });
+      cursor.setMonth(cursor.getMonth() + 1);
     }
     const monthIndex = new Map(months.map((m, i) => [m.key, i]));
 

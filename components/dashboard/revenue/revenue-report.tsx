@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wallet, TrendingUp, Receipt, CalendarCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Wallet, TrendingUp, Receipt, CalendarCheck, Download } from 'lucide-react';
 
 interface RevenueData {
   currency: string;
@@ -21,14 +24,32 @@ export function RevenueReport() {
   const [data, setData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
-  useEffect(() => {
-    fetch('/api/revenue')
+  const buildQuery = useCallback(
+    (extra = '') => {
+      const params = new URLSearchParams();
+      if (from) params.set('from', from);
+      if (to) params.set('to', to);
+      const qs = params.toString();
+      return `${qs ? `?${qs}` : ''}${extra}`;
+    },
+    [from, to]
+  );
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/revenue${buildQuery()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed'))))
       .then((res) => setData(res.data))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [buildQuery]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const fmt = (n: number) =>
     new Intl.NumberFormat(undefined, { style: 'currency', currency: data?.currency || 'USD', maximumFractionDigits: 2 }).format(n);
@@ -58,6 +79,56 @@ export function RevenueReport() {
 
   return (
     <div className="space-y-6">
+      {/* Filters */}
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-4 p-4">
+          <div>
+            <Label htmlFor="revenue-from" className="mb-1 block text-xs text-slate-500">
+              {t('revenue.from')}
+            </Label>
+            <Input
+              id="revenue-from"
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <div>
+            <Label htmlFor="revenue-to" className="mb-1 block text-xs text-slate-500">
+              {t('revenue.to')}
+            </Label>
+            <Input
+              id="revenue-to"
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <Button type="button" onClick={load}>
+            {t('revenue.apply')}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setFrom('');
+              setTo('');
+            }}
+          >
+            {t('revenue.reset')}
+          </Button>
+          <div className="flex-1" />
+          <a href={`/api/revenue/export${buildQuery()}`} download>
+            <Button type="button" variant="outline">
+              <Download className="h-4 w-4" />
+              {t('revenue.exportCsv')}
+            </Button>
+          </a>
+        </CardContent>
+      </Card>
+
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((kpi) => (

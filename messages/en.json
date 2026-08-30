@@ -506,6 +506,11 @@
     "monthlyTitle": "Revenue by month (last 12 months)",
     "byTypeTitle": "Revenue by event type",
     "noData": "No payments recorded yet.",
-    "loadError": "Failed to load the revenue report."
+    "loadError": "Failed to load the revenue report.",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "reset": "Reset",
+    "exportCsv": "Export CSV"
   }
 }

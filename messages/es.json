@@ -506,6 +506,11 @@
     "monthlyTitle": "Ingresos por mes (últimos 12 meses)",
     "byTypeTitle": "Ingresos por tipo de evento",
     "noData": "Aún no hay pagos registrados.",
-    "loadError": "No se pudo cargar el reporte de ingresos."
+    "loadError": "No se pudo cargar el reporte de ingresos.",
+    "from": "Desde",
+    "to": "Hasta",
+    "apply": "Aplicar",
+    "reset": "Restablecer",
+    "exportCsv": "Exportar CSV"
   }
 }
