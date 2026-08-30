@@ -20,7 +20,7 @@ interface RevenueData {
 }
 
 export function RevenueReport() {
-  const { t } = useTranslation('dashboard');
+  const { t } = useTranslation('translation');
   const [data, setData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
