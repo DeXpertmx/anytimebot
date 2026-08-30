@@ -10,8 +10,8 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || 'placeholder-google-client-id',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'placeholder-google-client-secret',
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       authorization: {
         params: {
           scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
@@ -40,15 +40,11 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          // Demo account compatibility (kept for existing test logins).
-          let isValid =
+          // Only bcrypt-validated logins are allowed.
+          const isValid =
             user.password
               ? await bcryptjs.compare(credentials.password, user.password)
               : false;
-
-          if (!isValid && credentials.email === 'john@doe.com' && credentials.password === 'johndoe123') {
-            isValid = true;
-          }
 
           if (!isValid) {
             return null;

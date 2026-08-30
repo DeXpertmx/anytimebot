@@ -6,14 +6,16 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // Create test user (admin)
+  // Create a demo user (neutral, development-only identifiers)
+  const demoEmail = process.env.SEED_EMAIL || 'demo@example.com';
+  const demoSlug = process.env.SEED_SLUG || 'demo';
   const testUser = await prisma.user.upsert({
-    where: { email: 'john@doe.com' },
+    where: { email: demoEmail },
     update: {},
     create: {
-      email: 'john@doe.com',
-      name: 'John Doe',
-      username: 'johndoe',
+      email: demoEmail,
+      name: 'Demo User',
+      username: demoSlug,
       timezone: 'America/New_York',
     },
   });
@@ -22,11 +24,11 @@ async function main() {
 
   // Create a booking page for the test user
   const bookingPage = await prisma.bookingPage.upsert({
-    where: { userId_slug: { userId: testUser.id, slug: 'johndoe' } },
+    where: { userId_slug: { userId: testUser.id, slug: demoSlug } },
     update: {},
     create: {
       userId: testUser.id,
-      slug: 'johndoe',
+      slug: demoSlug,
       title: 'Schedule a Meeting with John',
       description: 'Book a time that works for both of us. I look forward to speaking with you!',
       isActive: true,
