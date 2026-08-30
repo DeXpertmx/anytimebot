@@ -91,6 +91,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce the plan's booking-page quota (multi-calendar limit)
+    const [pageCount, quota] = await Promise.all([
+      prisma.bookingPage.count({ where: { userId: (session.user as any).id } }),
+      prisma.quotas.findUnique({
+        where: { userId: (session.user as any).id },
+        select: { bookingPages: true },
+      }),
+    ]);
+    const maxPages = quota?.bookingPages ?? 1;
+    if (pageCount >= maxPages) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Booking page limit reached (${pageCount}/${maxPages}). Upgrade your plan to create more calendars.`,
+        },
+        { status: 403 }
+      );
+    }
+
     const bookingPage = await prisma.bookingPage.create({
       data: {
         userId: (session.user as any).id,

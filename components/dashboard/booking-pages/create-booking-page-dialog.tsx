@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -36,21 +37,30 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
   const [loading, setLoading] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ used: number; max: number } | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
-  // Load the signed-in user's username so the URL preview shows the real
-  // public path (anytimebot.app/<username>/<slug>) instead of a placeholder.
+  // Load the signed-in user's username and booking-page quota so the URL
+  // preview shows the real public path and the plan limit can be enforced.
   useEffect(() => {
     fetch('/api/me')
       .then((r) => (r.ok ? r.json() : null))
       .then((res) => {
-        if (res?.success && res.data?.username) {
-          setUsername(res.data.username);
+        if (res?.success && res.data) {
+          if (res.data.username) {
+            setUsername(res.data.username);
+          }
+          setQuota({
+            used: res.data.bookingPages ?? 0,
+            max: res.data.maxBookingPages ?? 1,
+          });
         }
       })
       .catch(() => {});
   }, []);
+
+  const quotaReached = !!quota && quota.used >= quota.max;
 
   // Live slug availability check (debounced) — slugs are unique per user,
   // so we check against the signed-in user's existing pages.
@@ -158,6 +168,15 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
             Create a new booking page where clients can schedule meetings with you.
           </DialogDescription>
         </DialogHeader>
+        {quotaReached && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            Has alcanzado el límite de {quota?.max} {quota?.max === 1 ? 'página de reserva' : 'páginas de reserva'} de tu plan actual.{' '}
+            <Link href="/dashboard/settings" className="font-medium text-amber-900 underline">
+              Mejora tu plan
+            </Link>{' '}
+            para crear más calendarios.
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Page Title</Label>
@@ -226,7 +245,7 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || slugAvailable === false} className="bg-indigo-600 hover:bg-indigo-700">
+            <Button type="submit" disabled={loading || slugAvailable === false || quotaReached} className="bg-indigo-600 hover:bg-indigo-700">
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
