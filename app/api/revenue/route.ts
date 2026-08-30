@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = (session.user as any).id as string;
+
+    // Use the currency configured for operating (falls back to EUR default).
+    const configuredUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { currency: true },
+    });
+    const displayCurrency = configuredUser?.currency?.toUpperCase?.() || 'EUR';
+
     const { searchParams } = new URL(request.url);
     const from = parseDate(searchParams.get('from'));
     const to = parseDate(searchParams.get('to'), true);
@@ -124,7 +132,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const currency = paidBookings[0]?.paymentCurrency?.toUpperCase() || 'USD';
+    const currency = displayCurrency;
     const avgBooking = paidBookings.length > 0 ? grossCents / paidBookings.length / 100 : 0;
 
     return NextResponse.json({
