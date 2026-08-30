@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { Calendar, Clock, MapPin, Video, Phone, ExternalLink, Globe, Linkedin, Twitter, Mail, DollarSign, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, Video, Phone, Globe, Linkedin, Twitter, Mail, Star, ArrowRight, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
-import { Card } from '@/components/ui/card';
 
 interface UserPageProps {
   params: {
@@ -10,12 +9,14 @@ interface UserPageProps {
   };
 }
 
+export const dynamic = 'force-dynamic';
+
 export default async function UserPage({ params }: UserPageProps) {
   const { username } = params;
 
-  // Find user by username (case-insensitive)
+  // Find user by username (case-insensitive) with their active booking pages
   const user = await prisma.user.findFirst({
-    where: { 
+    where: {
       username: {
         equals: username,
         mode: 'insensitive',
@@ -35,32 +36,44 @@ export default async function UserPage({ params }: UserPageProps) {
     notFound();
   }
 
-  const getLocationIcon = (location: string) => {
+  const getLocationLabel = (location: string) => {
     switch (location) {
-      case 'video':
-        return <Video className="h-5 w-5" />;
-      case 'phone':
-        return <Phone className="h-5 w-5" />;
-      case 'in-person':
-        return <MapPin className="h-5 w-5" />;
-      default:
-        return <MapPin className="h-5 w-5" />;
+      case 'video': return 'Video call';
+      case 'phone': return 'Phone call';
+      case 'in-person': return 'In person';
+      default: return 'In person';
     }
   };
 
-  const formatPrice = (price: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency.toUpperCase(),
-    }).format(price / 100);
+  const getLocationIcon = (location: string) => {
+    switch (location) {
+      case 'video': return <Video className="h-4 w-4" />;
+      case 'phone': return <Phone className="h-4 w-4" />;
+      case 'in-person': return <MapPin className="h-4 w-4" />;
+      default: return <MapPin className="h-4 w-4" />;
+    }
   };
 
+  const formatPrice = (price: number, currency: string) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(price / 100);
+
+  // Flatten all event types across booking pages for the services grid
+  const services = user.bookingPages.flatMap((bp) =>
+    bp.eventTypes.map((et) => ({
+      et,
+      pageSlug: bp.slug,
+      pageTitle: bp.title,
+    }))
+  );
+
+  const hasPriced = services.some((s) => s.et.collectPayment && s.et.price > 0);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyem0wLTRWMjhIMjR2Mmgxem0tMjItNHYySDI0di0yaDF6bTIwIDB2Mkg0NHYtMmgxem0wLTRWMjhINHYyaDEyem0wLTRWMjRINHYyaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div className="min-h-screen bg-white">
+      {/* Hero */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.15),transparent_60%)]" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             {/* Avatar */}
             <div className="flex-shrink-0">
@@ -68,146 +81,154 @@ export default async function UserPage({ params }: UserPageProps) {
                 <img
                   src={user.image}
                   alt={user.name || 'User'}
-                  className="w-32 h-32 rounded-2xl object-cover border-4 border-white/30 shadow-xl"
+                  className="w-28 h-28 md:w-36 md:h-36 rounded-3xl object-cover border-4 border-white/30 shadow-2xl"
                 />
               ) : (
-                <div className="w-32 h-32 rounded-2xl bg-white/20 flex items-center justify-center border-4 border-white/30 shadow-xl">
-                  <span className="text-white font-bold text-4xl">
+                <div className="w-28 h-28 md:w-36 md:h-36 rounded-3xl bg-white/15 backdrop-blur flex items-center justify-center border-4 border-white/30 shadow-2xl">
+                  <span className="text-white font-bold text-5xl">
                     {user.name?.[0] || user.email[0].toUpperCase()}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* User Info */}
+            {/* Identity */}
             <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-bold text-white mb-2">
-                {user.name || user.email}
-              </h1>
-              <p className="text-xl text-indigo-200 mb-4">@{user.username}</p>
-              
-              {user.company && (
-                <p className="text-lg text-indigo-100 mb-2 flex items-center justify-center md:justify-start gap-2">
-                  <Globe className="h-5 w-5" />
-                  {user.company}
-                </p>
-              )}
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
+                <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
+                  {user.name || user.email}
+                </h1>
+                <BadgeCheck className="h-6 w-6 text-cyan-300" />
+              </div>
+              <p className="text-lg text-indigo-200 mb-4">@{user.username}</p>
 
               {user.bio && (
-                <p className="text-indigo-100 text-lg leading-relaxed max-w-2xl">
+                <p className="text-indigo-100 text-lg leading-relaxed max-w-2xl mb-4">
                   {user.bio}
                 </p>
               )}
 
-              {/* Social Links */}
-              <div className="flex items-center justify-center md:justify-start gap-4 mt-6">
+              {user.company && (
+                <p className="text-indigo-200 flex items-center justify-center md:justify-start gap-2 mb-2">
+                  <Globe className="h-4 w-4" />
+                  {user.company}
+                </p>
+              )}
+
+              {/* Socials */}
+              <div className="flex items-center justify-center md:justify-start gap-4 mt-4">
                 {user.website && (
-                  <a href={user.website} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors">
+                  <a href={user.website} target="_blank" rel="noopener noreferrer" aria-label="Website" className="text-white/70 hover:text-white transition-colors">
                     <Globe className="h-5 w-5" />
                   </a>
                 )}
                 {user.linkedin && (
-                  <a href={user.linkedin} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors">
+                  <a href={user.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="text-white/70 hover:text-white transition-colors">
                     <Linkedin className="h-5 w-5" />
                   </a>
                 )}
                 {user.twitter && (
-                  <a href={user.twitter} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors">
+                  <a href={user.twitter} target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="text-white/70 hover:text-white transition-colors">
                     <Twitter className="h-5 w-5" />
                   </a>
                 )}
                 {user.phone && (
-                  <a href={`tel:${user.phone}`} className="text-white/80 hover:text-white transition-colors">
+                  <a href={`tel:${user.phone}`} aria-label="Phone" className="text-white/70 hover:text-white transition-colors">
                     <Phone className="h-5 w-5" />
                   </a>
                 )}
-                <a href={`mailto:${user.email}`} className="text-white/80 hover:text-white transition-colors">
+                <a href={`mailto:${user.email}`} aria-label="Email" className="text-white/70 hover:text-white transition-colors">
                   <Mail className="h-5 w-5" />
                 </a>
               </div>
+
+              {/* Primary CTA */}
+              {user.bookingPages[0] && (
+                <div className="mt-8">
+                  <Link
+                    href={`/${username}/${user.bookingPages[0].slug}`}
+                    className="inline-flex items-center gap-2 bg-white text-indigo-700 font-semibold px-6 py-3 rounded-full shadow-lg hover:bg-indigo-50 transition-all hover:scale-105"
+                  >
+                    <Calendar className="h-5 w-5" />
+                    Book now
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Booking Pages */}
-        {user.bookingPages.map((bookingPage) => (
-          <div key={bookingPage.id} className="mb-16">
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">
-                {bookingPage.title}
-              </h2>
-              {bookingPage.description && (
-                <p className="text-lg text-gray-600 max-w-2xl">
-                  {bookingPage.description}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {bookingPage.eventTypes.map((eventType) => (
-                <Link
-                  key={eventType.id}
-                  href={`/${username}/${bookingPage.slug}`}
-                >
-                  <Card className="p-6 hover:shadow-xl transition-all duration-300 cursor-pointer border-l-4 h-full group hover:-translate-y-1"
-                    style={{ borderLeftColor: eventType.color }}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                          {eventType.name}
-                        </h3>
-                      </div>
-                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Clock className="h-4 w-4 mr-2 text-indigo-500" />
-                        <span>{eventType.duration} minutos</span>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        {getLocationIcon(eventType.location)}
-                        <span className="ml-2 capitalize">
-                          {eventType.location === 'video' ? 'Videollamada' : eventType.location === 'phone' ? 'Llamada telefónica' : 'En persona'}
-                        </span>
-                      </div>
-                      {eventType.collectPayment && eventType.price > 0 && (
-                        <div className="flex items-center text-sm font-semibold text-emerald-600">
-                          <DollarSign className="h-4 w-4 mr-1" />
-                          <span>{formatPrice(eventType.price, eventType.currency)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {eventType.requiresConfirmation && (
-                      <div className="mt-4 text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full inline-block">
-                        Requiere confirmación
-                      </div>
-                    )}
-                  </Card>
-                </Link>
-              ))}
-            </div>
+      {/* Services */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="flex items-end justify-between mb-10">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">Services</h2>
+            <p className="text-gray-500 mt-1">
+              {services.length} {services.length === 1 ? 'service' : 'services'} available
+            </p>
           </div>
-        ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map(({ et, pageSlug }) => (
+            <Link
+              key={et.id}
+              href={`/${username}/${pageSlug}?event=${et.id}`}
+              className="group"
+            >
+              <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-xl hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300 flex flex-col">
+                <div className="w-10 h-10 rounded-xl mb-4 flex items-center justify-center"
+                  style={{ backgroundColor: `${et.color}1a` }}>
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: et.color }} />
+                </div>
+
+                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                  {et.name}
+                </h3>
+
+                <div className="mt-3 space-y-2 flex-1">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Clock className="h-4 w-4 mr-2 text-indigo-500" />
+                    {et.duration} min
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    {getLocationIcon(et.location)}
+                    <span className="ml-2">{getLocationLabel(et.location)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  {et.collectPayment && et.price > 0 ? (
+                    <span className="text-lg font-bold text-gray-900">
+                      {formatPrice(et.price, et.currency)}
+                    </span>
+                  ) : (
+                    <span className="text-sm font-medium text-emerald-600">Free</span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 group-hover:gap-2 transition-all">
+                    Book
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Footer */}
-      <footer className="bg-white border-t mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center">
-              <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center mr-2">
+      <footer className="bg-gray-50 border-t">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <Calendar className="h-4 w-4 text-white" />
               </div>
               <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
             </div>
-            <p className="text-gray-500 ml-4">
-              © 2026 ANYTIMEBOT. Smart scheduling made simple.
+            <p className="text-gray-500 text-sm">
+              © 2026 ANYTIMEBOT · Powered by anytimebot.app
             </p>
           </div>
         </div>

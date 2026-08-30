@@ -52,6 +52,7 @@ interface BookingFormProps {
   eventTypes: EventType[];
   availability: Availability[];
   timezone: string;
+  preselectedEventId?: string;
 }
 
 export function BookingForm({
@@ -59,10 +60,13 @@ export function BookingForm({
   eventTypes,
   availability,
   timezone,
+  preselectedEventId,
 }: BookingFormProps) {
   const { toast } = useToast();
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(
-    eventTypes[0] || null
+    (preselectedEventId && eventTypes.find((e) => e.id === preselectedEventId)) ||
+      eventTypes[0] ||
+      null
   );
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');

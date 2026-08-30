@@ -14,10 +14,14 @@ interface BookingPageProps {
     username: string;
     slug: string;
   };
+  searchParams: {
+    event?: string;
+  };
 }
 
-export default async function PublicBookingPage({ params }: BookingPageProps) {
+export default async function PublicBookingPage({ params, searchParams }: BookingPageProps) {
   const { username, slug } = params;
+  const preselectedEventId = searchParams?.event;
 
   // Find the user by username (case-insensitive) with their active booking page
   const user = await getBookingPageData(username, slug);
@@ -173,6 +177,7 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
                 eventTypes={bookingPage.eventTypes}
                 availability={bookingPage.availability}
                 timezone={user.timezone}
+                preselectedEventId={preselectedEventId}
               />
             </div>
           </div>
