@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 interface Booking { id: string; guestName: string; guestEmail: string; startTime: string; endTime: string; status: string; eventType: { name: string; color?: string }; }
 interface Team { id: string; name: string; members: { id: string; email: string; user?: { name?: string | null; image?: string | null } | null }[]; }
 interface EventType { id: string; name: string; duration: number; color?: string; bookingPage: { id: string; name: string } }
+interface TimeOff { id: string; name?: string | null; start: string; end: string }
 
 const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const palette = ['#63b3ed', '#a78bfa', '#86efac', '#f9a8d4', '#fcd34d'];
@@ -22,6 +23,7 @@ export default function CalendarPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
+  const [timeOffs, setTimeOffs] = useState<TimeOff[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date());
@@ -45,10 +47,11 @@ export default function CalendarPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [bookingRes, teamRes, eventRes] = await Promise.all([
+      const [bookingRes, teamRes, eventRes, timeOffRes] = await Promise.all([
         fetch('/api/bookings?status=all&limit=100'),
         fetch('/api/teams'),
         fetch('/api/event-types'),
+        fetch('/api/time-off'),
       ]);
       const bookingData = await bookingRes.json();
       if (bookingData.success) setBookings(bookingData.data.bookings);
@@ -56,6 +59,8 @@ export default function CalendarPage() {
       if (teamData.success) setTeams(teamData.data);
       const eventData = await eventRes.json();
       if (eventData.success) setEventTypes(eventData.data);
+      const timeOffData = await timeOffRes.json();
+      if (timeOffData.success) setTimeOffs(timeOffData.data);
     } catch { toast.error('No se pudo cargar el calendario'); } finally { setLoading(false); }
   };
 
@@ -66,6 +71,14 @@ export default function CalendarPage() {
   const monthDays = useMemo(() => { const first = new Date(month.getFullYear(), month.getMonth(), 1); const start = new Date(first); start.setDate(first.getDate() - first.getDay()); return Array.from({ length: 42 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; }); }, [month]);
   const weekDays = useMemo(() => { const day = new Date(selectedDay); day.setDate(day.getDate() - day.getDay()); return Array.from({ length: 7 }, (_, index) => { const value = new Date(day); value.setDate(day.getDate() + index); return value; }); }, [selectedDay]);
   const dayBookings = (day: Date) => visibleBookings.filter(b => { const date = new Date(b.startTime); return date.toDateString() === day.toDateString(); });
+  const dayTimeOff = (day: Date) => timeOffs.find(t => {
+    const start = new Date(t.start);
+    const end = new Date(t.end);
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+    return start <= dayEnd && end >= dayStart;
+  });
+  const offStripe = 'repeating-linear-gradient(135deg, rgba(244,63,94,0.10) 0px, rgba(244,63,94,0.10) 8px, transparent 8px, transparent 16px)';
   const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const title = view === 'day' ? selectedDay.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : view === 'week' ? `Semana del ${weekDays[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : month.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
   const visibleDays = view === 'month' ? monthDays : view === 'week' ? weekDays : [selectedDay];
@@ -139,6 +152,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-3 text-sm text-slate-600">
             <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Confirmadas</span>
             <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Pendientes</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-rose-200" /> Ausencias</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -181,15 +195,24 @@ export default function CalendarPage() {
                 const dayItems = dayBookings(day);
                 const currentMonth = day.getMonth() === month.getMonth();
                 const isToday = day.toDateString() === today.toDateString();
+                const off = dayTimeOff(day);
                 return (
                   <button
                     key={day.toISOString()}
                     type="button"
                     onClick={() => openNewBooking(day)}
-                    className={`flex flex-col border-b border-r border-slate-100 p-1.5 text-left transition hover:bg-indigo-50/40 overflow-hidden ${currentMonth ? 'bg-white' : 'bg-slate-50/50'}`}
+                    style={off ? { backgroundImage: offStripe } : undefined}
+                    className={`flex flex-col border-b border-r border-slate-100 p-1.5 text-left transition hover:bg-indigo-50/40 overflow-hidden ${off ? 'bg-rose-50/60' : currentMonth ? 'bg-white' : 'bg-slate-50/50'}`}
                   >
-                    <div className={`mb-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isToday ? 'bg-indigo-600 text-white' : currentMonth ? 'text-slate-700' : 'text-slate-300'}`}>
-                      {day.getDate()}
+                    <div className="mb-1 flex w-full items-center justify-between">
+                      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isToday ? 'bg-indigo-600 text-white' : currentMonth ? 'text-slate-700' : 'text-slate-300'}`}>
+                        {day.getDate()}
+                      </div>
+                      {off && (
+                        <span className="ml-auto inline-flex max-w-[calc(100%-2rem)] items-center gap-1 rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700" title={off.name || 'Ausencia'}>
+                          🚫 {off.name || 'Ausencia'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-0.5">
                       {dayItems.slice(0, 4).map((booking, index) => (
@@ -233,9 +256,15 @@ export default function CalendarPage() {
                     {visibleDays.map(day => (
                       <div
                         key={`${day.toISOString()}-${hour}`}
-                        className="relative min-h-[60px] border-b border-l border-slate-100 cursor-pointer hover:bg-indigo-50/30"
+                        className={`relative min-h-[60px] border-b border-l border-slate-100 cursor-pointer ${dayTimeOff(day) ? 'bg-rose-50/40' : 'hover:bg-indigo-50/30'}`}
+                        style={dayTimeOff(day) ? { backgroundImage: offStripe } : undefined}
                         onClick={(e) => { e.stopPropagation(); openNewBooking(day, hour); }}
                       >
+                        {hour === 7 && dayTimeOff(day) && (
+                          <span className="absolute left-1 right-1 top-1 z-10 truncate rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700" title={dayTimeOff(day)!.name || 'Ausencia'}>
+                            🚫 {dayTimeOff(day)!.name || 'Ausencia'}
+                          </span>
+                        )}
                         {dayBookings(day).filter(b => new Date(b.startTime).getHours() === hour).map(booking => (
                           <button
                             key={booking.id}
