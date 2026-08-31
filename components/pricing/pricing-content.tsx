@@ -56,6 +56,12 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
           alert(data.error || t('pricing.checkoutError'));
           return;
         }
+        // Redirect to the Stripe-hosted checkout URL. This avoids depending on
+        // the publishable key matching the session mode on the client.
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
         const stripe = await loadStripe(data.publishableKey || '');
         if (!stripe) {
           alert(t('pricing.paymentUnavailable'));
@@ -90,6 +96,13 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
 
       if (!response.ok || data.error) {
         alert(data.error || t('pricing.checkoutError'));
+        return;
+      }
+
+      // Redirect to the Stripe-hosted checkout URL. This avoids depending on
+      // the publishable key matching the session mode on the client.
+      if (data.url) {
+        window.location.href = data.url;
         return;
       }
 

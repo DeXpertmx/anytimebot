@@ -31,10 +31,18 @@ export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' 
         body: JSON.stringify({ plan: recommendedPlan }),
       });
 
-      const { sessionId, publishableKey, error } = await response.json();
+      const { sessionId, url, publishableKey, error } = await response.json();
 
       if (error) {
         alert(error);
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to the Stripe-hosted checkout URL. This avoids depending on
+      // the publishable key matching the session mode on the client.
+      if (url) {
+        window.location.href = url;
         setLoading(false);
         return;
       }
