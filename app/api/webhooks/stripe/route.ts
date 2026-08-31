@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event | null = null;
   let eventMode: StripeMode = 'live';
 
-  for (const candidate of getWebhookSecretCandidates()) {
+  for (const candidate of await getWebhookSecretCandidates()) {
     try {
-      event = getStripe(candidate.mode).webhooks.constructEvent(
+      event = (await getStripe(candidate.mode)).webhooks.constructEvent(
         body,
         signature,
         candidate.secret,
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
         if (user) {
           const priceId = subscription.items.data[0]?.price.id;
-          const plan = priceId === getStripePriceId(eventMode, 'TEAM') ? 'TEAM' : 'PRO';
+          const plan = priceId === (await getStripePriceId(eventMode, 'TEAM')) ? 'TEAM' : 'PRO';
           const status = mapSubscriptionStatus(subscription.status);
           const periodEnd = new Date((subscription as any).current_period_end * 1000);
 

@@ -9,8 +9,9 @@ import {
 
 const OLD_ENV = process.env;
 
-test('stripe-mode: resolves legacy live variables as fallback', () => {
+test('stripe-mode: resolves legacy live variables as fallback', async () => {
   process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
   process.env.STRIPE_SECRET_KEY = 'sk_live_legacy';
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = 'pk_live_legacy';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_live_legacy';
@@ -20,56 +21,60 @@ test('stripe-mode: resolves legacy live variables as fallback', () => {
   delete process.env.STRIPE_SECRET_KEY_TEST;
   delete process.env.STRIPE_WEBHOOK_SECRET_TEST;
 
-  const keys = getStripeKeys('live');
+  const keys = await getStripeKeys('live');
   assert.equal(keys.secretKey, 'sk_live_legacy');
   assert.equal(keys.publishableKey, 'pk_live_legacy');
   assert.equal(keys.webhookSecret, 'whsec_live_legacy');
-  assert.equal(getStripePriceId('live', 'PRO'), 'price_live_pro');
-  assert.equal(getStripePriceId('live', 'TEAM'), 'price_live_team');
-  assert.equal(isModeConfigured('live'), true);
+  assert.equal(await getStripePriceId('live', 'PRO'), 'price_live_pro');
+  assert.equal(await getStripePriceId('live', 'TEAM'), 'price_live_team');
+  assert.equal(await isModeConfigured('live'), true);
   process.env = OLD_ENV;
 });
 
-test('stripe-mode: prefers explicit _LIVE variables over legacy names', () => {
+test('stripe-mode: prefers explicit _LIVE variables over legacy names', async () => {
   process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
   process.env.STRIPE_SECRET_KEY_LIVE = 'sk_live_explicit';
   process.env.STRIPE_SECRET_KEY = 'sk_live_legacy';
-  assert.equal(getStripeKeys('live').secretKey, 'sk_live_explicit');
+  assert.equal((await getStripeKeys('live')).secretKey, 'sk_live_explicit');
   process.env = OLD_ENV;
 });
 
-test('stripe-mode: test mode requires _TEST variables and never falls back to live', () => {
+test('stripe-mode: test mode requires _TEST variables and never falls back to live', async () => {
   process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
   delete process.env.STRIPE_SECRET_KEY_TEST;
   delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST;
   delete process.env.STRIPE_WEBHOOK_SECRET_TEST;
-  assert.equal(getStripeKeys('test').secretKey, '');
-  assert.equal(isModeConfigured('test'), false);
+  assert.equal((await getStripeKeys('test')).secretKey, '');
+  assert.equal(await isModeConfigured('test'), false);
   process.env = OLD_ENV;
 });
 
-test('stripe-mode: resolves _TEST variables when configured', () => {
+test('stripe-mode: resolves _TEST variables when configured', async () => {
   process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
   process.env.STRIPE_SECRET_KEY_TEST = 'sk_test_1';
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST = 'pk_test_1';
   process.env.STRIPE_WEBHOOK_SECRET_TEST = 'whsec_test_1';
   process.env.STRIPE_PRICE_PRO_TEST = 'price_test_pro';
   process.env.STRIPE_PRICE_TEAM_TEST = 'price_test_team';
 
-  assert.equal(getStripeKeys('test').secretKey, 'sk_test_1');
-  assert.equal(getStripePriceId('test', 'PRO'), 'price_test_pro');
-  assert.equal(getStripePriceId('test', 'TEAM'), 'price_test_team');
-  assert.equal(isModeConfigured('test'), true);
+  assert.equal((await getStripeKeys('test')).secretKey, 'sk_test_1');
+  assert.equal(await getStripePriceId('test', 'PRO'), 'price_test_pro');
+  assert.equal(await getStripePriceId('test', 'TEAM'), 'price_test_team');
+  assert.equal(await isModeConfigured('test'), true);
 
   process.env = OLD_ENV;
 });
 
-test('stripe-mode: webhook candidates include each configured mode once, live first', () => {
+test('stripe-mode: webhook candidates include each configured mode once, live first', async () => {
   process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_live';
   process.env.STRIPE_WEBHOOK_SECRET_TEST = 'whsec_test';
 
-  const candidates = getWebhookSecretCandidates();
+  const candidates = await getWebhookSecretCandidates();
   assert.equal(candidates.length, 2);
   assert.deepEqual(
     candidates.map((c) => c.mode),
@@ -80,14 +85,24 @@ test('stripe-mode: webhook candidates include each configured mode once, live fi
   process.env = OLD_ENV;
 });
 
-test('stripe-mode: candidates skip modes without a webhook secret', () => {
+test('stripe-mode: candidates skip modes without a webhook secret', async () => {
   process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
   delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.STRIPE_WEBHOOK_SECRET_LIVE;
   process.env.STRIPE_WEBHOOK_SECRET_TEST = 'whsec_test';
 
-  const candidates = getWebhookSecretCandidates();
+  const candidates = await getWebhookSecretCandidates();
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].mode, 'test');
+  process.env = OLD_ENV;
+});
+
+test('stripe-mode: helpers handle empty saved credential objects', async () => {
+  process.env = { ...OLD_ENV };
+  process.env.DATABASE_URL = '';
+  const keys = await getStripeKeys('test');
+  assert.equal(typeof keys.secretKey, 'string');
+  assert.equal(typeof keys.publishableKey, 'string');
   process.env = OLD_ENV;
 });

@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Create checkout session in the active mode (test vs live)
     const mode = await getStripeMode();
-    const session = await getStripe(mode).checkout.sessions.create({
+    const session = await (await getStripe(mode)).checkout.sessions.create({
       ...(user.stripeCustomerId ? { customer: user.stripeCustomerId } : {}),
       payment_method_types: ['card'],
       line_items: [

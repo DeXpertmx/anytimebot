@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event | null = null;
   let eventMode: StripeMode = 'live';
 
-  for (const candidate of getWebhookSecretCandidates()) {
+  for (const candidate of await getWebhookSecretCandidates()) {
     try {
-      event = getStripe(candidate.mode).webhooks.constructEvent(
+      event = (await getStripe(candidate.mode)).webhooks.constructEvent(
         body,
         signature,
         candidate.secret,
@@ -198,12 +198,12 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session, eventMod
     return;
   }
 
-  const subscription = await getStripe(eventMode).subscriptions.retrieve(subscriptionId);
+  const subscription = await (await getStripe(eventMode)).subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0]?.price.id;
 
   // Determine plan from price ID (mode aware)
   let plan: 'PRO' | 'TEAM' = 'PRO';
-  if (priceId === getStripePriceId(eventMode, 'TEAM')) {
+  if (priceId === (await getStripePriceId(eventMode, 'TEAM'))) {
     plan = 'TEAM';
   }
 
@@ -236,7 +236,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, even
 
   const priceId = subscription.items.data[0]?.price.id;
   let plan: 'PRO' | 'TEAM' = 'PRO';
-  if (priceId === getStripePriceId(eventMode, 'TEAM')) {
+  if (priceId === (await getStripePriceId(eventMode, 'TEAM'))) {
     plan = 'TEAM';
   }
 

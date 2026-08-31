@@ -7,11 +7,13 @@ const _clients: Partial<Record<StripeMode, Stripe>> = {};
  * Lazily initialize the Stripe client for a mode so module imports do not fail
  * at build time when the corresponding key is not configured yet.
  *
- * Defaults to the live mode to preserve existing callers; flows that need the
- * operator-selected mode should resolve it first with `getStripeMode()`.
+ * Resolves credentials from saved admin settings first, then environment
+ * variables. Defaults to the live mode to preserve existing callers; flows
+ * that need the operator-selected mode should resolve it first with
+ * `getStripeMode()`.
  */
-export function getStripe(mode: StripeMode = 'live'): Stripe {
-  const { secretKey } = getStripeKeys(mode);
+export async function getStripe(mode: StripeMode = 'live'): Promise<Stripe> {
+  const { secretKey } = await getStripeKeys(mode);
   if (!secretKey) {
     throw new Error(`STRIPE_SECRET_KEY${mode === 'test' ? '_TEST' : ''} is not set`);
   }

@@ -2,7 +2,17 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin, getAdminUser, logAdminAction } from '@/lib/admin';
-import { getStripeMode, setStripeMode, isModeConfigured, getStripeKeys, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
+import {
+  getStripeMode,
+  setStripeMode,
+  isModeConfigured,
+  getStripeKeys,
+  getStripePriceId,
+  hasStoredCredentials,
+  type StripeMode,
+} from '@/lib/stripe-mode';
+
+const MODES: StripeMode[] = ['live', 'test'];
 
 export type StripeModeStatus = {
   mode: StripeMode;
@@ -10,6 +20,7 @@ export type StripeModeStatus = {
     StripeMode,
     {
       configured: boolean;
+      stored: boolean;
       secretKey: boolean;
       publishableKey: boolean;
       webhookSecret: boolean;
@@ -23,7 +34,7 @@ export async function GET() {
   try {
     await requireAdmin();
     const mode = await getStripeMode();
-    return NextResponse.json(statusFor(mode));
+    return NextResponse.json(await statusFor(mode));
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Unauthorized' }, { status: 401 });
   }
@@ -54,7 +65,7 @@ export async function POST(request: NextRequest) {
       request,
     );
 
-    return NextResponse.json(statusFor(mode));
+    return NextResponse.json(await statusFor(mode));
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to update mode' },
@@ -63,23 +74,24 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function statusFor(mode: StripeMode): StripeModeStatus {
-  const check = (m: StripeMode) => {
-    const keys = getStripeKeys(m);
+async function statusFor(mode: StripeMode): Promise<StripeModeStatus> {
+  const check = async (m: StripeMode) => {
+    const keys = await getStripeKeys(m);
     return {
-      configured: isModeConfigured(m),
+      configured: await isModeConfigured(m),
+      stored: await hasStoredCredentials(m),
       secretKey: Boolean(keys.secretKey),
       publishableKey: Boolean(keys.publishableKey),
       webhookSecret: Boolean(keys.webhookSecret),
-      pricePro: Boolean(getStripePriceId(m, 'PRO')),
-      priceTeam: Boolean(getStripePriceId(m, 'TEAM')),
+      pricePro: Boolean(await getStripePriceId(m, 'PRO')),
+      priceTeam: Boolean(await getStripePriceId(m, 'TEAM')),
     };
   };
-  return {
-    mode,
-    modes: {
-      live: check('live'),
-      test: check('test'),
-    },
-  };
+
+  const modes = {} as StripeModeStatus['modes'];
+  for (const m of MODES) {
+    modes[m] = await check(m);
+  }
+
+  return { mode, modes };
 }

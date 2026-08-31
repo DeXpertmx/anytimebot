@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, CreditCard, ShieldCheck, FlaskConical } from 'lucide-react';
+import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -24,6 +24,7 @@ interface StripeModeStatus {
     StripeMode,
     {
       configured: boolean;
+      stored: boolean;
       secretKey: boolean;
       publishableKey: boolean;
       webhookSecret: boolean;
@@ -33,6 +34,14 @@ interface StripeModeStatus {
   >;
 }
 
+interface StripeCredentialsForm {
+  secretKey: string;
+  publishableKey: string;
+  webhookSecret: string;
+  pricePro: string;
+  priceTeam: string;
+}
+
 const MISSING_ITEMS = [
   { key: 'secretKey', label: 'Secret key' },
   { key: 'publishableKey', label: 'Publishable key' },
@@ -40,6 +49,22 @@ const MISSING_ITEMS = [
   { key: 'pricePro', label: 'Pro price ID' },
   { key: 'priceTeam', label: 'Team price ID' },
 ] as const;
+
+const CREDENTIAL_FIELDS: Array<{ key: keyof StripeCredentialsForm; label: string; sensitive?: boolean; placeholder: string }> = [
+  { key: 'secretKey', label: 'Secret key', sensitive: true, placeholder: 'sk_live_... or sk_test_...' },
+  { key: 'publishableKey', label: 'Publishable key', placeholder: 'pk_live_... or pk_test_...' },
+  { key: 'webhookSecret', label: 'Webhook secret', sensitive: true, placeholder: 'whsec_...' },
+  { key: 'pricePro', label: 'Pro price ID', placeholder: 'price_...' },
+  { key: 'priceTeam', label: 'Team price ID', placeholder: 'price_...' },
+];
+
+const EMPTY_FORM: StripeCredentialsForm = {
+  secretKey: '',
+  publishableKey: '',
+  webhookSecret: '',
+  pricePro: '',
+  priceTeam: '',
+};
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({
@@ -53,6 +78,13 @@ export default function SettingsPage() {
 
   const [stripe, setStripe] = useState<StripeModeStatus | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [editingMode, setEditingMode] = useState<StripeMode | null>(null);
+  const [credentials, setCredentials] = useState<StripeModeStatus['modes']>({
+    live: { ...EMPTY_FORM },
+    test: { ...EMPTY_FORM },
+  } as unknown as StripeModeStatus['modes']);
+  const [savingCreds, setSavingCreds] = useState(false);
+  const [clearingCreds, setClearingCreds] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/stripe-mode')
@@ -110,6 +142,60 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveCredentials = async (mode: StripeMode) => {
+    const creds = credentials[mode];
+    const hasValue = CREDENTIAL_FIELDS.some((field) => (creds as any)[field.key] !== '');
+    if (!hasValue) {
+      toast.error('Enter at least one value');
+      return;
+    }
+    setSavingCreds(true);
+    try {
+      const response = await fetch('/api/admin/stripe-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, credentials: creds }),
+      });
+      if (response.ok) {
+        toast.success(`Credentials saved for ${mode} mode`);
+        setEditingMode(null);
+        setCredentials((prev) => ({ ...prev, [mode]: { ...EMPTY_FORM } }));
+        const status = await fetch('/api/admin/stripe-mode').then((r) => r.json());
+        setStripe(status);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to save credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to save credentials');
+    } finally {
+      setSavingCreds(false);
+    }
+  };
+
+  const handleClearCredentials = async (mode: StripeMode) => {
+    setClearingCreds(true);
+    try {
+      const response = await fetch('/api/admin/stripe-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, clear: true }),
+      });
+      if (response.ok) {
+        toast.success(`Saved credentials cleared for ${mode} mode (env vars still apply)`);
+        const status = await fetch('/api/admin/stripe-mode').then((r) => r.json());
+        setStripe(status);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to clear credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to clear credentials');
+    } finally {
+      setClearingCreds(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -128,7 +214,7 @@ export default function SettingsPage() {
           <p className="text-sm text-muted-foreground">
             Switch between test and live payments without redeploying. In test mode
             no real money is charged — use Stripe test cards. Live mode charges real
-            customers.
+            customers. Credentials can be entered below or set as environment variables.
           </p>
 
           {stripe ? (
@@ -137,6 +223,7 @@ export default function SettingsPage() {
                 const info = stripe.modes[mode];
                 const active = stripe.mode === mode;
                 const missing = MISSING_ITEMS.filter((item) => !info[item.key]);
+                const editing = editingMode === mode;
                 return (
                   <div
                     key={mode}
@@ -161,9 +248,13 @@ export default function SettingsPage() {
                     </div>
                     <p className="mt-2 text-sm">
                       {info.configured ? (
-                        <span className="text-emerald-600">Fully configured</span>
+                        <span className="text-emerald-600">
+                          Fully configured{info.stored ? ' (stored in database)' : ' (env vars)'}
+                        </span>
                       ) : (
-                        <span className="text-amber-600">Incomplete ({missing.length} missing)</span>
+                        <span className="text-amber-600">
+                          Incomplete ({missing.length} missing)
+                        </span>
                       )}
                     </p>
                     {!info.configured && (
@@ -173,16 +264,68 @@ export default function SettingsPage() {
                         ))}
                       </ul>
                     )}
-                    {!active && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-3"
-                        disabled={switching}
-                        onClick={() => handleSwitchMode(mode)}
-                      >
-                        {switching ? 'Switching...' : `Switch to ${mode === 'live' ? 'Production' : 'Test'}`}
-                      </Button>
+
+                    {editing ? (
+                      <div className="mt-3 space-y-2 rounded-md border border-dashed p-3">
+                        {CREDENTIAL_FIELDS.map((field) => (
+                          <div key={field.key} className="space-y-1">
+                            <Label className="text-xs">{field.label}</Label>
+                            <Input
+                              type={field.sensitive ? 'password' : 'text'}
+                              placeholder={field.placeholder}
+                              value={(credentials[mode] as any)[field.key]}
+                              onChange={(e) =>
+                                setCredentials((prev) => ({
+                                  ...prev,
+                                  [mode]: { ...prev[mode], [field.key]: e.target.value },
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
+                        <div className="flex gap-2 pt-1">
+                          <Button size="sm" disabled={savingCreds} onClick={() => handleSaveCredentials(mode)}>
+                            <KeyRound className="h-4 w-4 mr-1" />
+                            {savingCreds ? 'Saving...' : 'Save credentials'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingMode(null)}
+                            disabled={savingCreds}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setEditingMode(mode)}>
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          {info.stored ? 'Edit credentials' : 'Add credentials'}
+                        </Button>
+                        {info.stored && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={clearingCreds}
+                            onClick={() => handleClearCredentials(mode)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Clear
+                          </Button>
+                        )}
+                        {!active && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={switching}
+                            onClick={() => handleSwitchMode(mode)}
+                          >
+                            {switching ? 'Switching...' : `Switch to ${mode === 'live' ? 'Production' : 'Test'}`}
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
@@ -193,7 +336,8 @@ export default function SettingsPage() {
           )}
 
           <p className="text-xs text-muted-foreground">
-            Variables used: STRIPE_SECRET_KEY(_LIVE)/_TEST, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY(_LIVE)/_TEST,
+            Credentials saved here take precedence over environment variables. Env fallbacks:
+            STRIPE_SECRET_KEY(_LIVE)/_TEST, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY(_LIVE)/_TEST,
             STRIPE_WEBHOOK_SECRET(_LIVE)/_TEST, STRIPE_PRICE_PRO/TEAM(_LIVE)/_TEST.
           </p>
         </CardContent>

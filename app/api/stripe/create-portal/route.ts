@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     // Create portal session in the active mode (test vs live)
     const mode = await getStripeMode();
-    const portalSession = await getStripe(mode).billingPortal.sessions.create({
+    const portalSession = await (await getStripe(mode)).billingPortal.sessions.create({
       customer: (session.user as any).stripeCustomerId,
       return_url: `${origin}/dashboard`,
     });

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
 
     const mode = await getStripeMode();
-    const stripe = getStripe(mode);
+    const stripe = await getStripe(mode);
 
     // Create or get Stripe customer
     let customerId = (session.user as any).stripeCustomerId;

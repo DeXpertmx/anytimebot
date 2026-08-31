@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     // Resolve which Stripe mode is active (test vs live) and use its keys,
     // customer space and price IDs.
     const mode = await getStripeMode();
-    const stripe = getStripe(mode);
-    const publishableKey = getStripeKeys(mode).publishableKey;
+    const stripe = await getStripe(mode);
+    const publishableKey = (await getStripeKeys(mode)).publishableKey;
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
     // Never trust a client-supplied Price ID. Resolve subscription prices only
     // from server-side environment variables for the active mode.
     const subscriptionPriceId = plan === 'PRO'
-      ? getStripePriceId(mode, 'PRO')
-      : getStripePriceId(mode, 'TEAM');
+      ? await getStripePriceId(mode, 'PRO')
+      : await getStripePriceId(mode, 'TEAM');
     if (!subscriptionPriceId) {
       return NextResponse.json({ error: `Stripe price is not configured for ${plan} in ${mode} mode` }, { status: 503 });
     }
