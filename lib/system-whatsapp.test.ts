@@ -10,6 +10,9 @@ import {
   disconnectSystemWhatsApp,
   sendSystemWhatsAppMessage,
   sendSystemBookingConfirmation,
+  notifyAdminWhatsApp,
+  notifyAdminNewSignup,
+  setSystemWhatsAppAdminPhone,
   type SystemWhatsAppDeps,
 } from './system-whatsapp';
 
@@ -17,6 +20,7 @@ function fakeDb(overrides: {
   findUnique?: (args: any) => Promise<any>;
   upsert?: (args: any) => Promise<any>;
   create?: (args: any) => Promise<any>;
+  findFirst?: (args: any) => Promise<any>;
 }) {
   const db: any = {
     systemSetting: {
@@ -25,6 +29,9 @@ function fakeDb(overrides: {
     },
     whatsAppMessage: {
       create: overrides.create || (async () => ({})),
+    },
+    user: {
+      findFirst: overrides.findFirst || (async () => null),
     },
   };
   return db;
@@ -235,6 +242,77 @@ describe('sendSystemWhatsAppMessage', () => {
     const deps = makeDeps(db, () => Promise.resolve(jsonResponse({ error: 'nope' }, 400)));
     const ok = await sendSystemWhatsAppMessage('+34600111222', 'Hola', undefined, deps);
     assert.equal(ok, false);
+  });
+});
+
+describe('setSystemWhatsAppAdminPhone', () => {
+  it('persists the admin notification phone', async () => {
+    const upserted: any[] = [];
+    const db = fakeDb({
+      findUnique: async () => storedConfig(),
+      upsert: async (args: any) => { upserted.push(args); return {}; },
+    });
+    await setSystemWhatsAppAdminPhone('+34600111222', { prisma: db } as any);
+    assert.equal(upserted.length, 1);
+    assert.equal(upserted[0].update.value.adminPhone, '+34600111222');
+  });
+});
+
+describe('notifyAdminWhatsApp', () => {
+  it('sends to the configured adminPhone', async () => {
+    const created: any[] = [];
+    const db = fakeDb({
+      findUnique: async () => storedConfig({ adminPhone: '+34600999000' }),
+      create: async (args: any) => { created.push(args); return {}; },
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/message/sendText/')) return Promise.resolve(jsonResponse({ key: { id: 'm1' } }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const ok = await notifyAdminWhatsApp('Aviso de prueba', deps);
+    assert.equal(ok, true);
+    assert.equal(created[0].data.phone, '+34600999000');
+  });
+
+  it('falls back to the ADMIN user phone when no adminPhone is set', async () => {
+    const db = fakeDb({
+      findUnique: async () => storedConfig(),
+      findFirst: async () => ({ phone: '+34600555000' }),
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/message/sendText/')) return Promise.resolve(jsonResponse({ key: { id: 'm1' } }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const ok = await notifyAdminWhatsApp('Aviso', deps);
+    assert.equal(ok, true);
+    assert.ok(deps.calls.some((u) => u.includes('/message/sendText/')));
+  });
+
+  it('returns false when no destination phone is available', async () => {
+    const db = fakeDb({ findUnique: async () => storedConfig({ phone: null }) });
+    const ok = await notifyAdminWhatsApp('Aviso', { prisma: db } as any);
+    assert.equal(ok, false);
+  });
+});
+
+describe('notifyAdminNewSignup', () => {
+  it('builds and sends a new-signup message', async () => {
+    const created: any[] = [];
+    const db = fakeDb({
+      findUnique: async () => storedConfig({ adminPhone: '+34600111222' }),
+      create: async (args: any) => { created.push(args); return {}; },
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/message/sendText/')) return Promise.resolve(jsonResponse({ key: { id: 'm1' } }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const ok = await notifyAdminNewSignup({ name: 'Ana', email: 'ana@example.test', username: 'ana' }, deps);
+    assert.equal(ok, true);
+    assert.ok(created[0].data.message.includes('ana@example.test'));
+    assert.ok(created[0].data.message.includes('Ana'));
   });
 });
 

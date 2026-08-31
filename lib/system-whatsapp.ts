@@ -25,6 +25,8 @@ export interface SystemWhatsAppConfig {
   enabled: boolean;
   connectedAt?: string | null;
   updatedBy?: string | null;
+  /** Phone that receives platform notifications (e.g. new signups). */
+  adminPhone?: string | null;
 }
 
 export interface SystemWhatsAppDeps {
@@ -161,6 +163,7 @@ export interface SystemWhatsAppStatus {
   hasInstance: boolean;
   configured: boolean;
   phone?: string | null;
+  adminPhone?: string | null;
 }
 
 /** Connection state of the system number (neutral status object). */
@@ -180,9 +183,9 @@ export async function getSystemWhatsAppStatus(deps?: SystemWhatsAppDeps): Promis
 
     if (!res.ok) {
       if (res.status === 404) {
-        return { success: true, connected: false, state: 'not_found', hasInstance: true, configured: true, phone: config.phone };
+        return { success: true, connected: false, state: 'not_found', hasInstance: true, configured: true, phone: config.phone, adminPhone: config.adminPhone ?? null };
       }
-      return { success: false, connected: false, state: 'error', hasInstance: true, configured: true, phone: config.phone };
+      return { success: false, connected: false, state: 'error', hasInstance: true, configured: true, phone: config.phone, adminPhone: config.adminPhone ?? null };
     }
 
     const data = await res.json();
@@ -196,9 +199,9 @@ export async function getSystemWhatsAppStatus(deps?: SystemWhatsAppDeps): Promis
       phone = await discoverSystemPhone(deps);
     }
 
-    return { success: true, connected, state, hasInstance: true, configured: true, phone };
+    return { success: true, connected, state, hasInstance: true, configured: true, phone, adminPhone: config.adminPhone ?? null };
   } catch (e) {
-    return { success: false, connected: false, state: 'error', hasInstance: true, configured: true, phone: config.phone };
+    return { success: false, connected: false, state: 'error', hasInstance: true, configured: true, phone: config.phone, adminPhone: config.adminPhone ?? null };
   }
 }
 
@@ -309,6 +312,76 @@ export async function sendSystemWhatsAppMessage(
     console.error('Error sending system WhatsApp message:', error);
     return false;
   }
+}
+
+/**
+ * Set the phone that receives platform notifications to the admin.
+ * Persisted in the system WhatsApp config.
+ */
+export async function setSystemWhatsAppAdminPhone(phone: string | null, deps?: SystemWhatsAppDeps): Promise<void> {
+  const config = await getSystemWhatsAppConfig(deps);
+  if (!config) return;
+  await saveSystemWhatsAppConfig({ ...config, adminPhone: phone }, deps);
+}
+
+/**
+ * Resolve the phone that should receive platform notifications:
+ * 1. explicit adminPhone from config
+ * 2. the ADMIN user's stored phone
+ * 3. the connected system number (best effort)
+ */
+async function resolveAdminNotificationPhone(deps?: SystemWhatsAppDeps): Promise<string | null> {
+  const { prisma } = resolveDeps(deps);
+  const config = await getSystemWhatsAppConfig(deps);
+  if (config?.adminPhone) return config.adminPhone;
+
+  try {
+    const admin = await prisma.user.findFirst({
+      where: { role: 'ADMIN' },
+      select: { phone: true },
+    });
+    if (admin?.phone) return admin.phone;
+  } catch (e) {
+    console.error('Failed to resolve admin notification phone:', e);
+  }
+
+  return config?.phone ?? null;
+}
+
+/**
+ * Notify the admin via the system WhatsApp number (e.g. a new signup).
+ * Never throws — notifications are best-effort.
+ */
+export async function notifyAdminWhatsApp(
+  message: string,
+  deps?: SystemWhatsAppDeps,
+): Promise<boolean> {
+  try {
+    const phone = await resolveAdminNotificationPhone(deps);
+    if (!phone) {
+      console.log('No admin notification phone configured; skipping admin WhatsApp notification');
+      return false;
+    }
+    return sendSystemWhatsAppMessage(phone, message, undefined, deps);
+  } catch (error) {
+    console.error('Failed to send admin WhatsApp notification:', error);
+    return false;
+  }
+}
+
+/** Convenience: notify the admin that a new user registered. */
+export async function notifyAdminNewSignup(
+  user: { name?: string | null; email: string; username?: string | null },
+  deps?: SystemWhatsAppDeps,
+): Promise<boolean> {
+  const date = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+  const message = `👋 *Nuevo registro en Anytimebot*
+
+👤 ${user.name || '—'}
+📧 ${user.email}
+🔗 ${user.username || '—'}
+🕐 ${date}`;
+  return notifyAdminWhatsApp(message, deps);
 }
 
 /** Booking confirmation sent from the Anytimebot notification number. */

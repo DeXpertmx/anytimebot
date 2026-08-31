@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Loader2, QrCode, RefreshCw, LogOut, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { Smartphone, Loader2, QrCode, RefreshCw, LogOut, CheckCircle2, XCircle, Trash2, Phone, Save } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 interface QrPayload {
@@ -20,6 +22,7 @@ interface StatusPayload {
   hasInstance: boolean;
   configured: boolean;
   phone?: string | null;
+  adminPhone?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -39,6 +42,8 @@ export default function AdminWhatsAppPage() {
   const [activating, setActivating] = useState(false);
   const [qr, setQr] = useState<QrPayload | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [adminPhone, setAdminPhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -47,6 +52,7 @@ export default function AdminWhatsAppPage() {
       if (res.ok) {
         const data = await res.json();
         setStatus(data);
+        if (data.adminPhone) setAdminPhone(data.adminPhone);
         return data as StatusPayload;
       }
     } catch (e) {
@@ -129,6 +135,26 @@ export default function AdminWhatsAppPage() {
       }
     } catch (e) {
       toast.error('No se pudo obtener el código QR');
+    }
+  };
+
+  const handleSaveAdminPhone = async () => {
+    setSavingPhone(true);
+    try {
+      const res = await fetch('/api/admin/whatsapp/phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: adminPhone }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'No se pudo guardar el número');
+      }
+      toast.success('Número de notificaciones guardado');
+    } catch (e) {
+      toast.error((e as Error).message || 'No se pudo guardar el número');
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -272,6 +298,39 @@ export default function AdminWhatsAppPage() {
                   </p>
                 </div>
               )}
+
+              {/* Admin notification number */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Notificaciones al administrador</p>
+                    <p className="text-sm text-muted-foreground">
+                      Número que recibe avisos del sistema (p. ej. nuevos registros de usuarios).
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="min-w-[240px] flex-1 max-w-sm">
+                    <Label htmlFor="adminPhone" className="sr-only">
+                      Número del administrador
+                    </Label>
+                    <Input
+                      id="adminPhone"
+                      placeholder="+34 600 111 222"
+                      value={adminPhone}
+                      onChange={(e) => setAdminPhone(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="outline" onClick={handleSaveAdminPhone} disabled={savingPhone}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {savingPhone ? 'Guardando…' : 'Guardar'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Si se deja vacío, se usa el teléfono del perfil del administrador o, en su defecto, el número conectado.
+                </p>
+              </div>
 
               {/* Info box */}
               <div className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">

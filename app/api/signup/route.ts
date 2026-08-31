@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcryptjs from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { isValidEmail, generateSlug } from '@/lib/utils';
+import { notifyAdminNewSignup } from '@/lib/system-whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,11 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
       },
     });
+
+    // Notify the admin on the system WhatsApp number (best-effort, never blocks).
+    notifyAdminNewSignup({ name, email, username: finalUsername }).catch((e) =>
+      console.error('Failed to notify admin of new signup:', e),
+    );
 
     return NextResponse.json({
       success: true,

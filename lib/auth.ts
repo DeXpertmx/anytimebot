@@ -5,6 +5,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcryptjs from 'bcryptjs';
 import { prisma } from './db';
+import { notifyAdminNewSignup } from './system-whatsapp';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -69,6 +70,19 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/auth/signin',
+  },
+  events: {
+    // Fire when a brand-new user is created by the adapter (Google sign-in).
+    // Credentials registrations go through /api/signup and notify separately.
+    async createUser({ user }) {
+      if (user?.email) {
+        notifyAdminNewSignup({
+          name: user.name ?? null,
+          email: user.email,
+          username: null,
+        }).catch((e) => console.error('Failed to notify admin of new signup:', e));
+      }
+    },
   },
   callbacks: {
     jwt: async ({ token, user, trigger, account }) => {
