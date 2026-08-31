@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendBookingCancellation } from '@/lib/email';
 import { verifyBookingToken } from '@/lib/booking-tokens';
+import { notifyAdminBookingCancelled } from '@/lib/system-whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,16 @@ export async function POST(
       console.error('Failed to send cancellation email:', emailError);
       // Don't fail the cancellation if email fails
     }
+
+    // Notify the Anytimebot admin of the cancellation via the system WhatsApp number.
+    await notifyAdminBookingCancelled({
+      guestName: booking.guestName,
+      guestEmail: booking.guestEmail,
+      guestPhone: booking.guestPhone,
+      eventTypeName: booking.eventType.name,
+      startTime: booking.startTime,
+      timezone: booking.timezone,
+    });
 
     return NextResponse.json({
       success: true,

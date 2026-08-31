@@ -12,6 +12,8 @@ import {
   sendSystemBookingConfirmation,
   notifyAdminWhatsApp,
   notifyAdminNewSignup,
+  notifyAdminNewPaidBooking,
+  notifyAdminBookingCancelled,
   setSystemWhatsAppAdminPhone,
   type SystemWhatsAppDeps,
 } from './system-whatsapp';
@@ -313,6 +315,85 @@ describe('notifyAdminNewSignup', () => {
     assert.equal(ok, true);
     assert.ok(created[0].data.message.includes('ana@example.test'));
     assert.ok(created[0].data.message.includes('Ana'));
+  });
+});
+
+describe('notifyAdminNewPaidBooking', () => {
+  it('builds and sends a new paid booking message with the amount', async () => {
+    const created: any[] = [];
+    const db = fakeDb({
+      findUnique: async () => storedConfig({ adminPhone: '+34600111222' }),
+      create: async (args: any) => { created.push(args); return {}; },
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/message/sendText/')) return Promise.resolve(jsonResponse({ key: { id: 'm1' } }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const ok = await notifyAdminNewPaidBooking({
+      guestName: 'Ana',
+      guestEmail: 'ana@example.test',
+      eventTypeName: 'Consulta Premium',
+      startTime: '2026-09-01T10:00:00Z',
+      timezone: 'Europe/Madrid',
+      amount: 4900,
+      currency: 'EUR',
+    }, deps);
+
+    assert.equal(ok, true);
+    assert.ok(created[0].data.message.includes('Nueva reserva pagada'));
+    assert.ok(created[0].data.message.includes('Consulta Premium'));
+    assert.ok(created[0].data.message.includes('49,00'));
+  });
+
+  it('omits the amount when unknown', async () => {
+    const created: any[] = [];
+    const db = fakeDb({
+      findUnique: async () => storedConfig({ adminPhone: '+34600111222' }),
+      create: async (args: any) => { created.push(args); return {}; },
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/message/sendText/')) return Promise.resolve(jsonResponse({ key: { id: 'm1' } }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const ok = await notifyAdminNewPaidBooking({
+      guestName: 'Ana',
+      eventTypeName: 'Consulta',
+      startTime: '2026-09-01T10:00:00Z',
+      amount: null,
+    }, deps);
+
+    assert.equal(ok, true);
+    assert.equal(created[0].data.message.includes('Importe'), false);
+  });
+});
+
+describe('notifyAdminBookingCancelled', () => {
+  it('builds and sends a cancellation message', async () => {
+    const created: any[] = [];
+    const db = fakeDb({
+      findUnique: async () => storedConfig({ adminPhone: '+34600111222' }),
+      create: async (args: any) => { created.push(args); return {}; },
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/message/sendText/')) return Promise.resolve(jsonResponse({ key: { id: 'm1' } }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const ok = await notifyAdminBookingCancelled({
+      guestName: 'Juan',
+      guestEmail: 'juan@example.test',
+      guestPhone: '+34600555000',
+      eventTypeName: 'Reunión comercial',
+      startTime: '2026-09-01T11:00:00Z',
+      timezone: 'Europe/Madrid',
+    }, deps);
+
+    assert.equal(ok, true);
+    assert.ok(created[0].data.message.includes('Reserva cancelada'));
+    assert.ok(created[0].data.message.includes('Reunión comercial'));
+    assert.ok(created[0].data.message.includes('Juan'));
   });
 });
 

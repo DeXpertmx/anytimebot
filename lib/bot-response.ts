@@ -102,6 +102,7 @@ function buildDeepSeekPayload(context: BotResponseContext) {
 }
 
 const DEEPSEEK_URL = process.env.LLM_BASE_URL || 'https://api.deepseek.com/chat/completions';
+const ORCAROUTER_URL = process.env.ORCAROUTER_BASE_URL || 'https://api.orcarouter.ai/v1/chat/completions';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -109,7 +110,7 @@ function sleep(ms: number) {
 
 // Exponential backoff with jitter for 429 (rate limit). Keeps bursts from
 // hammering the API and keeps the shared cache prefix warm.
-async function fetchWithRetry(url: string, init: RequestInit, attempts = 4) {
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3) {
   for (let attempt = 1; ; attempt++) {
     const res = await fetch(url, init);
     if (res.status !== 429 || attempt >= attempts) {
@@ -121,22 +122,85 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 4) {
   }
 }
 
+type Provider = {
+  url: string;
+  apiKey: string;
+  model: string;
+};
+
+// OrcaRouter is the primary provider; DeepSeek is the fallback. Both speak the
+// OpenAI-compatible chat completions protocol, so the same payload works for
+// both. The key is read from env (never hardcoded).
+function resolveProviders(): Provider[] {
+  const providers: Provider[] = [];
+  const orcaKey = process.env.ORCAROUTER_API_KEY || process.env.LLM_API_KEY;
+  const deepKey = process.env.DEEPSEEK_API_KEY || process.env.LLM_API_KEY;
+  if (orcaKey) {
+    providers.push({
+      url: ORCAROUTER_URL,
+      apiKey: orcaKey,
+      model: process.env.ORCAROUTER_MODEL || 'orcarouter/free',
+    });
+  }
+  if (deepKey) {
+    providers.push({
+      url: DEEPSEEK_URL,
+      apiKey: deepKey,
+      model: process.env.LLM_MODEL || 'deepseek-v4-flash',
+    });
+  }
+  // Fallback: a generic LLM_API_KEY with no provider-specific var.
+  if (providers.length === 0 && process.env.LLM_API_KEY) {
+    providers.push({
+      url: DEEPSEEK_URL,
+      apiKey: process.env.LLM_API_KEY,
+      model: process.env.LLM_MODEL || 'deepseek-v4-flash',
+    });
+  }
+  return providers;
+}
+
 export async function generateBotResponse(context: BotResponseContext): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.LLM_API_KEY || '';
+  const providers = resolveProviders();
+  if (providers.length === 0) {
+    throw new Error('LLM is not configured: missing API key');
+  }
+
   const payload = buildDeepSeekPayload(context);
 
-  const response = await fetchWithRetry(DEEPSEEK_URL, {
+  // Try the primary provider first, then fall back to the next one.
+  let lastError: unknown = null;
+  for (const provider of providers) {
+    try {
+      return await callProvider(provider, payload);
+    } catch (error) {
+      lastError = error;
+      console.error(`LLM provider failed (${provider.model}):`, error);
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('All LLM providers failed');
+}
+
+async function callProvider(
+  provider: Provider,
+  payload: ReturnType<typeof buildDeepSeekPayload>,
+): Promise<string> {
+  const modelPayload = { ...payload, model: provider.model };
+  const response = await fetchWithRetry(provider.url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${provider.apiKey}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(modelPayload),
   });
 
   if (!response.ok) {
     const details = await response.text();
-    throw new Error(`LLM request failed (${response.status}): ${details}`);
+    throw new Error(`LLM request failed (${provider.url}, ${response.status}): ${details}`);
   }
 
   const data = await response.json();
@@ -145,9 +209,15 @@ export async function generateBotResponse(context: BotResponseContext): Promise<
     throw new Error('LLM returned an empty response');
   }
 
-  // DeepSeek cache telemetry: top-level usage fields.
-  if (data.usage) {
-    logLlmUsage(computeLlmUsage(payload.model, data.usage));
+  // Telemetry only for DeepSeek, which exposes top-level cache fields. OrcaRouter
+  // uses the standard OpenAI shape, so computeLlmUsage may read zeroed cache —
+  // cheap and harmless, still records token/cost baselines.
+  try {
+    if (data.usage) {
+      logLlmUsage(computeLlmUsage(modelPayload.model, data.usage));
+    }
+  } catch (e) {
+    // Telemetry must never break the response.
   }
 
   return content

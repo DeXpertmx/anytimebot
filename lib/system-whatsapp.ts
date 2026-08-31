@@ -384,6 +384,71 @@ export async function notifyAdminNewSignup(
   return notifyAdminWhatsApp(message, deps);
 }
 
+function formatCurrency(amount: number, currency?: string | null): string {
+  const code = (currency || 'EUR').toUpperCase();
+  try {
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: code }).format(amount / 100);
+  } catch (e) {
+    return `${(amount / 100).toFixed(2)} ${code}`;
+  }
+}
+
+function bookingDate(iso: string | Date, timezone?: string | null): string {
+  return new Date(iso).toLocaleString('es-ES', { timeZone: timezone || 'Europe/Madrid' });
+}
+
+/** Format an admin-facing booking summary line (neutral product terms). */
+function bookingSummary(data: {
+  guestName?: string | null;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  eventTypeName: string;
+  startTime: string | Date;
+  timezone?: string | null;
+}): string {
+  return `📅 Tipo: ${data.eventTypeName}
+👤 Cliente: ${data.guestName || '—'}${data.guestEmail ? `\n📧 ${data.guestEmail}` : ''}${data.guestPhone ? `\n📞 ${data.guestPhone}` : ''}\n🕐 Fecha y hora: ${bookingDate(data.startTime, data.timezone)}`;
+}
+
+/** Notify the admin of a newly paid booking via the system WhatsApp number. */
+export async function notifyAdminNewPaidBooking(
+  data: {
+    guestName?: string | null;
+    guestEmail?: string | null;
+    guestPhone?: string | null;
+    eventTypeName: string;
+    startTime: string | Date;
+    timezone?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+  },
+  deps?: SystemWhatsAppDeps,
+): Promise<boolean> {
+  const amount = data.amount && data.amount > 0 ? `\n💰 Importe: ${formatCurrency(data.amount, data.currency)}` : '';
+  const message = `✅ *Nueva reserva pagada en Anytimebot*
+
+${bookingSummary(data)}${amount}`;
+  return notifyAdminWhatsApp(message, deps);
+}
+
+/** Notify the admin of a cancelled booking via the system WhatsApp number. */
+export async function notifyAdminBookingCancelled(
+  data: {
+    guestName?: string | null;
+    guestEmail?: string | null;
+    guestPhone?: string | null;
+    eventTypeName: string;
+    startTime: string | Date;
+    timezone?: string | null;
+  },
+  deps?: SystemWhatsAppDeps,
+): Promise<boolean> {
+  const message = `❌ *Reserva cancelada en Anytimebot*
+
+${bookingSummary(data)}`;
+  return notifyAdminWhatsApp(message, deps);
+}
+
 /** Booking confirmation sent from the Anytimebot notification number. */
 export async function sendSystemBookingConfirmation(
   to: string,

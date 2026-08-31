@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendBookingCancellation } from '@/lib/evolution-api';
+import { notifyAdminBookingCancelled } from '@/lib/system-whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,6 +170,18 @@ export async function PUT(
       }
     }
 
+    // Notify the Anytimebot admin of the cancellation via the system WhatsApp number.
+    if (status === 'CANCELLED') {
+      await notifyAdminBookingCancelled({
+        guestName: updatedBooking.guestName,
+        guestEmail: updatedBooking.guestEmail,
+        guestPhone: updatedBooking.guestPhone,
+        eventTypeName: updatedBooking.eventType.name,
+        startTime: updatedBooking.startTime,
+        timezone: updatedBooking.timezone,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: updatedBooking,
@@ -220,6 +233,24 @@ export async function DELETE(
       where: { id: params.id },
       data: { status: 'CANCELLED' },
     });
+
+    // Notify the Anytimebot admin of the cancellation via the system WhatsApp number.
+    try {
+      const ev = await prisma.eventType.findUnique({
+        where: { id: cancelledBooking.eventTypeId },
+        select: { name: true },
+      });
+      await notifyAdminBookingCancelled({
+        guestName: cancelledBooking.guestName,
+        guestEmail: cancelledBooking.guestEmail,
+        guestPhone: cancelledBooking.guestPhone,
+        eventTypeName: ev?.name || 'Reserva',
+        startTime: cancelledBooking.startTime,
+        timezone: cancelledBooking.timezone,
+      });
+    } catch {
+      // Best-effort; never fail the cancellation.
+    }
 
     return NextResponse.json({
       success: true,

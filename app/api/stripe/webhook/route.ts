@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db';
 import Stripe from 'stripe';
 import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
 import { getStripe } from '@/lib/stripe';
+import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
@@ -128,6 +129,17 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
     console.log(`   Event: ${eventType.name}`);
     console.log(`   Time: ${startTime}`);
     console.log(`   Amount: ${session.amount_total} ${session.currency}`);
+
+    // Notify the Anytimebot admin of the new paid booking via the system WhatsApp number.
+    await notifyAdminNewPaidBooking({
+      guestName,
+      guestEmail,
+      eventTypeName: eventType.name,
+      startTime: bookingStartTime,
+      timezone: timezone || 'UTC',
+      amount: session.amount_total ?? eventType.price,
+      currency: session.currency ?? eventType.currency,
+    });
 
     // TODO: Send confirmation email
     // TODO: Send WhatsApp notification
