@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@/lib/db';
 import Stripe from 'stripe';
 import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
@@ -208,13 +208,14 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session, eventMod
   }
 
   // Update user
+  const periodEnd = getSubscriptionPeriodEnd(subscription);
   await prisma.user.update({
     where: { id: userId },
     data: {
       plan,
       stripeSubscriptionId: subscriptionId,
       subscriptionStatus: 'ACTIVE',
-      subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
+      ...(periodEnd ? { subscriptionEndsAt: new Date(periodEnd * 1000) } : {}),
     },
   });
 
@@ -240,12 +241,13 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, even
     plan = 'TEAM';
   }
 
+  const periodEnd = getSubscriptionPeriodEnd(subscription);
   await prisma.user.update({
     where: { id: user.id },
     data: {
       plan,
       subscriptionStatus: subscription.status === 'active' ? 'ACTIVE' : 'CANCELLED',
-      subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
+      ...(periodEnd ? { subscriptionEndsAt: new Date(periodEnd * 1000) } : {}),
     },
   });
 

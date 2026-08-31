@@ -6,6 +6,7 @@ import {
   getStripePriceId,
   getWebhookSecretCandidates,
 } from '@/lib/stripe-mode';
+import { getSubscriptionPeriodEnd } from '@/lib/stripe';
 
 const OLD_ENV = process.env;
 
@@ -105,4 +106,32 @@ test('stripe-mode: helpers handle empty saved credential objects', async () => {
   assert.equal(typeof keys.secretKey, 'string');
   assert.equal(typeof keys.publishableKey, 'string');
   process.env = OLD_ENV;
+});
+
+test('stripe: computes period end from current_period_end when present', () => {
+  const sub: any = { current_period_end: 1000 };
+  assert.equal(getSubscriptionPeriodEnd(sub), 1000);
+});
+
+test('stripe: derives period end from billing_cycle_anchor and month interval', () => {
+  const anchor = 1788220266;
+  const sub: any = {
+    billing_cycle_anchor: anchor,
+    items: { data: [{ price: { recurring: { interval: 'month', interval_count: 1 } } }] },
+  };
+  assert.equal(getSubscriptionPeriodEnd(sub), anchor + 30 * 86400);
+});
+
+test('stripe: returns null when neither period end nor anchor exists', () => {
+  const sub: any = {};
+  assert.equal(getSubscriptionPeriodEnd(sub), null);
+});
+
+test('stripe: respects interval_count', () => {
+  const anchor = 1000;
+  const sub: any = {
+    billing_cycle_anchor: anchor,
+    items: { data: [{ price: { recurring: { interval: 'week', interval_count: 2 } } }] },
+  };
+  assert.equal(getSubscriptionPeriodEnd(sub), anchor + 2 * 7 * 86400);
 });

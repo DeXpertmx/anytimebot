@@ -26,6 +26,31 @@ export async function getStripe(mode: StripeMode = 'live'): Promise<Stripe> {
   return _clients[mode] as Stripe;
 }
 
+/**
+ * Computes the current subscription period end in seconds.
+ *
+ * Newer Stripe API versions (e.g. 2025-10-29.clover) stopped populating
+ * `current_period_end` on Subscription objects; the anchor and the price
+ * interval are used instead to derive the period end.
+ */
+export function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): number | null {
+  const sub = subscription as any;
+  const periodEnd = sub.current_period_end ?? sub.currentPeriodEnd;
+  if (typeof periodEnd === 'number' && Number.isFinite(periodEnd)) {
+    return periodEnd;
+  }
+
+  const anchor = sub.billing_cycle_anchor ?? sub.billingCycleAnchor;
+  if (typeof anchor !== 'number' || !Number.isFinite(anchor)) {
+    return null;
+  }
+
+  const interval = subscription.items?.data?.[0]?.price?.recurring?.interval;
+  const intervalCount = subscription.items?.data?.[0]?.price?.recurring?.interval_count ?? 1;
+  const multiplier = interval === 'day' ? 1 : interval === 'week' ? 7 : interval === 'year' ? 365 : 30;
+  return anchor + multiplier * intervalCount * 86400;
+}
+
 // Plan configurations
 export const PLANS = {
   FREE: {

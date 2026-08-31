@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { prisma as db } from '@/lib/db';
 import Stripe from 'stripe';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
@@ -98,7 +98,8 @@ export async function POST(request: NextRequest) {
           const priceId = subscription.items.data[0]?.price.id;
           const plan = priceId === (await getStripePriceId(eventMode, 'TEAM')) ? 'TEAM' : 'PRO';
           const status = mapSubscriptionStatus(subscription.status);
-          const periodEnd = new Date((subscription as any).current_period_end * 1000);
+          const periodEndSeconds = getSubscriptionPeriodEnd(subscription);
+          const periodEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000) : null;
 
           await db.user.update({
             where: { id: user.id },
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
             data: {
               plan,
               status,
-              stripeCurrentPeriodEnd: periodEnd,
+              ...(periodEnd ? { stripeCurrentPeriodEnd: periodEnd } : {}),
             },
           });
         }
