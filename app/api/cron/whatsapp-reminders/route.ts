@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendSystemWhatsAppMessage } from '@/lib/system-whatsapp';
 import { generateBookingToken } from '@/lib/booking-tokens';
 
 export const dynamic = 'force-dynamic';
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
       const userId = booking.eventType.bookingPage.userId;
       const user = booking.eventType.bookingPage.user;
 
-      if (!user.whatsappEnabled || !booking.guestPhone) {
+      if (!booking.guestPhone) {
         totalSkipped++;
         continue;
       }
@@ -108,12 +109,19 @@ Si necesitas cancelar o reprogramar:
 
 ¡Te esperamos! 🙌`;
 
-      const sent = await sendWhatsAppMessage({
-        userId,
-        to: booking.guestPhone,
-        message,
-        bookingId: booking.id,
-      });
+      // Send from the business number when connected, otherwise fall back to the
+      // Anytimebot notification number.
+      let sent = false;
+      if (user.whatsappEnabled) {
+        sent = await sendWhatsAppMessage({
+          userId,
+          to: booking.guestPhone,
+          message,
+          bookingId: booking.id,
+        });
+      } else {
+        sent = await sendSystemWhatsAppMessage(booking.guestPhone, message, booking.id);
+      }
 
       // Update reminder status
       await prisma.booking.update({
@@ -170,7 +178,7 @@ Si necesitas cancelar o reprogramar:
       const userId = booking.eventType.bookingPage.userId;
       const user = booking.eventType.bookingPage.user;
 
-      if (!user.whatsappEnabled || !booking.guestPhone) {
+      if (!booking.guestPhone) {
         totalSkipped++;
         continue;
       }
@@ -197,12 +205,17 @@ ${booking.eventType.videoLink ? `🔗 Link de la reunión: ${booking.eventType.v
 
 ¡Nos vemos pronto! 👋`;
 
-      const sent = await sendWhatsAppMessage({
-        userId,
-        to: booking.guestPhone,
-        message,
-        bookingId: booking.id,
-      });
+      let sent = false;
+      if (user.whatsappEnabled) {
+        sent = await sendWhatsAppMessage({
+          userId,
+          to: booking.guestPhone,
+          message,
+          bookingId: booking.id,
+        });
+      } else {
+        sent = await sendSystemWhatsAppMessage(booking.guestPhone, message, booking.id);
+      }
 
       // Update reminder status
       await prisma.booking.update({

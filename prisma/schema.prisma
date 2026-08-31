@@ -490,7 +490,7 @@ model Subscription {
 // WhatsApp Messages
 model WhatsAppMessage {
   id          String             @id @default(cuid())
-  userId      String             @map("user_id")
+  userId      String?            @map("user_id") // null for platform-level (system) messages
   bookingId   String?            @map("booking_id")
   phone       String
   message     String             @db.Text
@@ -503,9 +503,22 @@ model WhatsAppMessage {
   updatedAt   DateTime           @updatedAt @map("updated_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("whatsapp_messages")
+}
+
+// System-wide platform settings (singleton rows keyed by a string).
+// Used to persist the Anytimebot-exclusive notification WhatsApp connection
+// and any future global configuration.
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
 }
 
 // Consent records (GDPR Art. 7) - proof of explicit, informed consent

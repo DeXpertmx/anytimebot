@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { isValidEmail, isValidPhone, addMinutes } from '@/lib/utils';
 import { sendBookingConfirmationWithTemplate } from '@/lib/email';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
+import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability } from '@/lib/google-calendar';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
@@ -431,7 +432,7 @@ export async function POST(request: NextRequest) {
     // Send WhatsApp notification if guest has phone
     if (guestPhone && booking.eventType.bookingPage.userId) {
       try {
-        await sendWhatsAppBookingConfirmation(
+        const sent = await sendWhatsAppBookingConfirmation(
           booking.eventType.bookingPage.userId,
           guestPhone,
           {
@@ -441,6 +442,17 @@ export async function POST(request: NextRequest) {
             timezone,
           }
         );
+
+        // Fallback: when the business hasn't connected its own WhatsApp, send the
+        // confirmation from the Anytimebot notification number.
+        if (!sent) {
+          await sendSystemBookingConfirmation(guestPhone, {
+            guestName,
+            eventTypeName: eventType.name,
+            startTime: bookingStartTime.toLocaleString('es-ES', { timeZone: timezone }),
+            timezone,
+          });
+        }
       } catch (whatsappError) {
         console.error('Failed to send WhatsApp confirmation:', whatsappError);
         // Don't fail the booking if WhatsApp fails

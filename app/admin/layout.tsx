@@ -15,7 +15,8 @@ import {
   LifeBuoy,
   Shield,
   Menu,
-  X
+  X,
+  Smartphone
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
   { name: 'Usage & Costs', href: '/admin/usage', icon: Activity },
   { name: 'Channels', href: '/admin/channels', icon: MessageSquare },
+  { name: 'WhatsApp', href: '/admin/whatsapp', icon: Smartphone },
   { name: 'Support', href: '/admin/support', icon: LifeBuoy },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];

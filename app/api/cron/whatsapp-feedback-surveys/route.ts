@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendSystemWhatsAppMessage } from '@/lib/system-whatsapp';
 import { feedbackToken } from '@/lib/feedback-token';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       const userId = booking.eventType.bookingPage?.userId;
       const whatsappEnabled = booking.eventType.bookingPage?.user?.whatsappEnabled;
 
-      if (!userId || !whatsappEnabled || !booking.guestPhone) {
+      if (!userId || !booking.guestPhone) {
         skipped++;
         continue;
       }
@@ -80,12 +81,19 @@ ${surveyUrl}
 
 ¡Gracias! 🙏`;
 
-      const ok = await sendWhatsAppMessage({
-        userId,
-        to: booking.guestPhone,
-        message,
-        bookingId: booking.id,
-      });
+      // Send from the business number when connected, otherwise fall back to the
+      // Anytimebot notification number.
+      let ok = false;
+      if (whatsappEnabled) {
+        ok = await sendWhatsAppMessage({
+          userId,
+          to: booking.guestPhone,
+          message,
+          bookingId: booking.id,
+        });
+      } else {
+        ok = await sendSystemWhatsAppMessage(booking.guestPhone, message, booking.id);
+      }
 
       if (ok) {
         sent++;
