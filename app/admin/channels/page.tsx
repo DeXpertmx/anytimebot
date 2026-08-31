@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MessageSquare, CheckCircle, XCircle } from 'lucide-react';
+import { MessageSquare, CheckCircle, XCircle, Smartphone, RefreshCw, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ChannelUser {
   id: string;
@@ -25,11 +25,40 @@ interface ChannelUser {
   evolutionInstanceName: string | null;
 }
 
+interface SystemMessage {
+  id: string;
+  phone: string;
+  message: string;
+  direction: 'OUTGOING' | 'INCOMING';
+  status: string;
+  provider: string;
+  bookingId: string | null;
+  createdAt: string;
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  PENDING: 'bg-amber-100 text-amber-800',
+  SENT: 'bg-blue-100 text-blue-800',
+  DELIVERED: 'bg-green-100 text-green-800',
+  READ: 'bg-green-100 text-green-800',
+  FAILED: 'bg-red-100 text-red-800',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: 'Pendiente',
+  SENT: 'Enviado',
+  DELIVERED: 'Entregado',
+  READ: 'Leído',
+  FAILED: 'Fallido',
+};
+
 export default function ChannelsPage() {
   const [users, setUsers] = useState<ChannelUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState<SystemMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
 
-  const fetchChannels = async () => {
+  const fetchChannels = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/admin/channels');
@@ -42,17 +71,36 @@ export default function ChannelsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const fetchMessages = useCallback(async () => {
+    setMessagesLoading(true);
+    try {
+      const response = await fetch('/api/admin/channels/messages?limit=100');
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages);
+      } else {
+        toast.error('No se pudieron cargar los mensajes del sistema');
+      }
+    } catch (error) {
+      console.error('Failed to fetch system messages:', error);
+      toast.error('No se pudieron cargar los mensajes del sistema');
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchChannels();
-  }, []);
+    fetchMessages();
+  }, [fetchChannels, fetchMessages]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Channel Management</h1>
-        <p className="text-muted-foreground">Monitor WhatsApp, Telegram, and other integrations</p>
+        <h1 className="text-3xl font-bold">Canales</h1>
+        <p className="text-muted-foreground">Monitoriza las integraciones de WhatsApp de los negocios y del sistema</p>
       </div>
 
       <Card>
@@ -60,7 +108,7 @@ export default function ChannelsPage() {
           <CardTitle>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
-              WhatsApp Integrations
+              Integraciones de WhatsApp de los negocios
             </div>
           </CardTitle>
         </CardHeader>
@@ -71,18 +119,18 @@ export default function ChannelsPage() {
             </div>
           ) : users.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No channel integrations found
+              No hay integraciones de WhatsApp conectadas
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
+                    <TableHead>Usuario</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>WhatsApp</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Instance</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Instancia</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -109,12 +157,12 @@ export default function ChannelsPage() {
                         {user.whatsappEnabled ? (
                           <div className="flex items-center gap-2 text-green-600">
                             <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm">Enabled</span>
+                            <span className="text-sm">Activo</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 text-gray-400">
                             <XCircle className="h-4 w-4" />
-                            <span className="text-sm">Disabled</span>
+                            <span className="text-sm">Inactivo</span>
                           </div>
                         )}
                       </TableCell>
@@ -123,6 +171,71 @@ export default function ChannelsPage() {
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {user.evolutionInstanceName || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5" />
+              Mensajes del número de notificaciones del sistema
+            </div>
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={fetchMessages} disabled={messagesLoading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${messagesLoading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {messagesLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="animate-spin h-8 w-8 mx-auto text-muted-foreground" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Todavía no hay mensajes enviados desde el número del sistema
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Dirección</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Mensaje</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {messages.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {new Date(m.createdAt).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{m.phone}</TableCell>
+                      <TableCell>
+                        <Badge className={m.direction === 'OUTGOING' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-700'}>
+                          {m.direction === 'OUTGOING' ? 'Saliente' : 'Entrante'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={STATUS_BADGE[m.status] || 'bg-gray-100 text-gray-700'}>
+                          {STATUS_LABEL[m.status] || m.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-md">
+                        <p className="text-sm text-muted-foreground whitespace-pre-line line-clamp-2">
+                          {m.message}
+                        </p>
                       </TableCell>
                     </TableRow>
                   ))}
