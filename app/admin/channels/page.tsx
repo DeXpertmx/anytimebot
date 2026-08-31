@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MessageSquare, CheckCircle, XCircle, Smartphone, RefreshCw, Loader2, Search, X } from 'lucide-react';
+import { MessageSquare, CheckCircle, XCircle, Smartphone, RefreshCw, Loader2, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -69,6 +69,10 @@ export default function ChannelsPage() {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [appliedPhone, setAppliedPhone] = useState('');
   const [appliedStatus, setAppliedStatus] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [pages, setPages] = useState(1);
 
   const fetchChannels = useCallback(async () => {
     setLoading(true);
@@ -88,7 +92,7 @@ export default function ChannelsPage() {
   const fetchMessages = useCallback(async () => {
     setMessagesLoading(true);
     try {
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (appliedPhone) params.set('phone', appliedPhone);
       if (appliedStatus !== 'ALL') params.set('status', appliedStatus);
 
@@ -96,6 +100,8 @@ export default function ChannelsPage() {
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages);
+        setTotalMessages(data.pagination?.total ?? data.messages.length);
+        setPages(data.pagination?.pages ?? 1);
       } else {
         toast.error('No se pudieron cargar los mensajes del sistema');
       }
@@ -105,7 +111,12 @@ export default function ChannelsPage() {
     } finally {
       setMessagesLoading(false);
     }
-  }, [appliedPhone, appliedStatus]);
+  }, [appliedPhone, appliedStatus, page, pageSize]);
+
+  // Reset to page 1 whenever the filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [appliedPhone, appliedStatus, pageSize]);
 
   useEffect(() => {
     fetchChannels();
@@ -271,10 +282,46 @@ export default function ChannelsPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            {messages.length} mensaje{messages.length !== 1 ? 's' : ''}
+            {totalMessages} mensaje{totalMessages !== 1 ? 's' : ''} en total
             {appliedPhone && <> · teléfono: <span className="font-mono">{appliedPhone}</span></>}
             {appliedStatus !== 'ALL' && <> · estado: {STATUS_LABEL[appliedStatus] || appliedStatus}</>}
           </p>
+          {/* Pagination controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(parseInt(v, 10))}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Por página" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25 / página</SelectItem>
+                <SelectItem value="50">50 / página</SelectItem>
+                <SelectItem value="100">100 / página</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1 text-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || messagesLoading}
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="px-3 text-muted-foreground whitespace-nowrap">
+                Página {page} de {pages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= pages || messagesLoading}
+                onClick={() => setPage((p) => Math.min(p + 1, pages))}
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           {messagesLoading ? (
             <div className="text-center py-8">
               <Loader2 className="animate-spin h-8 w-8 mx-auto text-muted-foreground" />

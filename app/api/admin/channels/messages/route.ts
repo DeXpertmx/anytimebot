@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
     await requireAdmin();
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100', 10) || 100, 200);
+    const page = Math.max(parseInt(searchParams.get('page') || '1', 10) || 1, 1);
+    const pageSize = Math.min(Math.max(parseInt(searchParams.get('pageSize') || '25', 10) || 25, 5), 100);
     const phone = searchParams.get('phone')?.trim() || undefined;
     const status = searchParams.get('status')?.trim().toUpperCase() || undefined;
 
@@ -21,23 +22,35 @@ export async function GET(request: NextRequest) {
     if (phone) where.phone = { contains: phone, mode: 'insensitive' };
     if (status) where.status = status;
 
-    const messages = await prisma.whatsAppMessage.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        phone: true,
-        message: true,
-        direction: true,
-        status: true,
-        provider: true,
-        bookingId: true,
-        createdAt: true,
+    const [messages, total] = await Promise.all([
+      prisma.whatsAppMessage.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          phone: true,
+          message: true,
+          direction: true,
+          status: true,
+          provider: true,
+          bookingId: true,
+          createdAt: true,
+        },
+      }),
+      prisma.whatsAppMessage.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      messages,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        pages: Math.max(Math.ceil(total / pageSize), 1),
       },
     });
-
-    return NextResponse.json({ messages });
   } catch (error: any) {
     console.error('Admin system messages API error:', error);
     return NextResponse.json(
