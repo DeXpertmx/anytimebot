@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { prisma } from '@/lib/db';
 import { initializeUserQuotas } from '@/lib/plans';
 import { PlanBadge } from '@/components/dashboard/plan-badge';
+import { PaymentSuccessBanner } from '@/components/dashboard/payment-success-banner';
 
 const DashboardOverview = dynamic(() => import('@/components/dashboard/dashboard-overview').then(mod => ({ default: mod.DashboardOverview })), {
   ssr: false,
@@ -29,7 +30,11 @@ export const metadata = {
   description: 'Manage your bookings and scheduling',
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { payment?: string; plan?: string };
+}) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -52,6 +57,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-w-0 space-y-6 pb-6">
+      <PaymentSuccessBanner payment={searchParams?.payment} plan={searchParams?.plan} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
