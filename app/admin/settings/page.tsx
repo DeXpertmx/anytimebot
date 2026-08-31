@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2 } from 'lucide-react';
+import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -85,6 +85,14 @@ export default function SettingsPage() {
   } as unknown as StripeModeStatus['modes']);
   const [savingCreds, setSavingCreds] = useState(false);
   const [clearingCreds, setClearingCreds] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState('https://anytimebot.app/api/stripe/webhook');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      setWebhookUrl(`${window.location.origin}/api/stripe/webhook`);
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/admin/stripe-mode')
@@ -218,6 +226,29 @@ export default function SettingsPage() {
           </p>
 
           {stripe ? (
+            <>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 p-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">Webhook endpoint (same URL for test and live)</p>
+                <code className="block truncate font-mono text-sm">{webhookUrl}</code>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(webhookUrl);
+                    setCopiedUrl(true);
+                    setTimeout(() => setCopiedUrl(false), 1500);
+                  } catch {
+                    toast.error('Could not copy URL');
+                  }
+                }}
+              >
+                {copiedUrl ? <Check className="h-4 w-4 mr-1" /> : <Link2 className="h-4 w-4 mr-1" />}
+                {copiedUrl ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               {(['live', 'test'] as StripeMode[]).map((mode) => {
                 const info = stripe.modes[mode];
@@ -331,6 +362,7 @@ export default function SettingsPage() {
                 );
               })}
             </div>
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">Loading Stripe mode...</p>
           )}
