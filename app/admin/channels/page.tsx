@@ -12,7 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MessageSquare, CheckCircle, XCircle, Smartphone, RefreshCw, Loader2 } from 'lucide-react';
+import { MessageSquare, CheckCircle, XCircle, Smartphone, RefreshCw, Loader2, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 
 interface ChannelUser {
@@ -57,6 +65,10 @@ export default function ChannelsPage() {
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<SystemMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(true);
+  const [filterPhone, setFilterPhone] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [appliedPhone, setAppliedPhone] = useState('');
+  const [appliedStatus, setAppliedStatus] = useState('ALL');
 
   const fetchChannels = useCallback(async () => {
     setLoading(true);
@@ -76,7 +88,11 @@ export default function ChannelsPage() {
   const fetchMessages = useCallback(async () => {
     setMessagesLoading(true);
     try {
-      const response = await fetch('/api/admin/channels/messages?limit=100');
+      const params = new URLSearchParams({ limit: '100' });
+      if (appliedPhone) params.set('phone', appliedPhone);
+      if (appliedStatus !== 'ALL') params.set('status', appliedStatus);
+
+      const response = await fetch(`/api/admin/channels/messages?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages);
@@ -89,7 +105,7 @@ export default function ChannelsPage() {
     } finally {
       setMessagesLoading(false);
     }
-  }, []);
+  }, [appliedPhone, appliedStatus]);
 
   useEffect(() => {
     fetchChannels();
@@ -194,14 +210,80 @@ export default function ChannelsPage() {
             Actualizar
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[220px] flex-1 max-w-xs">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Teléfono</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por teléfono…"
+                  className="pl-8"
+                  value={filterPhone}
+                  onChange={(e) => setFilterPhone(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setAppliedPhone(filterPhone.trim());
+                      setAppliedStatus(filterStatus);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="min-w-[180px]">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Estado</label>
+              <Select
+                value={filterStatus}
+                onValueChange={(v) => {
+                  setFilterStatus(v);
+                  setAppliedStatus(v);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos los estados" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos los estados</SelectItem>
+                  <SelectItem value="PENDING">Pendiente</SelectItem>
+                  <SelectItem value="SENT">Enviado</SelectItem>
+                  <SelectItem value="DELIVERED">Entregado</SelectItem>
+                  <SelectItem value="READ">Leído</SelectItem>
+                  <SelectItem value="FAILED">Fallido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => { setAppliedPhone(filterPhone.trim()); setAppliedStatus(filterStatus); }}>
+              <Search className="h-4 w-4 mr-1" />
+              Filtrar
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setFilterPhone('');
+                setFilterStatus('ALL');
+                setAppliedPhone('');
+                setAppliedStatus('ALL');
+              }}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Limpiar
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {messages.length} mensaje{messages.length !== 1 ? 's' : ''}
+            {appliedPhone && <> · teléfono: <span className="font-mono">{appliedPhone}</span></>}
+            {appliedStatus !== 'ALL' && <> · estado: {STATUS_LABEL[appliedStatus] || appliedStatus}</>}
+          </p>
           {messagesLoading ? (
             <div className="text-center py-8">
               <Loader2 className="animate-spin h-8 w-8 mx-auto text-muted-foreground" />
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Todavía no hay mensajes enviados desde el número del sistema
+              {appliedPhone || appliedStatus !== 'ALL'
+                ? 'No hay mensajes que coincidan con los filtros'
+                : 'Todavía no hay mensajes enviados desde el número del sistema'}
             </div>
           ) : (
             <div className="overflow-x-auto">

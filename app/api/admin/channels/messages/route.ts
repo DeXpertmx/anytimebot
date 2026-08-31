@@ -14,9 +14,15 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '100', 10) || 100, 200);
+    const phone = searchParams.get('phone')?.trim() || undefined;
+    const status = searchParams.get('status')?.trim().toUpperCase() || undefined;
+
+    const where: any = { userId: null };
+    if (phone) where.phone = { contains: phone, mode: 'insensitive' };
+    if (status) where.status = status;
 
     const messages = await prisma.whatsAppMessage.findMany({
-      where: { userId: null },
+      where,
       orderBy: { createdAt: 'desc' },
       take: limit,
       select: {
