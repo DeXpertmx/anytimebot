@@ -126,7 +126,8 @@
     "noEventTypes": "No event types yet",
     "customers": "Customers",
     "feedback": "Feedback",
-    "revenue": "Revenue"
+    "revenue": "Revenue",
+    "support": "Support"
   },
   "auth": {
     "signIn": "Sign In",
@@ -380,10 +381,17 @@
     "widgetButtonDefaultLabel": "Book now"
   },
   "pricing": {
-    "title": "Simple, Transparent Pricing",
-    "subtitle": "Choose the perfect plan for your scheduling needs. Upgrade, downgrade, or cancel anytime.",
-    "month": "month",
+    "eyebrow": "Plans for every stage",
+    "plansLabel": "Anytimebot plans",
+    "title": "Grow with a schedule that works for you",
+    "subtitle": "Start with the essentials and add automation, WhatsApp, and AI as your business grows.",
+    "oneTime": "one-time payment",
     "perMonth": "/month",
+    "comparisonSubtitle": "A clear comparison of what each plan includes.",
+    "launchNote": "Founders offer: the Basic plan is designed for our first customers. Features and limits are shown clearly before you subscribe.",
+    "checkoutError": "We couldn't start checkout. Please try again.",
+    "paymentUnavailable": "The payment system is currently unavailable.",
+    "month": "month",
     "custom": "Custom",
     "currentPlan": "Current Plan",
     "mostPopular": "Most Popular",
@@ -391,17 +399,31 @@
     "comparisonTitle": "Feature Comparison",
     "faqTitle": "Frequently Asked Questions",
     "plans": {
-      "free": {
-        "name": "Free",
-        "description": "Perfect for individuals starting with basic scheduling",
-        "cta": "Start Free",
+      "basic": {
+        "name": "Founders Basic",
+        "description": "Everything you need to start accepting bookings.",
+        "cta": "Start with Basic",
         "features": [
-          "1 Booking Page",
-          "Basic Event Types",
-          "Google Calendar Sync",
-          "Email Notifications",
-          "Mobile Optimized",
-          "Basic Analytics"
+          "1 user",
+          "Up to 5 booking pages",
+          "Up to 1,000 customers",
+          "Bookings and calendar",
+          "Google Calendar sync",
+          "Email confirmations",
+          "No chatbot, teams, or reviews"
+        ]
+      },
+      "free": {
+        "name": "Founders Basic",
+        "description": "Everything you need to start accepting bookings.",
+        "cta": "Start with Basic",
+        "features": [
+          "1 user",
+          "Up to 5 booking pages",
+          "Up to 1,000 customers",
+          "Bookings and calendar",
+          "Google Calendar sync",
+          "Email confirmations"
         ]
       },
       "pro": {
@@ -410,7 +432,7 @@
         "cta": "Upgrade to Pro",
         "features": [
           "10 Booking Pages",
-          "AI Assistant (200/mo)",
+          "AI Assistant (300/mo)",
           "5 Bot Training Documents",
           "Video Rooms (100 min/mo)",
           "Video Recording & Transcription",
@@ -453,18 +475,24 @@
           "Custom Contract Terms"
         ]
       }
-    },
-    "comparisonTable": {
+    },      "comparisonTable": {
       "feature": "Feature",
       "bookingPages": "Booking Pages",
+      "customers": "Registered customers",
+      "moreCapacity": "Higher capacity",
       "googleCalendar": "Google Calendar Sync",
       "aiAssistant": "AI Assistant (Chatbot)",
+      "aiPro": "300/month",
+      "aiTeam": "500/month",
       "botTrainingDocs": "Bot Training Documents",
       "videoRooms": "Video Meeting Rooms",
       "videoRecording": "Video Recording & Transcription",
       "whatsapp": "WhatsApp Integration",
+      "customerFeedback": "Reviews and surveys",
       "telegram": "Telegram Integration",
       "teamScheduling": "Team Scheduling",
+      "upToFiveUsers": "Up to 5 users",
+      "payments": "Stripe payments",
       "preMeetingBriefs": "Pre-Meeting Briefs",
       "roundRobin": "Round-Robin Routing",
       "sso": "SSO & Security",
@@ -473,6 +501,14 @@
       "pro": "Pro",
       "team": "Team",
       "enterprise": "Enterprise"
+    },
+    "value": {
+      "whatsappTitle": "WhatsApp as a booking channel",
+      "whatsappText": "Let customers book through the channel they already use every day.",
+      "botTitle": "AI when you need it",
+      "botText": "The Pro plan adds an assistant that answers questions and turns conversations into bookings.",
+      "launchTitle": "Start without complexity",
+      "launchText": "The Founders Basic plan gives you a simple way to validate your business."
     },
     "faq": [
       {
@@ -496,6 +532,47 @@
         "answer": "Yes! The free plan supports external video links from Zoom, Google Meet, and Microsoft Teams. Smart Video Rooms with built-in recording/transcription require Pro or higher."
       }
     ]
+  },
+  "support": {
+    "title": "Ticket support",
+    "subtitle": "Send us your question and keep the full conversation in one place.",
+    "newTicket": "New ticket",
+    "subject": "Subject",
+    "subjectPlaceholder": "What do you need help with?",
+    "message": "Message",
+    "messagePlaceholder": "Describe the problem or question in as much detail as possible.",
+    "priority": "Priority",
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "send": "Submit ticket",
+    "sending": "Sending...",
+    "empty": "You have no support tickets",
+    "emptyDesc": "When you need help, create a ticket and we will reply here.",
+    "status": "Status",
+    "open": "Open",
+    "inProgress": "In progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "reply": "Reply",
+    "replyPlaceholder": "Write a reply...",
+    "replying": "Sending...",
+    "created": "Ticket created successfully",
+    "error": "The operation could not be completed",
+    "supportChannel": "Ticket support"
+  },
+  "commercial": {
+    "title": "Commercial terms",
+    "paymentTerms": "Payments and plans",
+    "paymentTermsText": "The Founders Basic plan is offered as a one-time payment of €29. Pro and Team are offered as monthly subscriptions at the price shown before you confirm payment.",
+    "refunds": "Refunds",
+    "refundsText": "You may request a refund within 14 days of purchase, unless applicable law provides a longer period. Requests are handled through a support ticket.",
+    "cancellation": "Cancellation",
+    "cancellationText": "You can cancel a monthly subscription at any time. Cancellation prevents future renewals and access remains available until the end of the paid period. The one-time payment does not renew automatically.",
+    "limits": "Service limits",
+    "limitsText": "Each plan has the user, page, customer, automation and other limits shown on the pricing page. We will notify you as you approach a quota.",
+    "support": "Support",
+    "supportText": "The official support channel is the ticket system inside Anytimebot. Response times may vary by plan and request priority."
   },
   "revenue": {
     "netTotal": "Net revenue",

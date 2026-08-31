@@ -6,11 +6,11 @@ import { prisma } from '@/lib/db';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Pricing - ANYTIMEBOT',
-  description: 'Choose the perfect plan for your scheduling needs. From free to enterprise, we have a plan for everyone.',
+  title: 'Planes y precios - Anytimebot',
+  description: 'Planes sencillos para recibir reservas, automatizar tu agenda y atender a tus clientes por WhatsApp.',
   openGraph: {
-    title: 'Pricing - ANYTIMEBOT',
-    description: 'Transparent pricing for every team size',
+    title: 'Planes y precios - Anytimebot',
+    description: 'Elige el plan que mejor se adapta a tu negocio.',
   },
 };
 
@@ -52,18 +52,18 @@ export default async function PricingPage() {
                 href="/dashboard"
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
               >
-                Back to Dashboard
+                Ir al panel
               </a>
             ) : (
               <div className="flex gap-3">
                 <a
-                  href="/signin"
+                  href="/auth/signin"
                   className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
                 >
                   Sign In
                 </a>
                 <a
-                  href="/signup"
+                  href="/auth/signup"
                   className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                 >
                   Sign Up

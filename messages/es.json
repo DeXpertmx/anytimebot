@@ -126,7 +126,8 @@
     "noEventTypes": "No hay tipos de eventos aún",
     "customers": "Clientes",
     "feedback": "Opiniones",
-    "revenue": "Ingresos"
+    "revenue": "Ingresos",
+    "support": "Soporte"
   },
   "auth": {
     "signIn": "Iniciar Sesión",
@@ -380,10 +381,17 @@
     "widgetButtonDefaultLabel": "Agendar"
   },
   "pricing": {
-    "title": "Precios Simples y Transparentes",
-    "subtitle": "Elige el plan perfecto para tus necesidades de agendamiento. Actualiza, baja de plan o cancela en cualquier momento.",
-    "month": "mes",
+    "eyebrow": "Planes para cada etapa",
+    "plansLabel": "Planes de Anytimebot",
+    "title": "Crece con una agenda que trabaja por ti",
+    "subtitle": "Empieza con lo esencial y añade automatización, WhatsApp e IA cuando tu negocio lo necesite.",
+    "oneTime": "pago único",
     "perMonth": "/mes",
+    "comparisonSubtitle": "Una comparación clara de lo que incluye cada plan.",
+    "launchNote": "Oferta de fundadores: el plan Básico está pensado para los primeros clientes. Las funciones y límites se muestran de forma transparente antes de contratar.",
+    "checkoutError": "No se pudo iniciar el proceso de pago. Inténtalo de nuevo.",
+    "paymentUnavailable": "El sistema de pago no está disponible en este momento.",
+    "month": "mes",
     "custom": "Personalizado",
     "currentPlan": "Plan Actual",
     "mostPopular": "Más Popular",
@@ -391,17 +399,31 @@
     "comparisonTitle": "Comparación de Características",
     "faqTitle": "Preguntas Frecuentes",
     "plans": {
-      "free": {
-        "name": "Gratis",
-        "description": "Perfecto para personas que comienzan con agendamiento básico",
-        "cta": "Comenzar Gratis",
+      "basic": {
+        "name": "Básico de fundadores",
+        "description": "Todo lo necesario para empezar a recibir reservas.",
+        "cta": "Empezar con Básico",
         "features": [
-          "1 Página de Reserva",
-          "Tipos de Eventos Básicos",
+          "1 usuario",
+          "Hasta 5 páginas de reserva",
+          "Hasta 1.000 clientes",
+          "Reservas y calendario",
           "Sincronización con Google Calendar",
-          "Notificaciones por Email",
-          "Optimizado para Móvil",
-          "Analytics Básico"
+          "Confirmaciones por email",
+          "Sin chatbot, equipos ni opiniones"
+        ]
+      },
+      "free": {
+        "name": "Básico de fundadores",
+        "description": "Todo lo necesario para empezar a recibir reservas.",
+        "cta": "Empezar con Básico",
+        "features": [
+          "1 usuario",
+          "Hasta 5 páginas de reserva",
+          "Hasta 1.000 clientes",
+          "Reservas y calendario",
+          "Sincronización con Google Calendar",
+          "Confirmaciones por email"
         ]
       },
       "pro": {
@@ -410,7 +432,7 @@
         "cta": "Actualizar a Pro",
         "features": [
           "10 Páginas de Reserva",
-          "Asistente IA (200/mes)",
+          "Asistente IA (300/mes)",
           "5 Documentos de Entrenamiento del Bot",
           "Salas de Video (100 min/mes)",
           "Grabación y Transcripción de Video",
@@ -457,14 +479,21 @@
     "comparisonTable": {
       "feature": "Característica",
       "bookingPages": "Páginas de Reserva",
+      "customers": "Clientes registrados",
+      "moreCapacity": "Más capacidad",
       "googleCalendar": "Sincronización con Google Calendar",
       "aiAssistant": "Asistente IA (Chatbot)",
+      "aiPro": "300/mes",
+      "aiTeam": "500/mes",
       "botTrainingDocs": "Documentos de Entrenamiento del Bot",
       "videoRooms": "Salas de Reuniones en Video",
       "videoRecording": "Grabación y Transcripción de Video",
       "whatsapp": "Integración WhatsApp",
+      "customerFeedback": "Opiniones y encuestas",
       "telegram": "Integración Telegram",
       "teamScheduling": "Agendamiento en Equipo",
+      "upToFiveUsers": "Hasta 5 usuarios",
+      "payments": "Pagos con Stripe",
       "preMeetingBriefs": "Pre-Meeting Briefs",
       "roundRobin": "Round-Robin Routing",
       "sso": "SSO y Seguridad",
@@ -473,6 +502,14 @@
       "pro": "Pro",
       "team": "Equipo",
       "enterprise": "Empresa"
+    },
+    "value": {
+      "whatsappTitle": "WhatsApp como canal de reservas",
+      "whatsappText": "Tus clientes pueden reservar desde el canal que ya utilizan cada día.",
+      "botTitle": "IA cuando la necesites",
+      "botText": "El plan Pro incorpora un asistente que responde y ayuda a convertir conversaciones en citas.",
+      "launchTitle": "Empieza sin compromiso complejo",
+      "launchText": "El plan Básico de fundadores ofrece una entrada sencilla para validar tu negocio."
     },
     "faq": [
       {
@@ -496,6 +533,47 @@
         "answer": "¡Sí! El plan gratuito admite enlaces de video externos de Zoom, Google Meet y Microsoft Teams. Las Smart Video Rooms con grabación/transcripción integradas requieren Pro o superior."
       }
     ]
+  },
+  "support": {
+    "title": "Soporte por tickets",
+    "subtitle": "Envíanos tu consulta y mantén toda la conversación en un solo lugar.",
+    "newTicket": "Nuevo ticket",
+    "subject": "Asunto",
+    "subjectPlaceholder": "¿En qué necesitas ayuda?",
+    "message": "Mensaje",
+    "messagePlaceholder": "Describe el problema o la consulta con el mayor detalle posible.",
+    "priority": "Prioridad",
+    "low": "Baja",
+    "normal": "Normal",
+    "high": "Alta",
+    "send": "Enviar ticket",
+    "sending": "Enviando...",
+    "empty": "No tienes tickets de soporte",
+    "emptyDesc": "Cuando necesites ayuda, crea un ticket y te responderemos desde aquí.",
+    "status": "Estado",
+    "open": "Abierto",
+    "inProgress": "En curso",
+    "resolved": "Resuelto",
+    "closed": "Cerrado",
+    "reply": "Responder",
+    "replyPlaceholder": "Escribe una respuesta...",
+    "replying": "Enviando...",
+    "created": "Ticket creado correctamente",
+    "error": "No se pudo completar la operación",
+    "supportChannel": "Soporte por tickets"
+  },
+  "commercial": {
+    "title": "Condiciones comerciales",
+    "paymentTerms": "Pagos y planes",
+    "paymentTermsText": "El plan Básico de fundadores se ofrece como pago único de 29 €. Los planes Pro y Equipo se ofrecen mediante suscripción mensual al precio mostrado antes de confirmar el pago.",
+    "refunds": "Reembolsos",
+    "refundsText": "Puedes solicitar un reembolso dentro de los 14 días siguientes a la compra, salvo que la ley aplicable establezca un plazo más favorable. Las solicitudes se tramitan mediante un ticket de soporte.",
+    "cancellation": "Cancelación",
+    "cancellationText": "Puedes cancelar una suscripción mensual cuando quieras. La cancelación evita renovaciones futuras y mantiene el acceso hasta el final del periodo ya pagado. El pago único no se renueva automáticamente.",
+    "limits": "Límites del servicio",
+    "limitsText": "Cada plan tiene los límites de usuarios, páginas, clientes, automatizaciones y otras funciones indicados en la página de precios. Te avisaremos cuando te acerques a una cuota.",
+    "support": "Soporte",
+    "supportText": "El canal oficial de atención es el sistema de tickets dentro de Anytimebot. El tiempo de respuesta puede variar según el plan y la prioridad de la solicitud."
   },
   "revenue": {
     "netTotal": "Ingresos netos",

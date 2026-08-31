@@ -19,6 +19,7 @@ import {
   Globe,
   Bot,
   MessageCircle,
+  LifeBuoy,
   LineChart,
   CreditCard,
   Shield,
@@ -111,6 +112,11 @@ export function DashboardSidebar() {
       name: t('dashboard.billingPlans'),
       href: '/pricing',
       icon: CreditCard,
+    },
+    {
+      name: t('dashboard.support'),
+      href: '/dashboard/support',
+      icon: LifeBuoy,
     },
     {
       name: t('dashboard.settings'),

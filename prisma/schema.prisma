@@ -64,6 +64,8 @@ model User {
   plan          SubscriptionPlan @default(FREE)
   stripeCustomerId String?      @unique @map("stripe_customer_id")
   stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  foundersBasicCheckoutSessionId String? @unique @map("founders_basic_checkout_session_id")
+  foundersBasicPaymentIntentId String? @unique @map("founders_basic_payment_intent_id")
   subscriptionStatus SubscriptionStatus? @map("subscription_status")
   subscriptionEndsAt DateTime?  @map("subscription_ends_at")
   bookingsThisMonth Int        @default(0) @map("bookings_this_month")
@@ -118,6 +120,7 @@ model User {
   auditLogs    AdminAuditLog[]
   timeOffs     TimeOff[]
   customers    Customer[]
+  supportTickets SupportTicket[]
 
   @@map("users")
 }
@@ -177,6 +180,7 @@ model Quotas {
   
   // Booking limits
   bookingPages       Int      @default(1) @map("booking_pages") // Max booking pages
+  maxCustomers       Int      @default(1000) @map("max_customers") // Max CRM customers (-1 = unlimited)
   
   // AI Assistant limits
   aiInteractions     Int      @default(0) @map("ai_interactions") // AI chat messages per month
@@ -608,6 +612,39 @@ model MeetingBriefing {
   @@map("meeting_briefings")
 }
 
+// Customer support tickets
+model SupportTicket {
+  id        String              @id @default(cuid())
+  userId    String              @map("user_id")
+  subject   String
+  status    SupportTicketStatus @default(OPEN)
+  priority  SupportTicketPriority @default(NORMAL)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+  closedAt  DateTime?           @map("closed_at")
+
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportTicketMessage[]
+
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id             String        @id @default(cuid())
+  ticketId       String        @map("ticket_id")
+  body           String        @db.Text
+  authorUserId   String?       @map("author_user_id")
+  authorAdminEmail String?     @map("author_admin_email")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
+}
+
 // Admin Support Models
 model AdminNote {
   id        String   @id @default(cuid())
@@ -650,6 +687,19 @@ enum UserRole {
   ADMIN
 }
 
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -668,6 +718,7 @@ enum FormFieldType {
 
 enum SubscriptionPlan {
   FREE
+  BASIC
   PRO
   TEAM
   ENTERPRISE

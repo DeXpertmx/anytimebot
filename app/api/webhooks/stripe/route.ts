@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { prisma as db } from '@/lib/db';
 import Stripe from 'stripe';
+import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
+import { updateUserPlanQuotas } from '@/lib/plans';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -29,53 +31,79 @@ export async function POST(request: NextRequest) {
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed': {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
 
-        if (userId && session.subscription) {
+        if (session.metadata?.plan === 'BASIC') {
+          await activateFoundersBasicPurchase(session);
+        } else if (userId && session.subscription) {
+          const subscriptionId = session.subscription as string;
+          const plan = session.metadata?.plan === 'TEAM' ? 'TEAM' : 'PRO';
+
           await db.user.update({
             where: { id: userId },
             data: {
-              plan: 'PRO',
-              stripeSubscriptionId: session.subscription as string,
+              plan,
+              stripeSubscriptionId: subscriptionId,
               subscriptionStatus: 'ACTIVE',
             },
           });
+          await updateUserPlanQuotas(userId, plan);
 
-          // Create subscription record
-          await db.subscription.create({
-            data: {
+          // Stripe can retry the same event; keep one subscription record.
+          await db.subscription.upsert({
+            where: { stripeSubscriptionId: subscriptionId },
+            create: {
               userId,
-              plan: 'PRO',
+              plan,
               status: 'ACTIVE',
-              stripeSubscriptionId: session.subscription as string,
+              stripeSubscriptionId: subscriptionId,
+            },
+            update: {
+              plan,
+              status: 'ACTIVE',
             },
           });
         }
         break;
       }
 
+      case 'charge.refunded': {
+        await revokeFoundersBasicRefund(event.data.object as Stripe.Charge);
+        break;
+      }
+
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
+        const user = await db.user.findFirst({
+          where: { stripeSubscriptionId: subscription.id },
+          select: { id: true },
+        });
 
-        if (userId) {
-          const status = subscription.status.toUpperCase() as any;
-          
+        if (user) {
+          const priceId = subscription.items.data[0]?.price.id;
+          const plan = priceId === process.env.STRIPE_PRICE_TEAM ? 'TEAM' : 'PRO';
+          const status = mapSubscriptionStatus(subscription.status);
+          const periodEnd = new Date((subscription as any).current_period_end * 1000);
+
           await db.user.update({
-            where: { stripeSubscriptionId: subscription.id },
+            where: { id: user.id },
             data: {
+              plan,
               subscriptionStatus: status,
-              subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
+              subscriptionEndsAt: periodEnd,
             },
           });
+          await updateUserPlanQuotas(user.id, plan);
 
           await db.subscription.updateMany({
             where: { stripeSubscriptionId: subscription.id },
             data: {
+              plan,
               status,
-              stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+              stripeCurrentPeriodEnd: periodEnd,
             },
           });
         }
@@ -84,14 +112,21 @@ export async function POST(request: NextRequest) {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-
-        await db.user.update({
+        const user = await db.user.findFirst({
           where: { stripeSubscriptionId: subscription.id },
-          data: {
-            plan: 'FREE',
-            subscriptionStatus: 'CANCELLED',
-          },
+          select: { id: true, foundersBasicPaymentIntentId: true },
         });
+
+        if (user) {
+          await db.user.update({
+            where: { id: user.id },
+            data: {
+              plan: user.foundersBasicPaymentIntentId ? 'BASIC' : 'FREE',
+              subscriptionStatus: 'CANCELLED',
+              stripeSubscriptionId: null,
+            },
+          });
+        }
 
         await db.subscription.updateMany({
           where: { stripeSubscriptionId: subscription.id },
@@ -107,5 +142,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error processing webhook:', error);
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+  }
+}
+
+function mapSubscriptionStatus(status: Stripe.Subscription.Status): 'ACTIVE' | 'CANCELLED' | 'PAST_DUE' | 'UNPAID' | 'TRIALING' {
+  switch (status) {
+    case 'active': return 'ACTIVE';
+    case 'past_due': return 'PAST_DUE';
+    case 'unpaid': return 'UNPAID';
+    case 'trialing': return 'TRIALING';
+    default: return 'CANCELLED';
   }
 }

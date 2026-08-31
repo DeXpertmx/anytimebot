@@ -8,6 +8,7 @@ import Stripe from 'stripe';
 import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
 import { getStripe } from '@/lib/stripe';
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
+import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
@@ -31,11 +32,14 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed': {
+      case 'checkout.session.completed':
+      case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object as Stripe.Checkout.Session;
         
-        // Check if this is a booking payment (has eventTypeId in metadata)
-        if (session.metadata?.eventTypeId && session.metadata?.guestEmail) {
+        if (session.metadata?.plan === 'BASIC') {
+          await activateFoundersBasicPurchase(session);
+        } else if (session.metadata?.eventTypeId && session.metadata?.guestEmail) {
+          // Booking payment
           await handleBookingPayment(session);
         } else {
           // Regular subscription checkout
@@ -62,6 +66,12 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge;
+        await revokeFoundersBasicRefund(charge);
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -85,6 +95,13 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
   }
 
   try {
+    // Stripe may retry webhook deliveries; a session must create at most one booking.
+    const existingBooking = await prisma.booking.findFirst({
+      where: { stripeSessionId: session.id },
+      select: { id: true },
+    });
+    if (existingBooking) return;
+
     // Get event type
     const eventType = await prisma.eventType.findUnique({
       where: { id: eventTypeId },
@@ -235,15 +252,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan: 'FREE',
+      plan: user.plan === 'BASIC' ? 'BASIC' : 'FREE',
       subscriptionStatus: 'CANCELLED',
       stripeSubscriptionId: null,
     },
   });
 
-  await updateUserPlanQuotas(user.id, 'FREE');
+  const fallbackPlan = user.foundersBasicPaymentIntentId ? 'BASIC' : 'FREE';
+  await updateUserPlanQuotas(user.id, fallbackPlan);
 
-  console.log(`✅ User ${user.id} downgraded to FREE`);
+  console.log(`✅ User ${user.id} downgraded to ${fallbackPlan}`);
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {

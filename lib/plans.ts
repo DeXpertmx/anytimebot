@@ -1,10 +1,11 @@
 
 // Plan Configuration and Quota Management
 
-export type PlanTier = 'FREE' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+export type PlanTier = 'FREE' | 'BASIC' | 'PRO' | 'TEAM' | 'ENTERPRISE';
 
 export interface PlanQuotas {
   bookingPages: number;
+  maxCustomers: number;
   aiInteractions: number;
   botDocuments: number;
   videoMinutes: number;
@@ -32,6 +33,36 @@ export interface PlanDetails {
 }
 
 export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
+  BASIC: {
+    name: 'Founders Basic',
+    price: 29,
+    description: 'Essential booking tools for independent professionals',
+    features: [
+      'Up to 5 booking pages',
+      'Up to 1,000 customers',
+      'Bookings and calendar',
+      'Google Calendar sync',
+      'Email confirmations',
+    ],
+    quotas: {
+      bookingPages: 5,
+      maxCustomers: 1000,
+      aiInteractions: 0,
+      botDocuments: 0,
+      videoMinutes: 0,
+      videoRecording: false,
+      videoTranscription: false,
+      whatsappMessages: 0,
+      telegramMessages: 0,
+      teamMembers: 0,
+      teamScheduling: false,
+      canUseWhatsApp: false,
+      canUseTelegram: false,
+      canUseEvolution: false,
+      canUseTwilio: false,
+    },
+    cta: 'Buy Founders Basic',
+  },
   FREE: {
     name: 'Free',
     price: 0,
@@ -45,6 +76,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
     ],
     quotas: {
       bookingPages: 1,
+      maxCustomers: 1000,
       aiInteractions: 0,
       botDocuments: 0,
       videoMinutes: 0,
@@ -74,11 +106,12 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       'Video recording + transcription',
       'WhatsApp integration',
       'Pre-meeting briefs',
-      '200 AI interactions/mo',
+      '300 AI interactions/mo',
     ],
     quotas: {
       bookingPages: 10,
-      aiInteractions: 200,
+      maxCustomers: 10000,
+      aiInteractions: 300,
       botDocuments: 5,
       videoMinutes: 100,
       videoRecording: true,
@@ -97,7 +130,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
   },
   TEAM: {
     name: 'Team',
-    price: 49,
+    price: 39,
     priceId: process.env.STRIPE_PRICE_TEAM || 'price_team',
     description: 'For teams that work together',
     features: [
@@ -113,6 +146,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
     ],
     quotas: {
       bookingPages: 50,
+      maxCustomers: 50000,
       aiInteractions: 500,
       botDocuments: 50,
       videoMinutes: 500,
@@ -147,6 +181,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
     ],
     quotas: {
       bookingPages: -1, // -1 = unlimited
+      maxCustomers: -1,
       aiInteractions: -1,
       botDocuments: -1,
       videoMinutes: -1,
@@ -268,9 +303,10 @@ export async function updateUserPlanQuotas(userId: string, newPlan: PlanTier) {
   try {
     const quotas = PLAN_CONFIG[newPlan].quotas;
     
-    await prisma.quotas.update({
+    await prisma.quotas.upsert({
       where: { userId },
-      data: quotas,
+      create: { userId, ...quotas },
+      update: quotas,
     });
     
     // Update user plan

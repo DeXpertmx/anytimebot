@@ -5,7 +5,7 @@ import { Crown, Zap, Users, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface PlanBadgeProps {
-  plan: 'FREE' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+  plan: 'FREE' | 'BASIC' | 'PRO' | 'TEAM' | 'ENTERPRISE';
   showUpgrade?: boolean;
 }
 
@@ -16,6 +16,12 @@ export function PlanBadge({ plan, showUpgrade = true }: PlanBadgeProps) {
       label: 'Free',
       color: 'bg-gray-100 text-gray-700 border-gray-300',
       iconColor: 'text-gray-500',
+    },
+    BASIC: {
+      icon: Sparkles,
+      label: 'Básico',
+      color: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+      iconColor: 'text-emerald-600',
     },
     PRO: {
       icon: Zap,
@@ -45,7 +51,7 @@ export function PlanBadge({ plan, showUpgrade = true }: PlanBadgeProps) {
         <Icon className={`w-4 h-4 ${iconColor}`} />
         {label} Plan
       </div>
-      {showUpgrade && plan !== 'ENTERPRISE' && (
+      {showUpgrade && plan !== 'ENTERPRISE' && plan !== 'TEAM' && (
         <Link
           href="/pricing"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold text-sm transition-colors"

@@ -1,163 +1,59 @@
-
 import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata = {
   title: 'Términos del servicio - ANYTIMEBOT',
-  description: 'Términos del servicio de la plataforma de agenda ANYTIMEBOT',
+  description: 'Términos del servicio y condiciones comerciales de ANYTIMEBOT',
 };
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="relative w-10 h-10">
-                <Image
-                  src="/logo.png"
-                  alt="ANYTIMEBOT"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-              <span className="text-2xl font-bold text-gray-900">
-                ANYTIMEBOT
-              </span>
-            </Link>
-          </div>
+      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center space-x-3">
+            <div className="relative h-10 w-10"><Image src="/logo.png" alt="ANYTIMEBOT" fill className="object-contain" /></div>
+            <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
+          </Link>
+          <Link href="/pricing" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">Planes y precios</Link>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-lg shadow-sm p-8 md:p-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Términos del servicio
-          </h1>
-          <p className="text-sm text-gray-500 mb-8">
-            Última actualización: 18 de octubre de 2025
-          </p>
+      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+        <article className="rounded-lg bg-white p-8 shadow-sm md:p-12">
+          <h1 className="mb-4 text-4xl font-bold text-gray-900">Términos del servicio</h1>
+          <p className="mb-8 text-sm text-gray-500">Última actualización: 31 de agosto de 2026</p>
 
-          <div className="prose prose-indigo max-w-none">
-            <p className="text-lg text-gray-700 mb-8">
-              Te damos la bienvenida a ANYTIMEBOT. Al utilizar nuestros servicios aceptas estos Términos del servicio. Léelos atentamente.
-            </p>
+          <div className="prose prose-indigo max-w-none text-gray-700">
+            <p className="text-lg">Te damos la bienvenida a ANYTIMEBOT. Al crear una cuenta o utilizar la plataforma aceptas estos términos y las condiciones comerciales que se indican a continuación.</p>
 
-            <div className="space-y-8">
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  1. Aceptación de los términos
-                </h2>
-                <p className="text-gray-700">
-                  Al acceder o utilizar ANYTIMEBOT aceptas estos Términos del servicio y todas las leyes y normativas aplicables. Si no estás de acuerdo con alguno de estos términos, no podrás utilizar el servicio.
-                </p>
-              </section>
+            <section><h2>1. Descripción del servicio</h2><p>ANYTIMEBOT es una plataforma para crear páginas de reservas, gestionar disponibilidad, organizar citas, administrar clientes y, según el plan contratado, utilizar automatizaciones, mensajería y asistencia basada en inteligencia artificial.</p></section>
+            <section><h2>2. Cuenta y uso responsable</h2><p>Debes proporcionar información correcta, proteger tus credenciales y utilizar el servicio de forma legal. Eres responsable de contar con las autorizaciones necesarias para los datos de tus clientes, mensajes, grabaciones, documentos y demás contenido que introduzcas en la plataforma.</p></section>
 
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  2. Descripción del servicio
-                </h2>
-                <p className="text-gray-700">
-                  ANYTIMEBOT is a scheduling platform that allows users to create events, manage availability, and facilitate bookings. We reserve the right to modify, suspend, or discontinue any aspect of the service at any time.
-                </p>
-              </section>
+            <section>
+              <h2>3. Planes y condiciones comerciales</h2>
+              <ul>
+                <li><strong>Básico de fundadores:</strong> pago único de 29 €, para una cuenta de usuario, hasta 5 páginas de reserva y hasta 1.000 clientes, con las funciones descritas en la página de precios.</li>
+                <li><strong>Pro:</strong> suscripción mensual de 19 € al mes, con automatización, asistente de IA, WhatsApp y las cuotas indicadas antes de contratar.</li>
+                <li><strong>Equipo:</strong> suscripción mensual de 39 € al mes, con funciones de colaboración y límites superiores según la oferta vigente.</li>
+              </ul>
+              <p>Los precios se muestran en euros salvo que se indique otra moneda antes del pago. Los impuestos aplicables se calcularán cuando corresponda. Las funciones, cuotas y precios vigentes se mostrarán claramente antes de confirmar una compra o cambio de plan.</p>
+            </section>
 
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  3. Cuentas de usuario
-                </h2>
-                <p className="text-gray-700">
-                  You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to provide accurate and complete information when creating your account.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  4. Conducta del usuario
-                </h2>
-                <p className="text-gray-700">
-                  You agree not to use ANYTIMEBOT for any unlawful purpose or in any way that could damage, disable, overburden, or impair the service. You may not attempt to gain unauthorized access to any portion of the platform.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  5. Contenido del usuario
-                </h2>
-                <p className="text-gray-700">
-                  You retain all rights to the content you submit to ANYTIMEBOT. By submitting content, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, and display such content as necessary to provide the service.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  6. Propiedad intelectual
-                </h2>
-                <p className="text-gray-700">
-                  The service and its original content, features, and functionality are owned by ANYTIMEBOT and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  7. Terminación
-                </h2>
-                <p className="text-gray-700">
-                  We may terminate or suspend your account and access to the service immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  8. Limitación de responsabilidad
-                </h2>
-                <p className="text-gray-700">
-                  In no event shall ANYTIMEBOT, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential, or punitive damages arising out of your use of the service.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  9. Ley aplicable
-                </h2>
-                <p className="text-gray-700">
-                  These Terms shall be governed and construed in accordance with the laws of the jurisdiction in which ANYTIMEBOT operates, without regard to its conflict of law provisions.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  10. Cambios en los términos
-                </h2>
-                <p className="text-gray-700">
-                  We reserve the right to modify or replace these Terms at any time. We will provide notice of any material changes by posting the new Terms on this page.
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  11. Información de contacto
-                </h2>
-                <p className="text-gray-700">
-                  If you have any questions about these Terms, please contact us at support@anytimebot.app
-                </p>
-              </section>
-            </div>
+            <section><h2>4. Pagos, renovación y cancelación</h2><p>El plan Básico de fundadores es un pago único y no se renueva automáticamente. Los planes Pro y Equipo son suscripciones mensuales: se renuevan hasta que solicites la cancelación. La cancelación evita cargos futuros y, salvo indicación legal distinta, conserva el acceso hasta el final del periodo ya pagado.</p></section>
+            <section><h2>5. Reembolsos</h2><p>Puedes solicitar un reembolso dentro de los 14 días siguientes a la compra, sin perjuicio de los derechos irrenunciables que reconozca la normativa aplicable. Las solicitudes se gestionan mediante un ticket de soporte e indicaremos el resultado y el plazo previsto. Los reembolsos pueden revocar el acceso o las ventajas asociadas al pago reembolsado.</p></section>
+            <section><h2>6. Cuotas y límites</h2><p>Cada plan tiene límites de usuarios, páginas de reserva, clientes, documentos, mensajes, interacciones y otras funciones. El sistema puede impedir nuevas operaciones al alcanzar una cuota. Te mostraremos los límites aplicables y, cuando esté disponible, avisos de uso antes de llegar a ellos.</p></section>
+            <section><h2>7. Soporte</h2><p>El canal oficial de atención es el sistema de <Link href="/dashboard/support">tickets de soporte</Link> dentro de ANYTIMEBOT. La prioridad y el tiempo de respuesta pueden variar según el plan, la urgencia y la complejidad de la solicitud. No garantizamos atención instantánea ni disponibilidad de soporte fuera de los canales publicados.</p></section>
+            <section><h2>8. Contenido y propiedad intelectual</h2><p>Conservas tus derechos sobre el contenido que aportas. Nos concedes únicamente las autorizaciones necesarias para alojarlo, procesarlo y mostrarlo con el fin de prestar el servicio. La plataforma, su código, marca y componentes son propiedad de ANYTIMEBOT o de sus licenciantes.</p></section>
+            <section><h2>9. Disponibilidad y responsabilidad</h2><p>Trabajamos para mantener el servicio disponible, pero pueden producirse interrupciones por mantenimiento, proveedores externos, incidencias de red o causas fuera de nuestro control. En la medida permitida por la ley, ANYTIMEBOT no será responsable de daños indirectos ni de decisiones tomadas exclusivamente con base en la información de la plataforma.</p></section>
+            <section><h2>10. Privacidad y datos personales</h2><p>El tratamiento de datos personales se describe en nuestra <Link href="/privacy">Política de privacidad</Link>. Si utilizas páginas de reserva para tu negocio, debes informar a tus clientes y utilizar la plataforma conforme a la normativa aplicable.</p></section>
+            <section><h2>11. Suspensión y terminación</h2><p>Podemos limitar o suspender una cuenta cuando exista incumplimiento de estos términos, riesgo para la seguridad, impago o uso ilícito. Cuando sea razonablemente posible informaremos del motivo y de las vías disponibles para revisarlo.</p></section>
+            <section><h2>12. Cambios y contacto</h2><p>Podemos actualizar estos términos para reflejar cambios legales, técnicos o comerciales. Publicaremos la versión vigente en esta página. Para dudas sobre el servicio o una compra, utiliza un ticket de soporte; para derechos de privacidad, escribe a privacy@anytimebot.app.</p></section>
           </div>
-        </div>
+        </article>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t bg-white mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center text-gray-500">
-            <p>&copy; 2025 ANYTIMEBOT. Todos los derechos reservados.</p>
-          </div>
-        </div>
-      </footer>
+      <footer className="mt-12 border-t bg-white"><div className="mx-auto max-w-7xl px-4 py-8 text-center text-gray-500 sm:px-6 lg:px-8"><p>&copy; 2026 ANYTIMEBOT. Todos los derechos reservados.</p></div></footer>
     </div>
   );
 }
