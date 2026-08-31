@@ -214,7 +214,8 @@ async function discoverSystemPhone(deps?: SystemWhatsAppDeps): Promise<string | 
     if (!res.ok) return null;
     const list = await res.json();
     const rows = Array.isArray(list) ? list : list?.instances || [];
-    const mine = rows.find((r: any) => r?.instanceName === SYSTEM_WHATSAPP_INSTANCE);
+    // The registry exposes the instance identity under `name` (and sometimes `instanceName`).
+    const mine = rows.find((r: any) => r?.name === SYSTEM_WHATSAPP_INSTANCE || r?.instanceName === SYSTEM_WHATSAPP_INSTANCE);
     const jid = mine?.ownerJid || mine?.jid || null;
     if (!jid) return null;
     const phone = String(jid).split('@')[0];
