@@ -84,9 +84,12 @@ export const authOptions: NextAuthOptions = {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
       }
-      
-      // Refresh user data on update
-      if (trigger === 'update' && token.sub) {
+
+      // Always refresh role/plan from the DB when we have a subject. This
+      // guarantees existing sessions pick up an ADMIN/plan change (e.g. a user
+      // promoted to admin) on the very next request, instead of only on
+      // trigger === 'update'.
+      if (token.sub) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub },
           select: {
