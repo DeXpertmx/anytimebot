@@ -53,13 +53,16 @@ Para generar la deploy key: dashboard de Convex → **Settings → Deploy Keys �
 
 ### Pagos
 
-- `STRIPE_SECRET_KEY`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_PRO`
-- `STRIPE_PRICE_TEAM`
+Stripe admite conmutar entre **Test** y **Producción** desde el panel de admin (`/admin/settings`, selector Stripe Mode). El modo activo se guarda en la tabla `SystemSetting` y no requiere redeploys.
 
-Configura en Stripe:
+Variables por modo (los nombres sin sufijo actúan como respaldo de `live`):
+
+- Live: `STRIPE_SECRET_KEY_LIVE` (o `STRIPE_SECRET_KEY`), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE` (o `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`), `STRIPE_WEBHOOK_SECRET_LIVE` (o `STRIPE_WEBHOOK_SECRET`), `STRIPE_PRICE_PRO_LIVE` (o `STRIPE_PRICE_PRO`), `STRIPE_PRICE_TEAM_LIVE` (o `STRIPE_PRICE_TEAM`).
+- Test: `STRIPE_SECRET_KEY_TEST`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST`, `STRIPE_WEBHOOK_SECRET_TEST`, `STRIPE_PRICE_PRO_TEST`, `STRIPE_PRICE_TEAM_TEST`.
+
+En modo Test se usan tarjetas de prueba de Stripe (p. ej. `4242 4242 4242 4242`) y no se cobra dinero real. En modo Live se cobra a clientes reales.
+
+Configura en Stripe (una por modo, con su propio secreto `whsec_`):
 
 ```text
 https://TU_DOMINIO/api/stripe/webhook
@@ -70,6 +73,10 @@ y, si se utiliza el endpoint alternativo:
 ```text
 https://TU_DOMINIO/api/webhooks/stripe
 ```
+
+Los webhooks identifican el modo por la firma (`whsec`): el secreto que valida determina si el evento es de test o de producción, por lo que ambos modos pueden usar el mismo endpoint.
+
+El build de Vercel ejecuta `prisma migrate deploy` automáticamente cuando `DATABASE_URL` está definida, aplicando las migraciones pendientes en cada despliegue.
 
 ### Integraciones externas
 

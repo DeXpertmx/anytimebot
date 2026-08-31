@@ -1,4 +1,3 @@
-
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -7,6 +6,7 @@ import { prisma as db } from '@/lib/db';
 import Stripe from 'stripe';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
 import { updateUserPlanQuotas } from '@/lib/plans';
+import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -16,16 +16,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No signature' }, { status: 400 });
   }
 
-  let event: Stripe.Event;
+  let event: Stripe.Event | null = null;
+  let eventMode: StripeMode = 'live';
 
-  try {
-    event = getStripe().webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (error) {
-    console.error('Webhook signature verification failed:', error);
+  for (const candidate of getWebhookSecretCandidates()) {
+    try {
+      event = getStripe(candidate.mode).webhooks.constructEvent(
+        body,
+        signature,
+        candidate.secret,
+      );
+      eventMode = candidate.mode;
+      break;
+    } catch (error) {
+      event = null;
+      console.warn(
+        `Webhook signature verification failed for ${candidate.mode} mode:`,
+        error,
+      );
+    }
+  }
+
+  if (!event) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -84,7 +96,7 @@ export async function POST(request: NextRequest) {
 
         if (user) {
           const priceId = subscription.items.data[0]?.price.id;
-          const plan = priceId === process.env.STRIPE_PRICE_TEAM ? 'TEAM' : 'PRO';
+          const plan = priceId === getStripePriceId(eventMode, 'TEAM') ? 'TEAM' : 'PRO';
           const status = mapSubscriptionStatus(subscription.status);
           const periodEnd = new Date((subscription as any).current_period_end * 1000);
 

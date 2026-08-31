@@ -6,7 +6,6 @@ import { X, Zap, Check } from 'lucide-react';
 import { PLAN_CONFIG } from '@/lib/plans';
 import { loadStripe } from '@stripe/stripe-js';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -29,10 +28,10 @@ export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' 
       const response = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId: plan.priceId }),
+        body: JSON.stringify({ plan: recommendedPlan }),
       });
 
-      const { sessionId, error } = await response.json();
+      const { sessionId, publishableKey, error } = await response.json();
 
       if (error) {
         alert(error);
@@ -40,7 +39,7 @@ export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' 
         return;
       }
 
-      const stripe = await stripePromise;
+      const stripe = await loadStripe(publishableKey || '');
       if (!stripe) {
         alert('Failed to load payment system');
         setLoading(false);

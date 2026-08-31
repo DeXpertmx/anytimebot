@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getStripe, PLANS } from '@/lib/stripe';
+import { getStripeMode } from '@/lib/stripe-mode';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,11 +16,14 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
 
+    const mode = await getStripeMode();
+    const stripe = getStripe(mode);
+
     // Create or get Stripe customer
     let customerId = (session.user as any).stripeCustomerId;
 
     if (!customerId) {
-      const customer = await getStripe().customers.create({
+      const customer = await stripe.customers.create({
         email: (session.user as any).email,
         metadata: {
           userId: (session.user as any).id,
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create checkout session
-    const checkoutSession = await getStripe().checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
         {

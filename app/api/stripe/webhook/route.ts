@@ -1,4 +1,3 @@
-
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -7,10 +6,9 @@ import { prisma } from '@/lib/db';
 import Stripe from 'stripe';
 import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
 import { getStripe } from '@/lib/stripe';
+import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -21,12 +19,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No signature' }, { status: 400 });
   }
 
-  let event: Stripe.Event;
+  // Try the configured signing secrets in order (live first, then test).
+  // The secret that verifies determines which mode the event belongs to.
+  let event: Stripe.Event | null = null;
+  let eventMode: StripeMode = 'live';
 
-  try {
-    event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err.message);
+  for (const candidate of getWebhookSecretCandidates()) {
+    try {
+      event = getStripe(candidate.mode).webhooks.constructEvent(
+        body,
+        signature,
+        candidate.secret,
+      );
+      eventMode = candidate.mode;
+      break;
+    } catch (err: any) {
+      // Only keep the last error for reporting; keep trying other secrets.
+      event = null;
+      console.warn(
+        `Webhook signature verification failed for ${candidate.mode} mode: ${err.message}`,
+      );
+    }
+  }
+
+  if (!event) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -35,7 +51,7 @@ export async function POST(req: NextRequest) {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object as Stripe.Checkout.Session;
-        
+
         if (session.metadata?.plan === 'BASIC') {
           await activateFoundersBasicPurchase(session);
         } else if (session.metadata?.eventTypeId && session.metadata?.guestEmail) {
@@ -43,14 +59,14 @@ export async function POST(req: NextRequest) {
           await handleBookingPayment(session);
         } else {
           // Regular subscription checkout
-          await handleCheckoutComplete(session);
+          await handleCheckoutComplete(session, eventMode);
         }
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionUpdated(subscription);
+        await handleSubscriptionUpdated(subscription, eventMode);
         break;
       }
 
@@ -167,27 +183,27 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
   }
 }
 
-async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
+async function handleCheckoutComplete(session: Stripe.Checkout.Session, eventMode: StripeMode) {
   const userId = session.metadata?.userId;
-  
+
   if (!userId) {
     console.error('No userId in checkout session metadata');
     return;
   }
 
   const subscriptionId = session.subscription as string;
-  
+
   if (!subscriptionId) {
     console.error('No subscription ID in session');
     return;
   }
 
-  const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+  const subscription = await getStripe(eventMode).subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0]?.price.id;
 
-  // Determine plan from price ID
+  // Determine plan from price ID (mode aware)
   let plan: 'PRO' | 'TEAM' = 'PRO';
-  if (priceId === process.env.STRIPE_PRICE_TEAM) {
+  if (priceId === getStripePriceId(eventMode, 'TEAM')) {
     plan = 'TEAM';
   }
 
@@ -208,7 +224,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   console.log(`✅ User ${userId} upgraded to ${plan}`);
 }
 
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription, eventMode: StripeMode) {
   const user = await prisma.user.findFirst({
     where: { stripeSubscriptionId: subscription.id },
   });
@@ -220,7 +236,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
   const priceId = subscription.items.data[0]?.price.id;
   let plan: 'PRO' | 'TEAM' = 'PRO';
-  if (priceId === process.env.STRIPE_PRICE_TEAM) {
+  if (priceId === getStripePriceId(eventMode, 'TEAM')) {
     plan = 'TEAM';
   }
 
@@ -248,7 +264,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     return;
   }
 
-  // Downgrade to FREE
+  // Downgrade to FREE (keep BASIC when the subscription is a paid one-time purchase)
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -266,7 +282,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = (invoice as any).subscription as string;
-  
+
   if (!subscriptionId) return;
 
   const user = await prisma.user.findFirst({

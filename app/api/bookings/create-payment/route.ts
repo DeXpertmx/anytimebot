@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
+import { getStripeMode } from '@/lib/stripe-mode';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,8 +67,9 @@ export async function POST(request: NextRequest) {
       console.log('User does not have Stripe customer ID, using platform charges');
     }
 
-    // Create checkout session
-    const session = await getStripe().checkout.sessions.create({
+    // Create checkout session in the active mode (test vs live)
+    const mode = await getStripeMode();
+    const session = await getStripe(mode).checkout.sessions.create({
       ...(user.stripeCustomerId ? { customer: user.stripeCustomerId } : {}),
       payment_method_types: ['card'],
       line_items: [

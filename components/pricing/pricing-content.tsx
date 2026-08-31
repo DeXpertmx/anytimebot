@@ -5,7 +5,6 @@ import { Check, X, Zap, Bot, Users, CalendarDays, MessageCircle, ArrowRight } fr
 import { loadStripe } from '@stripe/stripe-js';
 import { useTranslation } from '@/lib/i18n/hooks';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 type PaidPlan = 'BASIC' | 'PRO' | 'TEAM';
 type PlanKey = 'basic' | 'pro' | 'team';
@@ -57,7 +56,7 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
           alert(data.error || t('pricing.checkoutError'));
           return;
         }
-        const stripe = await stripePromise;
+        const stripe = await loadStripe(data.publishableKey || '');
         if (!stripe) {
           alert(t('pricing.paymentUnavailable'));
           return;
@@ -94,7 +93,7 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
         return;
       }
 
-      const stripe = await stripePromise;
+      const stripe = await loadStripe(data.publishableKey || '');
       if (!stripe) {
         alert(t('pricing.paymentUnavailable'));
         return;

@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
+import { getStripeMode, getStripeKeys, getStripePriceId } from '@/lib/stripe-mode';
 import type { PlanTier } from '@/lib/plans';
 
 export async function POST(req: NextRequest) {
@@ -23,6 +24,12 @@ export async function POST(req: NextRequest) {
     if (!['BASIC', 'PRO', 'TEAM'].includes(plan)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
+
+    // Resolve which Stripe mode is active (test vs live) and use its keys,
+    // customer space and price IDs.
+    const mode = await getStripeMode();
+    const stripe = getStripe(mode);
+    const publishableKey = getStripeKeys(mode).publishableKey;
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -50,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     let customerId = user.stripeCustomerId;
     if (!customerId) {
-      const customer = await getStripe().customers.create({
+      const customer = await stripe.customers.create({
         email: user.email,
         name: user.name || undefined,
         metadata: { userId: user.id },
@@ -69,11 +76,12 @@ export async function POST(req: NextRequest) {
       // before Stripe delivers the webhook for the first payment.
       if (user.foundersBasicCheckoutSessionId && !user.foundersBasicPaymentIntentId) {
         try {
-          const existingSession = await getStripe().checkout.sessions.retrieve(user.foundersBasicCheckoutSessionId);
+          const existingSession = await stripe.checkout.sessions.retrieve(user.foundersBasicCheckoutSessionId);
           if (existingSession.status === 'open' && existingSession.url) {
             return NextResponse.json({
               sessionId: existingSession.id,
               url: existingSession.url,
+              publishableKey,
             });
           }
         } catch (error) {
@@ -81,7 +89,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const checkoutSession = await getStripe().checkout.sessions.create({
+      const checkoutSession = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: 'payment',
         payment_method_types: ['card'],
@@ -111,19 +119,19 @@ export async function POST(req: NextRequest) {
         data: { foundersBasicCheckoutSessionId: checkoutSession.id },
       });
 
-      return NextResponse.json({ sessionId: checkoutSession.id, url: checkoutSession.url });
+      return NextResponse.json({ sessionId: checkoutSession.id, url: checkoutSession.url, publishableKey });
     }
 
     // Never trust a client-supplied Price ID. Resolve subscription prices only
-    // from server-side environment variables.
+    // from server-side environment variables for the active mode.
     const subscriptionPriceId = plan === 'PRO'
-      ? process.env.STRIPE_PRICE_PRO
-      : process.env.STRIPE_PRICE_TEAM;
+      ? getStripePriceId(mode, 'PRO')
+      : getStripePriceId(mode, 'TEAM');
     if (!subscriptionPriceId) {
-      return NextResponse.json({ error: `Stripe price is not configured for ${plan}` }, { status: 503 });
+      return NextResponse.json({ error: `Stripe price is not configured for ${plan} in ${mode} mode` }, { status: 503 });
     }
 
-    const checkoutSession = await getStripe().checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -136,7 +144,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ sessionId: checkoutSession.id, url: checkoutSession.url });
+    return NextResponse.json({ sessionId: checkoutSession.id, url: checkoutSession.url, publishableKey });
   } catch (error: any) {
     console.error('Stripe checkout error:', error);
     return NextResponse.json(
