@@ -5,6 +5,7 @@
  */
 
 import { prisma } from './db';
+import { getResendApiKey } from './email-config';
 
 interface DeliveryOptions {
   hostEmail: string;
@@ -32,11 +33,16 @@ export async function sendBriefingEmail(
   meetingDetails: DeliveryOptions['meetingDetails']
 ): Promise<boolean> {
   try {
+    const apiKey = await getResendApiKey();
+    if (!apiKey || apiKey === 're_placeholder') {
+      console.error('Resend API key not configured');
+      return false;
+    }
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         from: 'ANYTIMEBOT <noreply@anytimebot.app>',

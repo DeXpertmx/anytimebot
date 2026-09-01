@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check } from 'lucide-react';
+import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -88,6 +88,11 @@ export default function SettingsPage() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://anytimebot.app/api/stripe/webhook');
 
+  const [emailStatus, setEmailStatus] = useState<{ configured: boolean; stored: boolean; source: string } | null>(null);
+  const [emailApiKey, setEmailApiKey] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [clearingEmail, setClearingEmail] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location?.origin) {
       setWebhookUrl(`${window.location.origin}/api/stripe/webhook`);
@@ -98,6 +103,11 @@ export default function SettingsPage() {
     fetch('/api/admin/stripe-mode')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setStripe(data))
+      .catch(() => undefined);
+
+    fetch('/api/admin/email-credentials')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setEmailStatus(data))
       .catch(() => undefined);
   }, []);
 
@@ -178,6 +188,55 @@ export default function SettingsPage() {
       toast.error('Failed to save credentials');
     } finally {
       setSavingCreds(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    if (!emailApiKey.trim()) {
+      toast.error('Enter the Resend API key');
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      const response = await fetch('/api/admin/email-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: emailApiKey }),
+      });
+      if (response.ok) {
+        toast.success('Email credentials saved — system emails are now enabled');
+        setEmailApiKey('');
+        setEmailStatus({ configured: true, stored: true, source: 'database' });
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to save email credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to save email credentials');
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleClearEmail = async () => {
+    setClearingEmail(true);
+    try {
+      const response = await fetch('/api/admin/email-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clear: true }),
+      });
+      if (response.ok) {
+        toast.success('Saved email credentials cleared (env var still applies)');
+        setEmailStatus({ configured: false, stored: false, source: 'env' });
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to clear email credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to clear email credentials');
+    } finally {
+      setClearingEmail(false);
     }
   };
 
@@ -371,6 +430,70 @@ export default function SettingsPage() {
             Credentials saved here take precedence over environment variables. Env fallbacks:
             STRIPE_SECRET_KEY(_LIVE)/_TEST, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY(_LIVE)/_TEST,
             STRIPE_WEBHOOK_SECRET(_LIVE)/_TEST, STRIPE_PRICE_PRO/TEAM(_LIVE)/_TEST.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Email (Resend)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            System emails (booking confirmations, reminders, membership welcome/overdue,
+            feedback surveys, briefings) are sent through Resend. Paste the API key here
+            to enable them without touching environment variables or redeploying.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/40 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Status</p>
+              {emailStatus ? (
+                <p className="text-sm">
+                  {emailStatus.configured ? (
+                    <span className="text-emerald-600">
+                      Configured ({emailStatus.source === 'database' ? 'stored in database' : 'env var RESEND_API_KEY'})
+                    </span>
+                  ) : (
+                    <span className="text-amber-600">Not configured — emails are disabled</span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Checking...</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Resend API key</Label>
+            <Input
+              type="password"
+              placeholder="re_..."
+              value={emailApiKey}
+              onChange={(e) => setEmailApiKey(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={savingEmail} onClick={handleSaveEmail}>
+              <KeyRound className="h-4 w-4 mr-1" />
+              {savingEmail ? 'Saving...' : 'Save email credentials'}
+            </Button>
+            {emailStatus?.stored && (
+              <Button size="sm" variant="outline" disabled={clearingEmail} onClick={handleClearEmail}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            To receive the key: create an API key at resend.com and verify the domain
+            anytimebot.app (add the DNS records Resend provides). Emails are sent from
+            <code className="mx-1">noreply@anytimebot.app</code>.
           </p>
         </CardContent>
       </Card>

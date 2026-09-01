@@ -2,6 +2,7 @@
 // Email utility functions
 
 import { prisma } from '@/lib/db';
+import { getResendApiKey } from '@/lib/email-config';
 
 export interface EmailOptions {
   to: string;
@@ -52,7 +53,7 @@ export function replaceTemplateVariables(template: string, variables: Record<str
  */
 export async function sendEmail({ to, subject, html }: EmailOptions): Promise<boolean> {
   try {
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = await getResendApiKey();
 
     if (!apiKey || apiKey === 're_placeholder') {
       console.error('Resend API key not configured');
