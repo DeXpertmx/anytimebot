@@ -49,6 +49,8 @@ https://TU_DOMINIO/api/auth/callback/google
 
 En Convex configura también `CONVEX_INGEST_SECRET` como variable del deployment. No uses el deployment local en producción.
 
+Genera las claves VAPID una sola vez con `npx web-push generate-vapid-keys` y configura sus valores en Vercel Production. La clave pública también debe estar disponible como `NEXT_PUBLIC_VAPID_PUBLIC_KEY` para que el navegador pueda suscribirse. No las pegues en Git, chats ni logs.
+
 Para generar la deploy key: dashboard de Convex → **Settings → Deploy Keys → Create deploy key** (elige el deployment de producción). Se muestra una sola vez; configúrala directamente en Vercel como `CONVEX_DEPLOY_KEY` y no la compartas en chats o logs.
 
 ### Pagos
@@ -87,6 +89,9 @@ Añade solo las que se vayan a activar:
 - `RESEND_API_KEY`.
 - `DAILY_API_KEY`.
 - `CRON_SECRET`.
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`: clave pública VAPID para el navegador.
+- `VAPID_PRIVATE_KEY`: clave privada VAPID; solo server-side, nunca la expongas al cliente.
+- `VAPID_SUBJECT`: contacto VAPID, por ejemplo `mailto:privacy@anytimebot.app`.
 
 Las credenciales específicas de Evolution API/Twilio se almacenan actualmente por usuario en PostgreSQL y se administran desde el dashboard.
 

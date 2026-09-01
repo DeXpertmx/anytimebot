@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar';
 import dynamic from 'next/dynamic';
 import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav';
+import { PwaPushRegister } from '@/components/pwa-push-register';
 
 const DashboardHeader = dynamic(() => import('@/components/dashboard/dashboard-header').then(mod => ({ default: mod.DashboardHeader })), {
   ssr: false,
@@ -25,6 +26,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardSidebar />
+      <PwaPushRegister />
       <div className="pl-0 md:pl-64 min-w-0">
         <DashboardHeader />
         <main className="h-[calc(100vh-4rem)] min-h-0 overflow-y-auto overflow-x-hidden p-4 pb-24 sm:p-6 sm:pb-6">

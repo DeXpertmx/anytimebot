@@ -14,6 +14,7 @@ import { createVideoSession } from '@/lib/video-session';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
+import { notifyBookingCreated } from '@/lib/push-notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -458,6 +459,14 @@ export async function POST(request: NextRequest) {
         // Don't fail the booking if WhatsApp fails
       }
     }
+
+    // Web Push notification for dashboard users (best-effort).
+    await notifyBookingCreated(
+      booking.eventType.bookingPage.userId,
+      guestName,
+      eventType.name,
+      booking.id,
+    );
 
     return NextResponse.json({
       success: true,

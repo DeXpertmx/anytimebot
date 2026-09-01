@@ -118,6 +118,7 @@ model User {
   ownedTeams   Team[]       @relation("TeamOwner")
   teamMemberships TeamMember[]
   bookings     Booking[]
+  pushSubscriptions PushSubscription[]
   quotas       Quotas?
   usage        Usage?
   adminNotes   AdminNote[]
@@ -529,6 +530,23 @@ model BotConversation {
 
   @@unique([botId, phone])
   @@map("bot_conversations")
+}
+
+// Browser Web Push subscriptions used for PWA notifications.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique @db.Text
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // Subscription Management
