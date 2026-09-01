@@ -14,6 +14,7 @@ import {
   Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { StripeConnectCard } from '@/components/dashboard/settings/stripe-connect-card';
 
 type ConnStatus = 'not_created' | 'connecting' | 'connected' | 'error' | 'loading';
 
@@ -489,6 +490,9 @@ export default function IntegrationsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Pagos y cobros (Stripe Connect) */}
+      <StripeConnectCard />
     </div>
   );
 }
