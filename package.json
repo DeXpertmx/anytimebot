@@ -6,7 +6,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && (if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy; fi) && (if [ -n \"$CONVEX_DEPLOY_KEY\" ]; then npx convex deploy --typecheck disable || echo 'Convex deploy failed, continuing with Next build'; fi) && next build",
+    "build": "prisma generate && (if [ -n \"$DATABASE_URL\" ]; then ok=0; for i in 1 2 3 4 5; do if prisma migrate deploy; then ok=1; break; fi; echo \"migrate deploy attempt $i failed, retrying in 15s\"; sleep 15; done; [ \"$ok\" = 1 ]; fi) && (if [ -n \"$CONVEX_DEPLOY_KEY\" ]; then npx convex deploy --typecheck disable || echo 'Convex deploy failed, continuing with Next build'; fi) && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "tsx --test lib/*.test.ts",
