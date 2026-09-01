@@ -12,11 +12,10 @@ export default function PrivacyPage() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="relative w-10 h-10">
-                <Image src="/Anytimebot-icon.png" alt="ANYTIMEBOT" fill className="object-contain" />
+            <Link href="/" className="flex items-center">
+              <div className="relative w-[200px] h-[60px]">
+                <Image src="/anytimebot-logo.png" alt="ANYTIMEBOT" fill className="object-contain" />
               </div>
-              <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
             </Link>
           </div>
         </div>

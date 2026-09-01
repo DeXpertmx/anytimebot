@@ -80,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/admin" className="flex items-center">
               <div className="relative h-[60px] w-[200px]">
                 <Image
-                  src="/Anytimebot-logo.png"
+                  src="/anytimebot-logo.png"
                   alt="Anytimebot Logo"
                   width={200}
                   height={60}

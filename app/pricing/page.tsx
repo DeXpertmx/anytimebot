@@ -40,7 +40,7 @@ export default async function PricingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <img 
-                src="/Anytimebot-logo.png" 
+                src="/anytimebot-logo.png" 
                 alt="ANYTIMEBOT Logo" 
                 width={200}
                 height={60}

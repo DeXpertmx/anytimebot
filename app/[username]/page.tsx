@@ -279,7 +279,7 @@ export default async function UserPage({ params }: UserPageProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <Image
-              src="/Anytimebot-logo.png"
+              src="/anytimebot-logo.png"
               alt="Anytimebot"
               width={98}
               height={28}

@@ -11,9 +11,8 @@ export default function TermsPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white">
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="relative h-10 w-10"><Image src="/Anytimebot-icon.png" alt="ANYTIMEBOT" fill className="object-contain" /></div>
-            <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
+          <Link href="/" className="flex items-center">
+            <div className="relative h-[60px] w-[200px]"><Image src="/anytimebot-logo.png" alt="ANYTIMEBOT" fill className="object-contain" /></div>
           </Link>
           <Link href="/pricing" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">Planes y precios</Link>
         </div>

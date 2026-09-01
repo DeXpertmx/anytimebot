@@ -88,7 +88,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                 <img src={logoUrl} alt={bookingPage.title} className="h-9 w-auto object-contain" />
               ) : (
                 <Image
-                  src="/Anytimebot-logo.png"
+                  src="/anytimebot-logo.png"
                   alt="Anytimebot"
                   width={126}
                   height={36}
@@ -231,7 +231,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center flex-col sm:flex-row gap-2 sm:gap-3">
             <Image
-              src="/Anytimebot-logo.png"
+              src="/anytimebot-logo.png"
               alt="Anytimebot"
               width={98}
               height={28}
