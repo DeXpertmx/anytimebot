@@ -363,6 +363,115 @@ export async function sendMembershipWelcome(data: {
 }
 
 /**
+ * Send membership overdue email when a client's recurring subscription period
+ * ended without a successful renewal. Warns that the membership will be
+ * cancelled after the grace period (default 30 days) unless renewed.
+ */
+export async function sendMembershipOverdue(data: {
+  to: string;
+  customerName: string;
+  eventTitle: string;
+  price: number;
+  currency: string;
+  interval: string;
+  periodEnded?: Date | null;
+  graceDays?: number;
+  bookingPageTitle?: string;
+}): Promise<boolean> {
+  const {
+    to,
+    customerName,
+    eventTitle,
+    price,
+    currency,
+    interval,
+    periodEnded,
+    graceDays = 30,
+    bookingPageTitle,
+  } = data;
+
+  const fmtPrice = new Intl.NumberFormat('es', {
+    style: 'currency',
+    currency: currency?.toUpperCase() || 'EUR',
+  }).format(price / 100);
+  const intervalLabel = interval === 'year' ? 'año' : 'mes';
+
+  // The membership would be cancelled graceDays after the period ended.
+  const cancelDate = periodEnded
+    ? new Date(periodEnded.getTime() + graceDays * 24 * 60 * 60 * 1000)
+    : null;
+  const cancelDateLabel = cancelDate
+    ? new Intl.DateTimeFormat('es', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(cancelDate)
+    : null;
+  const periodEndedLabel = periodEnded
+    ? new Intl.DateTimeFormat('es', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(periodEnded)
+    : null;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+        <div style="background-color: #f59e0b; color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          <h1 style="margin: 0; font-size: 28px;">Tu suscripción está pendiente de pago ⚠️</h1>
+        </div>
+
+        <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <p style="font-size: 18px; margin-top: 0;">Hola ${customerName},</p>
+
+          <p style="font-size: 16px; color: #555;">
+            No hemos podido renovar tu suscripción. Aquí tienes los detalles:
+          </p>
+
+          <div style="background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
+            <h2 style="margin-top: 0; color: white; font-size: 24px;">${eventTitle}</h2>
+            <div style="margin: 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3);">
+              <p style="margin: 8px 0;"><strong>💰 Importe:</strong> ${fmtPrice} / ${intervalLabel}</p>
+              ${bookingPageTitle ? `<p style="margin: 8px 0;"><strong>📋 Servicio:</strong> ${bookingPageTitle}</p>` : ''}
+              ${periodEndedLabel ? `<p style="margin: 8px 0;"><strong>📅 Periodo finalizado:</strong> ${periodEndedLabel}</p>` : ''}
+            </div>
+          </div>
+
+          <div style="margin-top: 30px; padding: 20px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+            <p style="margin: 0; color: #92400e; font-weight: 500;">
+              ⚠️ <strong>Importante:</strong>${cancelDateLabel ? ` Tu suscripción se cancelará el <strong>${cancelDateLabel}</strong> si no se renueva.` : ` Tu suscripción se cancelará en ${graceDays} días si no se renueva.`} Ponte en contacto con el proveedor del servicio para actualizar tu método de pago.
+            </p>
+          </div>
+
+          <p style="font-size: 16px; margin-top: 30px;">Si ya realizaste el pago, ignora este mensaje. 🙌</p>
+
+          <div style="margin-top: 40px; padding-top: 25px; border-top: 2px solid #e5e7eb; text-align: center;">
+            <p style="color: #6b7280; font-size: 14px; margin: 5px 0;">
+              © ${new Date().getFullYear()} <strong>ANYTIMEBOT</strong>
+            </p>
+            <p style="color: #9ca3af; font-size: 13px; margin: 5px 0;">
+              Agendamiento inteligente hecho simple
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `⚠️ Renovación pendiente: ${eventTitle}`,
+    html,
+  });
+}
+
+/**
  * Send booking reminder email (24 hours before)
  */
 export async function sendBookingReminder(data: {

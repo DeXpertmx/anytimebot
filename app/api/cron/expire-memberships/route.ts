@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
 import { getStripeMode } from '@/lib/stripe-mode';
+import { sendMembershipOverdue } from '@/lib/email';
 
 /**
  * Daily cron: reconcile memberships whose billing period ended without a
@@ -29,19 +30,32 @@ export async function GET(request: NextRequest) {
     markedPastDue: 0,
     cancelled: 0,
     alreadyHandled: 0,
+    emailsSent: 0,
   };
 
   try {
     const now = new Date();
     const cutOff30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // 1) Period ended without renewal -> mark as overdue (PAST_DUE).
+    // 1) Period ended without renewal -> mark as overdue (PAST_DUE) and warn
+    //    the client by email that the membership will be cancelled in 30 days
+    //    unless renewed. The transition ACTIVE/TRIALING -> PAST_DUE happens
+    //    once, so the email is sent exactly once per lapse.
     const expired = await prisma.memberSubscription.findMany({
       where: {
         status: { in: ['ACTIVE', 'TRIALING'] },
         currentPeriodEnd: { lt: now },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        customerName: true,
+        customerEmail: true,
+        price: true,
+        currency: true,
+        interval: true,
+        currentPeriodEnd: true,
+        eventType: { select: { name: true } },
+      },
     });
 
     if (expired.length > 0) {
@@ -50,6 +64,28 @@ export async function GET(request: NextRequest) {
         data: { status: 'PAST_DUE' },
       });
       result.markedPastDue = expired.length;
+
+      for (const membership of expired) {
+        if (!membership.customerEmail) continue;
+        try {
+          const sent = await sendMembershipOverdue({
+            to: membership.customerEmail,
+            customerName: membership.customerName,
+            eventTitle: membership.eventType?.name || 'Suscripción',
+            price: membership.price,
+            currency: membership.currency,
+            interval: membership.interval,
+            periodEnded: membership.currentPeriodEnd,
+            graceDays: 30,
+          });
+          if (sent) result.emailsSent += 1;
+        } catch (error) {
+          console.error(
+            `Error emailing overdue membership ${membership.id}:`,
+            error,
+          );
+        }
+      }
     }
 
     // 2) Long-overdue memberships (30+ days) -> cancel on Stripe + CANCELLED.

@@ -8,7 +8,7 @@ import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
 import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
-import { sendMembershipWelcome } from '@/lib/email';
+import { sendMembershipWelcome, sendMembershipOverdue } from '@/lib/email';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
 
 export async function POST(req: NextRequest) {
@@ -337,9 +337,11 @@ async function handleMembershipStatusChanged(subscription: Stripe.Subscription) 
     const sub = subscription as any;
     const membership = await prisma.memberSubscription.findUnique({
       where: { stripeSubscriptionId: subscription.id },
+      include: { eventType: { select: { name: true } } },
     });
     if (!membership) return;
 
+    const prevStatus = membership.status;
     const status =
       subscription.status === 'active' || subscription.status === 'trialing'
         ? subscription.status === 'trialing'
@@ -361,6 +363,23 @@ async function handleMembershipStatusChanged(subscription: Stripe.Subscription) 
         currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : membership.currentPeriodEnd,
       },
     });
+
+    // When the subscription becomes overdue (PAST_DUE) for the first time,
+    // warn the client by email that it will be cancelled after 30 days unless
+    // renewed. The cron only processes ACTIVE/TRIALING memberships, so this
+    // transition (and therefore the email) happens exactly once per lapse.
+    if (status === 'PAST_DUE' && prevStatus !== 'PAST_DUE' && membership.customerEmail) {
+      await sendMembershipOverdue({
+        to: membership.customerEmail,
+        customerName: membership.customerName,
+        eventTitle: membership.eventType?.name || 'Suscripción',
+        price: membership.price,
+        currency: membership.currency,
+        interval: membership.interval,
+        periodEnded: membership.currentPeriodEnd,
+        graceDays: 30,
+      });
+    }
 
     console.log(`✅ Membership status updated: ${subscription.id} -> ${status}`);
   } catch (error) {
