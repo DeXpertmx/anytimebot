@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { computeAnnualSavings } from '@/lib/membership-pricing';
 import Image from 'next/image';
@@ -72,6 +74,13 @@ export default async function UserPage({ params }: UserPageProps) {
 
   // Public branding: accent color of the user's first active booking page
   const brandColor = user.bookingPages[0]?.brandColor || '#6366f1';
+
+  // Owner-only view (Calendly-style): logged-in user owns this profile
+  const session = await getServerSession(authOptions);
+  const isOwner =
+    !!session?.user &&
+    !!(session.user as any).id &&
+    (session.user as any).id === user.id;
 
   return (
     <div className="min-h-screen bg-white">
@@ -163,6 +172,28 @@ export default async function UserPage({ params }: UserPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Marketing banner for one-time BASIC plan holders (owner only) */}
+      {isOwner && user.plan === 'BASIC' && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <Link
+            href="/pricing"
+            className="flex items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 text-white shadow-md transition-transform hover:scale-[1.01]"
+          >
+            <div>
+              <p className="font-semibold">
+                🚀 Lleva tu negocio al siguiente nivel con Anytimebot
+              </p>
+              <p className="text-sm text-indigo-100 mt-0.5">
+                Desbloquea equipos, chatbot con IA, más páginas de reserva y pagos recurrentes.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-indigo-700">
+              Mejorar plan
+            </span>
+          </Link>
+        </div>
+      )}
 
       {/* Servicios */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
