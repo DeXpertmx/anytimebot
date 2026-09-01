@@ -27,9 +27,7 @@ interface AvailabilitySlot {
   startTime: string;
   endTime: string;
   isAvailable: boolean;
-}
-
-interface EditBookingPageFormProps {
+}  interface EditBookingPageFormProps {
   bookingPage: {
     id: string;
     title: string;
@@ -37,6 +35,8 @@ interface EditBookingPageFormProps {
     description?: string;
     isActive: boolean;
     slotInterval?: number;
+    brandColor?: string;
+    logoUrl?: string | null;
     eventTypes: any[];
     availability: AvailabilitySlot[];
   };
@@ -66,6 +66,8 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
     description: bookingPage.description || '',
     isActive: bookingPage.isActive,
     slotInterval: bookingPage.slotInterval || 15,
+    brandColor: (bookingPage as any).brandColor || '#6366f1',
+    logoUrl: (bookingPage as any).logoUrl || '',
   });
   const [availability, setAvailability] = useState<AvailabilitySlot[]>(
     bookingPage.availability.length > 0
@@ -266,6 +268,43 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
               />
             </div>
             
+            <div className="grid grid-cols-1 gap-4 rounded-md border border-gray-200 p-4">
+              <p className="text-sm font-medium text-gray-900">Personalización de marca</p>
+              <div className="space-y-2">
+                <Label htmlFor="brand-color">Color de marca</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="brand-color"
+                    type="color"
+                    value={formData.brandColor}
+                    onChange={(e) => setFormData(prev => ({ ...prev, brandColor: e.target.value }))}
+                    className="h-9 w-12 cursor-pointer rounded border border-gray-300 bg-white p-0.5"
+                  />
+                  <Input
+                    value={formData.brandColor}
+                    onChange={(e) => setFormData(prev => ({ ...prev, brandColor: e.target.value }))}
+                    className="font-mono"
+                    placeholder="#6366f1"
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Color de acento de tu página pública de reserva (botones, enlaces y detalles).
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="logo-url">URL del logotipo (opcional)</Label>
+                <Input
+                  id="logo-url"
+                  placeholder="https://tu-dominio.com/logo.png"
+                  value={formData.logoUrl}
+                  onChange={(e) => setFormData(prev => ({ ...prev, logoUrl: e.target.value }))}
+                />
+                <p className="text-xs text-gray-500">
+                  Si lo dejas vacío se usa el logotipo de Anytimebot.
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="slotInterval">Time Slot Interval</Label>
               <Select

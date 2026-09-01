@@ -71,7 +71,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { slug, title, description, isActive, slotInterval, availability } = body;
+    const { slug, title, description, isActive, slotInterval, availability, brandColor, logoUrl } = body;
     const normalizedSlug = typeof slug === 'string' ? slug.trim().toLowerCase() : slug;
 
     // Validation
@@ -132,6 +132,9 @@ export async function PUT(
           description,
           isActive,
           slotInterval: slotInterval || 15,
+          brandColor: typeof brandColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(brandColor) ? brandColor : existingPage.brandColor,
+          logoUrl:
+            typeof logoUrl === 'string' && logoUrl.trim() ? logoUrl.trim() : logoUrl === '' ? null : existingPage.logoUrl,
         },
       });
 

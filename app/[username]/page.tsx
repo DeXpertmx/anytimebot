@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { computeAnnualSavings } from '@/lib/membership-pricing';
+import Image from 'next/image';
 import { Calendar, Clock, MapPin, Video, Phone, Globe, Linkedin, Twitter, Mail, Star, ArrowRight, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 
@@ -68,6 +69,9 @@ export default async function UserPage({ params }: UserPageProps) {
   );
 
   const hasPriced = services.some((s) => s.et.collectPayment && s.et.price > 0);
+
+  // Public branding: accent color of the user's first active booking page
+  const brandColor = user.bookingPages[0]?.brandColor || '#6366f1';
 
   return (
     <div className="min-h-screen bg-white">
@@ -241,13 +245,18 @@ export default async function UserPage({ params }: UserPageProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <Calendar className="h-4 w-4 text-white" />
-              </div>
+              <Image
+                src="/Anytimebot-icon.png"
+                alt="Anytimebot"
+                width={24}
+                height={24}
+                className="object-contain"
+                unoptimized
+              />
               <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
             </div>
             <p className="text-gray-500 text-sm">
-              © 2026 ANYTIMEBOT · Powered by anytimebot.app
+              © {new Date().getFullYear()} ANYTIMEBOT · Powered by anytimebot.app
             </p>
           </div>
         </div>

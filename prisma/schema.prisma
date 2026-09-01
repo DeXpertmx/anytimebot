@@ -296,6 +296,11 @@ model BookingPage {
   description  String?  @db.Text
   isActive     Boolean  @default(true) @map("is_active")
   slotInterval Int      @default(15) @map("slot_interval") // Time slot interval in minutes (15, 30, 60)
+
+  // Public branding (customizable from the booking-page editor)
+  brandColor   String   @default("#6366f1") @map("brand_color") // Accent color for the public page
+  logoUrl      String?  @map("logo_url") // Custom logo image URL; falls back to the Anytimebot logo
+
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

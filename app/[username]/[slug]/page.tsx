@@ -7,6 +7,7 @@ import { BookingForm } from '@/components/public/booking-form';
 import { OwnerShareBar } from '@/components/public/owner-share-bar';
 import { Calendar, Clock, MapPin, Video, Phone, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { EventType, BookingFormField } from '@prisma/client';
 
 interface BookingPageProps {
@@ -31,6 +32,10 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
   }
 
   const bookingPage = user.bookingPages[0];
+
+  // Customizable public branding (accent color + optional logo)
+  const brandColor = bookingPage.brandColor || '#6366f1';
+  const logoUrl = bookingPage.logoUrl || null;
 
   // Owner-only share bar (Calendly-style)
   const session = await getServerSession(authOptions);
@@ -77,9 +82,19 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center mr-3">
-                <Calendar className="h-5 w-5 text-white" />
-              </div>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={bookingPage.title} className="h-9 w-auto object-contain mr-3" />
+              ) : (
+                <Image
+                  src="/Anytimebot-icon.png"
+                  alt="Anytimebot"
+                  width={36}
+                  height={36}
+                  className="mr-3 object-contain"
+                  unoptimized
+                />
+              )}
               <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
             </div>
           </div>
@@ -89,7 +104,8 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Link
           href={`/${username}`}
-          className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700 mb-6"
+          className="inline-flex items-center text-sm mb-6"
+          style={{ color: brandColor }}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver a todos los eventos
@@ -188,20 +204,28 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
       {/* Owner share bar */}
       {isOwner && user.username && (
         <OwnerShareBar username={user.username} slug={bookingPage.slug} />
-      )}
-
-      {/* Footer */}
+      )}          {/* Footer */}
       <footer className="bg-white border-t mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center">
             <div className="flex items-center">
-              <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center mr-2">
-                <Calendar className="h-4 w-4 text-white" />
-              </div>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={bookingPage.title} className="h-6 w-auto object-contain mr-2" />
+              ) : (
+                <Image
+                  src="/Anytimebot-icon.png"
+                  alt="Anytimebot"
+                  width={24}
+                  height={24}
+                  className="mr-2 object-contain"
+                  unoptimized
+                />
+              )}
               <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
             </div>
             <p className="text-gray-500 ml-4">
-              © 2024 ANYTIMEBOT. Agendar nunca fue tan sencillo.
+              © {new Date().getFullYear()} ANYTIMEBOT. Agendar nunca fue tan sencillo.
             </p>
           </div>
         </div>

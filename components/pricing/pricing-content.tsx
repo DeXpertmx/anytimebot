@@ -225,6 +225,17 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
                   {!current && loading !== planKey && <ArrowRight className="h-4 w-4" />}
                 </button>
 
+                {planKey === 'basic' && (
+                  <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-bold text-emerald-900">
+                      {t('pricing.basicPromoTitle')}
+                    </p>
+                    <p className="mt-1 text-sm text-emerald-800">
+                      {t('pricing.basicPromoText')}
+                    </p>
+                  </div>
+                )}
+
                 <ul className="mt-8 space-y-3 border-t border-gray-100 pt-6">
                   {features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-sm text-gray-700">

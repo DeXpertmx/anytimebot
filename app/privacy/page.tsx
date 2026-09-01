@@ -14,7 +14,7 @@ export default function PrivacyPage() {
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center space-x-3">
               <div className="relative w-10 h-10">
-                <Image src="/logo.png" alt="ANYTIMEBOT" fill className="object-contain" />
+                <Image src="/Anytimebot-icon.png" alt="ANYTIMEBOT" fill className="object-contain" />
               </div>
               <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
             </Link>

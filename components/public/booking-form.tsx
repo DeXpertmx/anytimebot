@@ -52,6 +52,7 @@ interface BookingFormProps {
   bookingPage: {
     id: string;
     slug: string;
+    brandColor?: string | null;
   };
   eventTypes: EventType[];
   availability: Availability[];
@@ -68,6 +69,7 @@ export function BookingForm({
 }: BookingFormProps) {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const brandColor = bookingPage.brandColor || '#6366f1';
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(
     (preselectedEventId && eventTypes.find((e) => e.id === preselectedEventId)) ||
       eventTypes[0] ||
@@ -362,9 +364,10 @@ export function BookingForm({
                   }
                 }}
                 disabled={!available || isPast}
+                style={isSelected ? { backgroundColor: brandColor, borderColor: brandColor } : undefined}
                 className={`p-3 rounded-lg border text-center transition-colors ${
                   isSelected
-                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    ? 'text-white'
                     : available && !isPast
                     ? 'hover:bg-indigo-50 border-gray-200'
                     : 'bg-gray-50 text-gray-400 cursor-not-allowed border-gray-100'
@@ -395,9 +398,14 @@ export function BookingForm({
                   key={slot}
                   type="button"
                   onClick={() => setSelectedTime(slot)}
+                  style={
+                    selectedTime === slot
+                      ? { backgroundColor: brandColor, borderColor: brandColor }
+                      : undefined
+                  }
                   className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
                     selectedTime === slot
-                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      ? 'text-white'
                       : 'hover:bg-indigo-50 border-gray-200'
                   }`}
                 >
@@ -613,7 +621,8 @@ export function BookingForm({
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700"
+            className="w-full"
+            style={{ backgroundColor: brandColor }}
           >
             {isLoading
               ? 'Procesando...'

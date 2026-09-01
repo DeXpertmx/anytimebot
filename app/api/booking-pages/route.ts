@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { slug, title, description, isActive = true } = body;
+    const { slug, title, description, isActive = true, brandColor, logoUrl } = body;
     const normalizedSlug = String(slug || '').trim().toLowerCase();
 
     // Validation
@@ -117,6 +117,8 @@ export async function POST(request: NextRequest) {
         title,
         description,
         isActive,
+        brandColor: typeof brandColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(brandColor) ? brandColor : '#6366f1',
+        logoUrl: typeof logoUrl === 'string' && logoUrl.trim() ? logoUrl.trim() : null,
       },
       include: {
         eventTypes: true,
