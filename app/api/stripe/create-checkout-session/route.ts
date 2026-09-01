@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    const confirmed = body.confirmed === true;
+
     if (plan === 'BASIC' && user.plan === 'BASIC') {
       return NextResponse.json({ error: 'Founders Basic is already active' }, { status: 409 });
     }
@@ -143,6 +145,20 @@ export async function POST(req: NextRequest) {
         const isActive = ['active', 'trialing', 'past_due'].includes(existingSubscription.status);
 
         if (isActive && existingItemId && currentPriceId && currentPriceId !== subscriptionPriceId) {
+          // Never apply a plan change without explicit confirmation from the
+          // user: it changes their recurring price, even when prorated.
+          if (!confirmed) {
+            const currentPrice = existingSubscription.items?.data?.[0]?.price?.unit_amount ?? null;
+            const targetPrice = (await stripe.prices.retrieve(subscriptionPriceId)).unit_amount ?? null;
+            return NextResponse.json({
+              requiresConfirmation: true,
+              currentPlan: user.plan,
+              targetPlan: plan,
+              currentPrice: currentPrice ? currentPrice / 100 : null,
+              targetPrice: targetPrice ? targetPrice / 100 : null,
+            });
+          }
+
           const updated = await stripe.subscriptions.update(user.stripeSubscriptionId, {
             items: [{ id: existingItemId, price: subscriptionPriceId }],
             proration_behavior: 'create_prorations',

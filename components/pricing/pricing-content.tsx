@@ -99,6 +99,38 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
         return;
       }
 
+      // Plan change on an existing subscription: ask for explicit confirmation
+      // before switching the recurring price (Stripe prorates the difference).
+      if (data.requiresConfirmation) {
+        const currentPlanName = t(`pricing.plans.${planKey === 'team' ? 'pro' : 'team'}.name`);
+        const targetPlanName = t(`pricing.plans.${planKey}.name`);
+        const message =
+          `${t('pricing.planChangeConfirm')}\n\n` +
+          `${t('pricing.currentPlan')}: ${currentPlanName} (€${data.currentPrice}/mes)\n` +
+          `${t('pricing.planChangeTarget')}: ${targetPlanName} (€${data.targetPrice}/mes)\n\n` +
+          t('pricing.planChangeProration');
+        if (!window.confirm(message)) {
+          setLoading(null);
+          return;
+        }
+        const confirmResponse = await fetch('/api/stripe/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: paidPlan, confirmed: true }),
+        });
+        const confirmData = await confirmResponse.json();
+        if (!confirmResponse.ok || confirmData.error) {
+          alert(confirmData.error || t('pricing.checkoutError'));
+          return;
+        }
+        if (confirmData.url) {
+          window.location.href = confirmData.url;
+          return;
+        }
+        setLoading(null);
+        return;
+      }
+
       // Redirect to the Stripe-hosted checkout URL. This avoids depending on
       // the publishable key matching the session mode on the client.
       if (data.url) {
