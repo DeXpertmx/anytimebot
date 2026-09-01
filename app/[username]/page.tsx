@@ -229,7 +229,10 @@ export default async function UserPage({ params }: UserPageProps) {
                   ) : (
                     <span className="text-sm font-medium text-emerald-600">Gratis</span>
                   )}
-                  <span className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 group-hover:gap-2 transition-all">
+                  <span
+                    className="inline-flex items-center gap-1 text-sm font-medium group-hover:gap-2 transition-all"
+                    style={{ color: brandColor }}
+                  >
                     Book
                     <ArrowRight className="h-4 w-4" />
                   </span>
