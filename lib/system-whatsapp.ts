@@ -449,6 +449,27 @@ ${bookingSummary(data)}`;
   return notifyAdminWhatsApp(message, deps);
 }
 
+/** Notify the admin of a refunded (paid) booking via the system WhatsApp number. */
+export async function notifyAdminBookingRefunded(
+  data: {
+    guestName?: string | null;
+    guestEmail?: string | null;
+    guestPhone?: string | null;
+    eventTypeName: string;
+    startTime: string | Date;
+    timezone?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+  },
+  deps?: SystemWhatsAppDeps,
+): Promise<boolean> {
+  const amount = data.amount && data.amount > 0 ? `\n💰 Reembolsado: ${formatCurrency(data.amount, data.currency)}` : '';
+  const message = `↩️ *Reembolso de reserva en Anytimebot*
+
+${bookingSummary(data)}${amount}`;
+  return notifyAdminWhatsApp(message, deps);
+}
+
 /** Booking confirmation sent from the Anytimebot notification number. */
 export async function sendSystemBookingConfirmation(
   to: string,

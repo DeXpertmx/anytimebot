@@ -341,11 +341,12 @@ model Booking {
   reminder1hSent  Boolean  @default(false) @map("reminder_1h_sent")
   
   // Payment tracking
-  paymentStatus    PaymentStatus? @map("payment_status")
-  stripeSessionId  String?        @map("stripe_session_id")
-  paymentAmount    Int?           @map("payment_amount") // Amount in cents
-  paymentCurrency  String?        @map("payment_currency")
-  paidAt           DateTime?      @map("paid_at")
+  paymentStatus       PaymentStatus? @map("payment_status")
+  stripeSessionId     String?        @map("stripe_session_id")
+  stripePaymentIntent String?        @map("stripe_payment_intent") // Stripe PaymentIntent ID for refunds
+  paymentAmount       Int?           @map("payment_amount") // Amount in cents
+  paymentCurrency     String?        @map("payment_currency")
+  paidAt              DateTime?      @map("paid_at")
   
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")

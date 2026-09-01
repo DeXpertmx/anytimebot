@@ -7,7 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-interface Booking { id: string; guestName: string; guestEmail: string; startTime: string; endTime: string; status: string; eventType: { name: string; color?: string }; }
+interface Booking {
+  id: string;
+  guestName: string;
+  guestEmail: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  paymentStatus?: string | null;
+  paymentAmount?: number | null;
+  paymentCurrency?: string | null;
+  eventType: { name: string; color?: string };
+}
 interface Team { id: string; name: string; members: { id: string; email: string; user?: { name?: string | null; image?: string | null } | null }[]; }
 interface EventType { id: string; name: string; duration: number; color?: string; bookingPage: { id: string; name: string } }
 interface TimeOff { id: string; name?: string | null; start: string; end: string }
@@ -43,6 +54,8 @@ export default function CalendarPage() {
   const [newGuestPhone, setNewGuestPhone] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [creating, setCreating] = useState(false);
+  const [refunding, setRefunding] = useState(false);
+  const [bookingVersion, setBookingVersion] = useState(0);
 
   const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
 
@@ -114,6 +127,33 @@ export default function CalendarPage() {
     setNewGuestPhone('');
     setNewNotes('');
     setShowNewBooking(true);
+  };
+
+  // Refund a paid booking
+  const handleRefundBooking = async (booking: Booking) => {
+    if (!window.confirm('¿Seguro que quieres reembolsar esta reserva al cliente? Se reembolsará el importe completo en su método de pago.')) {
+      return;
+    }
+    setRefunding(true);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Reembolso procesado correctamente');
+        setBookingVersion((v) => v + 1);
+        load();
+        setSelectedBooking(prev => prev ? { ...prev, paymentStatus: 'REFUNDED' } : prev);
+      } else {
+        toast.error(data.error || 'No se pudo procesar el reembolso');
+      }
+    } catch {
+      toast.error('Error al procesar el reembolso');
+    } finally {
+      setRefunding(false);
+    }
   };
 
   // Create booking
@@ -337,6 +377,52 @@ export default function CalendarPage() {
               <div className="rounded-lg bg-slate-50 p-3 text-sm">
                 <span className="font-medium">Estado: </span>{selectedBooking.status === 'CONFIRMED' ? 'Confirmada' : 'Pendiente'}
               </div>
+
+              {/* Payment info */}
+              {selectedBooking.paymentStatus && selectedBooking.paymentStatus !== 'PENDING' && (
+                <div className="rounded-lg border p-3 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pago</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          selectedBooking.paymentStatus === 'PAID'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : selectedBooking.paymentStatus === 'REFUNDED'
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {selectedBooking.paymentStatus === 'PAID'
+                          ? 'Pagada'
+                          : selectedBooking.paymentStatus === 'REFUNDED'
+                            ? 'Reembolsada'
+                            : selectedBooking.paymentStatus}
+                      </span>
+                      {selectedBooking.paymentAmount != null && (
+                        <span className="font-semibold text-slate-800">
+                          {(selectedBooking.paymentAmount / 100).toFixed(2)} {selectedBooking.paymentCurrency?.toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    {selectedBooking.paymentStatus === 'PAID' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                        disabled={refunding}
+                        onClick={() => handleRefundBooking(selectedBooking)}
+                      >
+                        {refunding ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
+                        Reembolsar
+                      </Button>
+                    )}
+                  </div>
+                  {selectedBooking.paymentStatus === 'REFUNDED' && (
+                    <p className="mt-1 text-xs text-slate-500">Se devolvió el importe completo al método de pago del cliente.</p>
+                  )}
+                </div>
+              )}
 
               {/* Customer history */}
               <div className="border-t pt-3">

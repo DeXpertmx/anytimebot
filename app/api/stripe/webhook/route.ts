@@ -132,6 +132,12 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
     const bookingStartTime = new Date(startTime);
     const bookingEndTime = new Date(bookingStartTime.getTime() + eventType.duration * 60 * 1000);
 
+    // The PaymentIntent ID lets the dashboard refund the booking later.
+    const paymentIntentId =
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : (session.payment_intent?.id ?? null);
+
     // Create the booking
     const booking = await prisma.booking.create({
       data: {
@@ -144,6 +150,7 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
         status: 'CONFIRMED',
         paymentStatus: 'PAID',
         stripeSessionId: session.id,
+        stripePaymentIntent: paymentIntentId,
         paymentAmount: session.amount_total || eventType.price,
         paymentCurrency: session.currency || eventType.currency,
         paidAt: new Date(),
