@@ -181,13 +181,13 @@ export function EventTypesList() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid min-w-0 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
       {eventTypes.map((eventType) => {
         const LocationIcon = getLocationIcon(eventType.location);
         
         return (
-          <Card key={eventType.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
+          <Card key={eventType.id} className="min-w-0 overflow-hidden hover:shadow-md transition-shadow">
+            <CardHeader className="min-w-0 pb-3">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center min-w-0 flex-1">
                   <div 
@@ -219,7 +219,7 @@ export function EventTypesList() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="flex items-center space-x-2 flex-wrap">
+              <div className="flex min-w-0 items-center gap-2 flex-wrap">
                 <Badge variant="outline" className="flex items-center whitespace-nowrap">
                   <Clock className="mr-1 h-3 w-3" />
                   {eventType.duration}m
@@ -254,7 +254,7 @@ export function EventTypesList() {
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex min-w-0 items-center justify-between text-sm text-gray-500">
                 <div className="flex items-center">
                   <Calendar className="mr-1 h-4 w-4 flex-shrink-0" />
                   <span className="truncate">
