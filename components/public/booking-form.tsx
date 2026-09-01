@@ -18,6 +18,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
+import { computeAnnualSavings } from '@/lib/membership-pricing';
 import { TimezoneSelect } from '@/components/ui/timezone-select';
 import { PhoneCountryInput, getDialCode } from '@/components/ui/phone-country-input';
 
@@ -104,29 +105,9 @@ export function BookingForm({
   // For yearly memberships, compute the annual total and the savings vs. the
   // monthly alternative. Prefers a real monthly event with the same name on
   // the same booking page; falls back to the prorated equivalent (price / 12).
-  const yearlySavings = (() => {
-    const et = selectedEventType;
-    if (!et || et.paymentInterval !== 'YEAR' || !et.collectPayment || et.price <= 0) {
-      return null;
-    }
-    const monthlyCounterpart = eventTypes.find(
-      (candidate) =>
-        candidate.id !== et.id &&
-        candidate.collectPayment &&
-        candidate.price > 0 &&
-        (candidate.paymentInterval === 'MONTH' || !candidate.paymentInterval) &&
-        candidate.name.trim().toLowerCase() === et.name.trim().toLowerCase()
-    );
-    const monthlyCost = monthlyCounterpart?.price ?? Math.round(et.price / 12);
-    const annualCost = et.price;
-    const savings = monthlyCost * 12 - annualCost;
-    if (savings <= 0) return null;
-    return {
-      savingsCents: Math.round(savings),
-      currency: et.currency,
-      monthlyEquivalent: monthlyCounterpart ? monthlyCost : null,
-    };
-  })();
+  const yearlySavings = selectedEventType
+    ? computeAnnualSavings(eventTypes, selectedEventType)
+    : null;
 
   // Generate week dates
   const weekDates = Array.from({ length: 7 }, (_, i) =>
@@ -320,27 +301,7 @@ export function BookingForm({
             </SelectTrigger>
             <SelectContent>
               {eventTypes.map((eventType) => {
-                const savings = (() => {
-                  if (
-                    eventType.paymentInterval !== 'YEAR' ||
-                    !eventType.collectPayment ||
-                    eventType.price <= 0
-                  ) {
-                    return null;
-                  }
-                  const monthlyCounterpart = eventTypes.find(
-                    (candidate) =>
-                      candidate.id !== eventType.id &&
-                      candidate.collectPayment &&
-                      candidate.price > 0 &&
-                      (candidate.paymentInterval === 'MONTH' || !candidate.paymentInterval) &&
-                      candidate.name.trim().toLowerCase() === eventType.name.trim().toLowerCase()
-                  );
-                  const monthlyCost = monthlyCounterpart?.price ?? Math.round(eventType.price / 12);
-                  const savingsCents = monthlyCost * 12 - eventType.price;
-                  if (savingsCents <= 0) return null;
-                  return Math.round((savingsCents / (eventType.price + savingsCents)) * 100);
-                })();
+                const savings = computeAnnualSavings(eventTypes, eventType)?.percent;
                 return (
                   <SelectItem key={eventType.id} value={eventType.id}>
                     {eventType.name} ({eventType.duration} min)
@@ -621,9 +582,7 @@ export function BookingForm({
               {selectedEventType.paymentInterval === 'YEAR' && yearlySavings && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-                    {t('bookingForm.savePercent', {
-                      percent: Math.round((yearlySavings.savingsCents / (selectedEventType.price + yearlySavings.savingsCents)) * 100),
-                    })}
+                    {t('bookingForm.savePercent', { percent: yearlySavings.percent })}
                   </span>
                   <span className="text-sm font-medium text-emerald-700">
                     {t('bookingForm.billedAnnually')}

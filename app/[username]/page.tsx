@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { computeAnnualSavings } from '@/lib/membership-pricing';
 import { Calendar, Clock, MapPin, Video, Phone, Globe, Linkedin, Twitter, Mail, Star, ArrowRight, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 
@@ -210,20 +211,11 @@ export default async function UserPage({ params }: UserPageProps) {
                             : ''}
                       </span>
                       {et.paymentInterval === 'YEAR' && (() => {
-                        const monthly = services.find(
-                          (s) =>
-                            s.et.id !== et.id &&
-                            s.et.collectPayment &&
-                            s.et.price > 0 &&
-                            (s.et.paymentInterval === 'MONTH' || !s.et.paymentInterval) &&
-                            s.et.name.trim().toLowerCase() === et.name.trim().toLowerCase()
-                        )?.et;
-                        const monthlyCost = monthly?.price ?? Math.round(et.price / 12);
-                        const savings = monthlyCost * 12 - et.price;
-                        if (savings > 0) {
+                        const savings = computeAnnualSavings(services.map((s) => s.et), et);
+                        if (savings) {
                           return (
                             <span className="text-xs font-medium text-emerald-600">
-                              Ahorra un {Math.round((savings / (et.price + savings)) * 100)}%
+                              Ahorra un {savings.percent}%
                             </span>
                           );
                         }
