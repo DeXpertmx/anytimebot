@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
   Loader2, CheckCircle2, XCircle, MessageCircle, QrCode, RefreshCw, Trash2, Zap,
-  Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone,
+  Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone, CreditCard,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { StripeConnectCard } from '@/components/dashboard/settings/stripe-connect-card';
@@ -32,7 +32,7 @@ export default function IntegrationsPage() {
   const [showingQr, setShowingQr] = useState(false);
 
   // Twilio state (kept as-is)
-  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio'>('whatsapp');
+  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio' | 'payments'>('whatsapp');
   const [twilioConfig, setTwilioConfig] = useState({ accountSid: '', authToken: '', phoneNumber: '' });
   const [twilioStatus, setTwilioStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
   const [twilioKey, setTwilioKey] = useState(0);
@@ -273,7 +273,7 @@ export default function IntegrationsPage() {
       </Alert>
 
       <Tabs value={activeProvider} onValueChange={(v) => setActiveProvider(v as any)} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
             WhatsApp
@@ -283,6 +283,10 @@ export default function IntegrationsPage() {
             <Zap className="h-4 w-4" />
             Twilio
             {twilioStatus === 'connected' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+          </TabsTrigger>
+          <TabsTrigger value="payments" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Pagos y Cobros
           </TabsTrigger>
         </TabsList>
 
@@ -489,10 +493,11 @@ export default function IntegrationsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        {/* Pagos y Cobros tab (Stripe Connect) */}
+        <TabsContent value="payments">
+          <StripeConnectCard />
+        </TabsContent>
       </Tabs>
-
-      {/* Pagos y cobros (Stripe Connect) */}
-      <StripeConnectCard />
     </div>
   );
 }
