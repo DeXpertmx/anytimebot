@@ -74,16 +74,13 @@ export async function POST(request: NextRequest) {
     // Create checkout session in the active mode (test vs live)
     const mode = await getStripeMode();
     const client = await getStripe(mode);
+
+    // Recurring membership (monthly/yearly): use a subscription checkout.
+    const isRecurring = eventType.paymentInterval === 'MONTH' || eventType.paymentInterval === 'YEAR';
+    const interval = eventType.paymentInterval === 'YEAR' ? 'year' : 'month';
+
     const sessionParams: any = {
       ...(!tenantAccountId && user.stripeCustomerId ? { customer: user.stripeCustomerId } : {}),
-      payment_intent_data: tenantAccountId
-        ? {
-            // Money goes to the tenant's Stripe balance and from there to their
-            // bank; the receipt is issued on behalf of the tenant's business.
-            on_behalf_of: tenantAccountId,
-            transfer_data: { destination: tenantAccountId },
-          }
-        : undefined,
       payment_method_types: ['card'],
       line_items: [
         {
@@ -99,11 +96,47 @@ export async function POST(request: NextRequest) {
               },
             },
             unit_amount: eventType.price,
+            ...(isRecurring ? { recurring: { interval, interval_count: 1 } } : {}),
           },
           quantity: 1,
         },
       ],
-      mode: 'payment',
+      ...(isRecurring
+        ? {
+            mode: 'subscription',
+            subscription_data: {
+              // Recurring destination: money goes to the tenant's Stripe balance
+              // each cycle; receipt is on behalf of the tenant's business.
+              ...(tenantAccountId
+                ? {
+                    on_behalf_of: tenantAccountId,
+                    transfer_data: { destination: tenantAccountId },
+                  }
+                : {}),
+              metadata: {
+                eventTypeId,
+                bookingPageId: eventType.bookingPageId,
+                userId: user.id,
+                guestName,
+                guestEmail,
+                startTime,
+                timezone: timezone || 'UTC',
+                tenantAccountId: tenantAccountId || '',
+                membershipEvent: 'true',
+              },
+            },
+          }
+        : {
+            mode: 'payment',
+            payment_intent_data: tenantAccountId
+              ? {
+                  // Money goes to the tenant's Stripe balance and from there to
+                  // their bank; receipt issued on behalf of the tenant's business.
+                  on_behalf_of: tenantAccountId,
+                  transfer_data: { destination: tenantAccountId },
+                }
+              : undefined,
+          }),
       success_url: `${origin}/booking/${eventTypeId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/booking/${eventTypeId}?cancelled=true`,
       customer_email: guestEmail,
@@ -116,6 +149,7 @@ export async function POST(request: NextRequest) {
         startTime,
         timezone: timezone || 'UTC',
         tenantAccountId: tenantAccountId || '',
+        ...(isRecurring ? { membershipEvent: 'true' } : {}),
       },
     };
 

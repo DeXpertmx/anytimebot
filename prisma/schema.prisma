@@ -125,6 +125,7 @@ model User {
   timeOffs     TimeOff[]
   customers    Customer[]
   supportTickets SupportTicket[]
+  memberSubscriptions MemberSubscription[]
 
   @@map("users")
 }
@@ -170,10 +171,53 @@ model TimeOff {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, start, end])
   @@map("time_offs")
+}
+
+// Tenant membership subscriptions — recurring payments a business charges its
+// clients (e.g. 50 €/month for coaching). Each subscription belongs to one
+// tenant (the booking page owner) and is paid on the tenant's Stripe account.
+model MemberSubscription {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id") // Tenant owner
+  eventTypeId        String   @map("event_type_id")
+  customerName       String   @map("customer_name")
+  customerEmail      String   @map("customer_email")
+  stripeSubscriptionId String @unique @map("stripe_subscription_id")
+  stripeAccountId    String?  @map("stripe_account_id") // Connected account that owns the subscription
+  price              Int      @map("price") // cents per billing cycle
+  currency           String   @default("eur")
+  interval           String   @default("month") // "month" | "year"
+  status             String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELLED | TRIALING
+  currentPeriodStart DateTime? @map("current_period_start")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  payments SubscriptionPayment[]
+
+  @@map("member_subscriptions")
+}
+
+// Each successful renewal (invoice paid) creates a payment record so the
+// revenue report can count recurring revenue.
+model SubscriptionPayment {
+  id            String   @id @default(cuid())
+  subscriptionId String  @map("subscription_id")
+  stripeInvoiceId String @unique @map("stripe_invoice_id")
+  amount        Int      @map("amount") // cents
+  currency      String   @default("eur")
+  paidAt        DateTime @default(now()) @map("paid_at")
+
+  subscription MemberSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_payments")
 }
 
 // Usage Quotas per Plan
@@ -278,6 +322,7 @@ model EventType {
   price                Int      @default(0) // Price in cents (0 = free)
   currency             String   @default("usd") // ISO 4217 currency code
   collectPayment        Boolean  @default(false) @map("collect_payment") // Require payment to book
+  paymentInterval      String   @default("ONE_TIME") @map("payment_interval") // "ONE_TIME", "MONTH", "YEAR" — recurring billing (memberships)
   
   // Team Scheduling
   teamId               String?  @map("team_id")
@@ -304,6 +349,7 @@ model EventType {
   bookings         Booking[]
   formFields       BookingFormField[]
   routingResponses RoutingFormResponse[]
+  memberSubscriptions MemberSubscription[]
 
   @@map("event_types")
 }

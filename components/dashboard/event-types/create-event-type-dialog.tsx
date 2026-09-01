@@ -56,6 +56,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
     price: '0',
     currency: defaultCurrency,
     collectPayment: false,
+    paymentInterval: 'ONE_TIME',
     teamId: null as string | null,
     assignmentMode: 'individual',
   });
@@ -136,6 +137,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           price: '0',
           currency: defaultCurrency,
           collectPayment: false,
+          paymentInterval: 'ONE_TIME',
           teamId: null,
           assignmentMode: 'individual',
         });
@@ -444,6 +446,27 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label>{t('eventTypes.paymentInterval')}</Label>
+                <Select
+                  value={formData.paymentInterval}
+                  onValueChange={(value) => 
+                    setFormData(prev => ({ ...prev, paymentInterval: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ONE_TIME">{t('eventTypes.intervalOneTime')}</SelectItem>
+                    <SelectItem value="MONTH">{t('eventTypes.intervalMonth')}</SelectItem>
+                    <SelectItem value="YEAR">{t('eventTypes.intervalYear')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  {t('eventTypes.paymentIntervalHint')}
+                </p>
               </div>
             </div>
           )}

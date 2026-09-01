@@ -25,6 +25,7 @@ import {
   Shield,
   MessageSquareQuote,
   Wallet,
+  BadgeCheck,
 } from 'lucide-react';
 
 export function DashboardSidebar() {
@@ -87,6 +88,11 @@ export function DashboardSidebar() {
       name: t('dashboard.revenue'),
       href: '/dashboard/revenue',
       icon: Wallet,
+    },
+    {
+      name: t('dashboard.memberships'),
+      href: '/dashboard/memberships',
+      icon: BadgeCheck,
     },
     {
       name: t('dashboard.availability'),

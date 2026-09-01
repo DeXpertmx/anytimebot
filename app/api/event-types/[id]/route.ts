@@ -83,6 +83,7 @@ export async function PUT(
       price,
       currency,
       collectPayment,
+      paymentInterval,
       formFields = [],
       teamId,
       assignmentMode,
@@ -126,6 +127,7 @@ export async function PUT(
     if (price !== undefined) updateData.price = parseInt(price);
     if (currency !== undefined) updateData.currency = currency;
     if (collectPayment !== undefined) updateData.collectPayment = collectPayment;
+    if (paymentInterval !== undefined) updateData.paymentInterval = paymentInterval;
     if (teamId !== undefined) updateData.teamId = teamId;
     if (assignmentMode !== undefined) updateData.assignmentMode = assignmentMode;
     if (formSchema !== undefined) updateData.formSchema = formSchema;

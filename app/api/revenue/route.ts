@@ -18,9 +18,9 @@ function parseDate(value: string | null, endOfDay = false): Date | undefined {
 
 // GET /api/revenue?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Advanced revenue reports for the authenticated owner. Aggregates paid
-// bookings (paymentStatus PAID, refunds tracked separately) over the last
-// 12 months (or the given date range): totals, monthly series and
-// per-event-type breakdown.
+// bookings (paymentStatus PAID, refunds tracked separately) plus recurring
+// membership renewals over the last 12 months (or the given date range):
+// totals, monthly series and per-event-type breakdown.
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -84,8 +84,22 @@ export async function GET(request: NextRequest) {
       select: { paymentAmount: true, paymentCurrency: true },
     });
 
+    // Recurring membership renewals: each successful invoice is a subscription
+    // payment on one of the tenant's membership subscriptions.
+    const recurringPayments = await prisma.subscriptionPayment.findMany({
+      where: {
+        subscription: { userId },
+        paidAt: {
+          ...(from ? { gte: from } : {}),
+          ...(to ? { lte: to } : {}),
+        },
+      },
+      select: { id: true, amount: true, currency: true, paidAt: true },
+    });
+
     const grossCents = paidBookings.reduce((sum, b) => sum + (b.paymentAmount || 0), 0);
     const refundedCents = refunded.reduce((sum, b) => sum + (b.paymentAmount || 0), 0);
+    const recurringCents = recurringPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     // Monthly series (based on paidAt, fallback createdAt). When a custom
     // range is given, buckets are still calendar months within the window.
@@ -132,6 +146,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Add recurring renewals to the monthly series too.
+    for (const p of recurringPayments) {
+      const when = p.paidAt || new Date();
+      const key = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}`;
+      const idx = monthIndex.get(key);
+      if (idx !== undefined) {
+        months[idx].revenue += (p.amount || 0) / 100;
+      }
+    }
+
     const currency = displayCurrency;
     const avgBooking = paidBookings.length > 0 ? grossCents / paidBookings.length / 100 : 0;
 
@@ -139,10 +163,10 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         currency,
-        grossTotal: grossCents / 100,
+        grossTotal: (grossCents + recurringCents) / 100,
         refundedTotal: refundedCents / 100,
-        netTotal: (grossCents - refundedCents) / 100,
-        paidBookings: paidBookings.length,
+        netTotal: (grossCents + recurringCents - refundedCents) / 100,
+        paidBookings: paidBookings.length + recurringPayments.length,
         avgBooking,
         months,
         byType: [...byType.values()].sort((a, b) => b.revenue - a.revenue),

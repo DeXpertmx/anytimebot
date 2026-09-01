@@ -36,6 +36,7 @@ interface EventType {
   color: string;
   requiresConfirmation: boolean;
   collectPayment?: boolean;
+  paymentInterval?: string;
   price?: number;
   currency?: string;
   bookingPage: {
@@ -245,6 +246,11 @@ export function EventTypesList() {
                 {eventType.collectPayment && eventType.price && eventType.price > 0 && (
                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
                     {(eventType.price / 100).toFixed(2)} {eventType.currency?.toUpperCase()}
+                    {eventType.paymentInterval === 'MONTH'
+                      ? ` / ${t('eventTypes.intervalMonth')}`
+                      : eventType.paymentInterval === 'YEAR'
+                        ? ` / ${t('eventTypes.intervalYear')}`
+                        : ''}
                   </Badge>
                 )}
               </div>

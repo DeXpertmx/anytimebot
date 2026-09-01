@@ -55,24 +55,35 @@ export async function POST(req: NextRequest) {
         if (session.metadata?.plan === 'BASIC') {
           await activateFoundersBasicPurchase(session);
         } else if (session.metadata?.eventTypeId && session.metadata?.guestEmail) {
-          // Booking payment
-          await handleBookingPayment(session, (event as any).account ?? null);
+          // Booking payment (one-time or recurring membership first charge)
+          const createdBooking = await handleBookingPayment(session, (event as any).account ?? null);
+          if (session.metadata.membershipEvent === 'true' && session.subscription) {
+            await handleMembershipCreated(session, createdBooking, eventMode);
+          }
         } else {
-          // Regular subscription checkout
+          // Regular subscription checkout (platform plan)
           await handleCheckoutComplete(session, eventMode);
         }
+        break;
+      }
+
+      case 'invoice.paid': {
+        const invoice = event.data.object as Stripe.Invoice;
+        await handleRecurringCharge(invoice, eventMode);
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionUpdated(subscription, eventMode);
+        await handleMembershipStatusChanged(subscription);
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionDeleted(subscription);
+        await handleMembershipStatusChanged(subscription);
         break;
       }
 
@@ -104,6 +115,7 @@ export async function POST(req: NextRequest) {
 
 async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccountId: string | null = null) {
   const { eventTypeId, guestName, guestEmail, startTime, timezone, userId, tenantAccountId } = session.metadata || {};
+  let booking: any = null;
 
   if (!eventTypeId || !guestName || !guestEmail || !startTime || !userId) {
     console.error('Missing metadata for booking payment');
@@ -143,7 +155,7 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
     const stripeAccountId = (tenantAccountId || eventAccountId || null) as string | null;
 
     // Create the booking
-    const booking = await prisma.booking.create({
+    booking = await prisma.booking.create({
       data: {
         eventTypeId,
         guestName,
@@ -193,7 +205,153 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
   } catch (error) {
     console.error('Error creating booking after payment:', error);
   }
+  return booking;
 }
+
+/**
+ * Recurring membership: after the first charge succeeds, create (or update) the
+ * tenant's client subscription record.
+ */
+async function handleMembershipCreated(
+  session: Stripe.Checkout.Session,
+  booking: any,
+  eventMode: StripeMode,
+) {
+  try {
+    const subscriptionId = session.subscription as string;
+    if (!subscriptionId) return;
+
+    const meta = session.metadata || {};
+    const { eventTypeId, userId, guestName, guestEmail, tenantAccountId } = meta;
+    if (!eventTypeId || !userId) return;
+
+    const eventType = await prisma.eventType.findUnique({ where: { id: eventTypeId } });
+    if (!eventType) return;
+
+    const stripe = await getStripe(eventMode);
+    const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as any;
+    const interval = sub.items?.data?.[0]?.price?.recurring?.interval ?? 'month';
+    const periodStart = sub.current_period_start ?? sub.currentPeriodStart;
+    const periodEnd = getSubscriptionPeriodEnd(sub);
+
+    const data: any = {
+      userId,
+      eventTypeId,
+      customerName: meta.guestName || booking?.guestName || 'Cliente',
+      customerEmail: meta.guestEmail || booking?.guestEmail || '',
+      stripeSubscriptionId: subscriptionId,
+      stripeAccountId: tenantAccountId || null,
+      price: eventType.price,
+      currency: eventType.currency,
+      interval,
+      status: 'ACTIVE',
+      currentPeriodStart: periodStart ? new Date(periodStart * 1000) : null,
+      currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
+    };
+
+    await prisma.memberSubscription.upsert({
+      where: { stripeSubscriptionId: subscriptionId },
+      create: data,
+      update: { ...data, id: undefined },
+    });
+
+    console.log(`✅ Membership created: ${subscriptionId} for ${data.customerEmail}`);
+  } catch (error) {
+    console.error('Error handling membership creation:', error);
+  }
+}
+
+/**
+ * Recurring membership: a renewal invoice was paid — record the payment so the
+ * revenue report counts recurring income (deduped by invoice id).
+ */
+async function handleRecurringCharge(invoice: Stripe.Invoice, eventMode: StripeMode) {
+  try {
+    const inv = invoice as any;
+    const subscriptionId =
+      typeof inv.subscription === 'string'
+        ? inv.subscription
+        : (inv.subscription?.id ?? null);
+    if (!subscriptionId || !inv.paid) return;
+
+    const membership = await prisma.memberSubscription.findUnique({
+      where: { stripeSubscriptionId: subscriptionId },
+    });
+    if (!membership) return;
+
+    // Idempotency: a given invoice must be counted once.
+    const existing = await prisma.subscriptionPayment.findUnique({
+      where: { stripeInvoiceId: inv.id },
+    });
+    if (existing) return;
+
+    await prisma.subscriptionPayment.create({
+      data: {
+        subscriptionId: membership.id,
+        stripeInvoiceId: inv.id,
+        amount: inv.amount_paid ?? membership.price,
+        currency: inv.currency ?? membership.currency,
+        paidAt: inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000) : new Date(),
+      },
+    });
+
+    // Refresh the current period end so the membership list stays accurate.
+    if (inv.lines?.data?.[0]?.period?.end) {
+      await prisma.memberSubscription.update({
+        where: { id: membership.id },
+        data: {
+          currentPeriodEnd: new Date(inv.lines.data[0].period.end * 1000),
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    console.log(`✅ Recurring charge recorded: ${invoice.id} (${invoice.amount_paid} ${invoice.currency})`);
+  } catch (error) {
+    console.error('Error handling recurring charge:', error);
+  }
+}
+
+/**
+ * Recurring membership: reflect subscription status changes (updated/deleted)
+ * on the tenant's membership record.
+ */
+async function handleMembershipStatusChanged(subscription: Stripe.Subscription) {
+  try {
+    const sub = subscription as any;
+    const membership = await prisma.memberSubscription.findUnique({
+      where: { stripeSubscriptionId: subscription.id },
+    });
+    if (!membership) return;
+
+    const status =
+      subscription.status === 'active' || subscription.status === 'trialing'
+        ? subscription.status === 'trialing'
+          ? 'TRIALING'
+          : 'ACTIVE'
+        : subscription.status === 'past_due' || subscription.status === 'unpaid'
+          ? 'PAST_DUE'
+          : 'CANCELLED';
+
+    // getSubscriptionPeriodEnd returns unix seconds; the fallback below reads
+    // the raw field (also seconds) cast through any for newer API versions.
+    const periodEnd: number | null = getSubscriptionPeriodEnd(subscription) ??
+      (typeof sub.current_period_end === 'number' ? sub.current_period_end : null);
+
+    await prisma.memberSubscription.update({
+      where: { id: membership.id },
+      data: {
+        status,
+        currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : membership.currentPeriodEnd,
+      },
+    });
+
+    console.log(`✅ Membership status updated: ${subscription.id} -> ${status}`);
+  } catch (error) {
+    console.error('Error updating membership status:', error);
+  }
+}
+
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session, eventMode: StripeMode) {
   const userId = session.metadata?.userId;

@@ -47,6 +47,7 @@ interface EditEventTypeFormProps {
     enableRecording?: boolean;
     enableTranscription?: boolean;
     collectPayment?: boolean;
+    paymentInterval?: string;
     price?: number;
     currency?: string;
   };
@@ -90,6 +91,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     enableRecording: eventType.enableRecording || false,
     enableTranscription: eventType.enableTranscription || false,
     collectPayment: eventType.collectPayment || false,
+    paymentInterval: eventType.paymentInterval || 'ONE_TIME',
     price: (eventType.price || 0) / 100,
     currency: eventType.currency || 'eur',
   });
@@ -406,6 +408,26 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                     <SelectItem value="gbp">{t('eventTypes.currencyGbp')}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>{t('eventTypes.paymentInterval')}</Label>
+                <Select
+                  value={formData.paymentInterval}
+                  onValueChange={(value) => setFormData({ ...formData, paymentInterval: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ONE_TIME">{t('eventTypes.intervalOneTime')}</SelectItem>
+                    <SelectItem value="MONTH">{t('eventTypes.intervalMonth')}</SelectItem>
+                    <SelectItem value="YEAR">{t('eventTypes.intervalYear')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  {t('eventTypes.paymentIntervalHint')}
+                </p>
               </div>
             </div>
           )}

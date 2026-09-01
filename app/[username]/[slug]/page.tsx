@@ -157,7 +157,8 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                     </div>
                     {eventType.collectPayment && eventType.price > 0 && (
                       <div className="flex items-center text-sm font-semibold text-emerald-600 mt-2">
-                        <span>${(eventType.price / 100).toFixed(2)} {eventType.currency.toUpperCase()}</span>
+                        <span>{(eventType.price / 100).toFixed(2)} {eventType.currency.toUpperCase()}
+                          {eventType.paymentInterval === 'MONTH' ? ' / mes' : eventType.paymentInterval === 'YEAR' ? ' / año' : ''}</span>
                       </div>
                     )}
                   </div>

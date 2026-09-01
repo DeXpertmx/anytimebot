@@ -30,6 +30,7 @@ interface EventType {
   price: number;
   currency: string;
   collectPayment: boolean;
+  paymentInterval?: string;
   formFields: Array<{
     id: string;
     label: string;
@@ -92,6 +93,13 @@ export function BookingForm({
     guestPhone: '',
     guestCountry: 'ES',
   });
+
+  const intervalLabel = (interval?: string) =>
+    interval === 'MONTH'
+      ? t('eventTypes.intervalMonth')
+      : interval === 'YEAR'
+        ? t('eventTypes.intervalYear')
+        : t('pricing.oneTime');
 
   // Generate week dates
   const weekDates = Array.from({ length: 7 }, (_, i) =>
@@ -288,7 +296,7 @@ export function BookingForm({
                 <SelectItem key={eventType.id} value={eventType.id}>
                   {eventType.name} ({eventType.duration} min)
                   {eventType.collectPayment && eventType.price > 0
-                    ? ` · ${(eventType.price / 100).toFixed(2)} ${eventType.currency.toUpperCase()} ${t('pricing.oneTime')}`
+                    ? ` · ${(eventType.price / 100).toFixed(2)} ${eventType.currency.toUpperCase()} ${intervalLabel(eventType.paymentInterval)}`
                     : ''}
                 </SelectItem>
               ))}
@@ -543,9 +551,20 @@ export function BookingForm({
           {selectedEventType?.collectPayment && selectedEventType.price > 0 && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
-                <span className="text-emerald-700 font-medium">Payment Required</span>
+                <span className="text-emerald-700 font-medium">
+                  {selectedEventType.paymentInterval === 'MONTH'
+                    ? t('bookingForm.paymentMonthly')
+                    : selectedEventType.paymentInterval === 'YEAR'
+                      ? t('bookingForm.paymentYearly')
+                      : t('bookingForm.paymentRequired')}
+                </span>
                 <span className="text-emerald-800 font-bold text-lg">
-                  ${(selectedEventType.price / 100).toFixed(2)} {selectedEventType.currency.toUpperCase()}
+                  {(selectedEventType.price / 100).toFixed(2)} {selectedEventType.currency.toUpperCase()}
+                  {selectedEventType.paymentInterval === 'MONTH'
+                    ? ` / ${t('bookingForm.perMonth')}`
+                    : selectedEventType.paymentInterval === 'YEAR'
+                      ? ` / ${t('bookingForm.perYear')}`
+                      : ''}
                 </span>
               </div>
               <p className="text-sm text-emerald-600 mt-1">
