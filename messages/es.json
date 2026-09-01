@@ -394,6 +394,8 @@
     "paymentYearly": "Pago anual",
     "perMonth": "mes",
     "perYear": "año",
+    "subscriptionNote": "Suscripción recurrente. Se renovará automáticamente cada {interval} hasta que la canceles.",
+    "cancelAnytime": "Cancelable en cualquier momento",
     "securePaymentNote": "Serás redirigido a nuestra página segura de pago para completar tu reserva.",
     "missingInfo": "Falta información",
     "selectEventDateTime": "Selecciona un tipo de evento, fecha y hora.",

@@ -568,8 +568,23 @@ export function BookingForm({
                 </span>
               </div>
               <p className="text-sm text-emerald-600 mt-1">
-                You will be redirected to our secure payment page to complete your booking.
+                {selectedEventType.paymentInterval === 'MONTH' || selectedEventType.paymentInterval === 'YEAR'
+                  ? t('bookingForm.subscriptionNote', {
+                      interval: selectedEventType.paymentInterval === 'YEAR'
+                        ? t('bookingForm.perYear')
+                        : t('bookingForm.perMonth'),
+                    })
+                  : t('bookingForm.securePaymentNote')}
               </p>
+              {selectedEventType.paymentInterval === 'MONTH' || selectedEventType.paymentInterval === 'YEAR' ? (
+                <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  {t('bookingForm.cancelAnytime')}
+                </p>
+              ) : null}
             </div>
           )}
 
