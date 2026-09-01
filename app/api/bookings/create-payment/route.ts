@@ -75,16 +75,15 @@ export async function POST(request: NextRequest) {
     const mode = await getStripeMode();
     const client = await getStripe(mode);
     const sessionParams: any = {
-      ...(tenantAccountId
+      ...(!tenantAccountId && user.stripeCustomerId ? { customer: user.stripeCustomerId } : {}),
+      payment_intent_data: tenantAccountId
         ? {
             // Money goes to the tenant's Stripe balance and from there to their
             // bank; the receipt is issued on behalf of the tenant's business.
             on_behalf_of: tenantAccountId,
             transfer_data: { destination: tenantAccountId },
           }
-        : user.stripeCustomerId
-          ? { customer: user.stripeCustomerId }
-          : {}),
+        : undefined,
       payment_method_types: ['card'],
       line_items: [
         {
