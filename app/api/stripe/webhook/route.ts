@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
           await activateFoundersBasicPurchase(session);
         } else if (session.metadata?.eventTypeId && session.metadata?.guestEmail) {
           // Booking payment
-          await handleBookingPayment(session);
+          await handleBookingPayment(session, (event as any).account ?? null);
         } else {
           // Regular subscription checkout
           await handleCheckoutComplete(session, eventMode);
@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function handleBookingPayment(session: Stripe.Checkout.Session) {
-  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId } = session.metadata || {};
+async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccountId: string | null = null) {
+  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId, tenantAccountId } = session.metadata || {};
 
   if (!eventTypeId || !guestName || !guestEmail || !startTime || !userId) {
     console.error('Missing metadata for booking payment');
@@ -138,6 +138,10 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
         ? session.payment_intent
         : (session.payment_intent?.id ?? null);
 
+    // Prefer the tenant account stored at session creation; fall back to the
+    // account the event arrived from (events from connected accounts carry it).
+    const stripeAccountId = (tenantAccountId || eventAccountId || null) as string | null;
+
     // Create the booking
     const booking = await prisma.booking.create({
       data: {
@@ -154,6 +158,7 @@ async function handleBookingPayment(session: Stripe.Checkout.Session) {
         paymentAmount: session.amount_total || eventType.price,
         paymentCurrency: session.currency || eventType.currency,
         paidAt: new Date(),
+        stripeAccountId,
       },
       include: {
         eventType: {

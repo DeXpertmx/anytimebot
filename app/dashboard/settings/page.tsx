@@ -1,10 +1,10 @@
-
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { SettingsForm } from '@/components/dashboard/settings/settings-form';
 import { EmailTemplates } from '@/components/dashboard/settings/email-templates';
+import { StripeConnectCard } from '@/components/dashboard/settings/stripe-connect-card';
 
 export const metadata = {
   title: 'Configuración - ANYTIMEBOT',
@@ -34,6 +34,7 @@ export default async function SettingsPage() {
           Gestiona la configuración y las preferencias de tu cuenta
         </p>
       </div>
+      <StripeConnectCard />
       <SettingsForm user={user} />
       <EmailTemplates />
     </div>

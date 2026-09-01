@@ -116,3 +116,44 @@ flag en `SystemSetting`, reversión instantánea.
   los clientes nuevos verán el precio nuevo y los existentes conservan su suscripción.
 - El Básico de fundadores se compra una sola vez por cuenta y solo desde plan `FREE`. Si necesitas
   permitir recompra o cambios de precio del Básico en el futuro, revisa `lib/founders-basic.ts`.
+---
+
+## Stripe Connect — pagos directos al negocio (por tenant)
+
+Cada negocio (tenant) puede conectar su propia cuenta de Stripe desde
+**Configuración → Pagos y cobros → Conectar Stripe**. Con la cuenta conectada:
+
+- Los pagos de sus reservas se cobran como **destination charge con `on_behalf_of`**:
+  el cliente ve en el recibo el negocio del tenant, y Stripe transfiere el **100%**
+  del importe (solo descuenta las propias comisiones de Stripe) al saldo del tenant
+  y de ahí a su banco. Anytimebot **no cobra comisión** por transacción.
+- Sin cuenta conectada, el pago sigue cayendo en la cuenta de la plataforma
+  (comportamiento legacy).
+
+### Requisitos en Stripe (una sola vez, por entorno test/live)
+
+1. La cuenta de la plataforma debe tener **Stripe Connect** habilitado
+   (normalmente disponible por defecto en las cuentas con API keys; si no,
+   actívalo en el Dashboard de Stripe → Settings → Connect).
+2. Onboarding Express: al pulsar *Conectar Stripe*, el sistema crea la cuenta
+   conectada (`type: express`, país/moneda del usuario) y redirige al flujo KYC
+   de Stripe. No hay `client_id` que configurar porque usamos **Account Links**.
+
+### Flujo
+
+1. Tenant pulsa **Conectar Stripe** → `POST /api/stripe/connect/onboarding`.
+2. El sistema crea la cuenta Express (si no existe) y devuelve la URL de KYC.
+3. El tenant completa su verificación en Stripe y vuelve a
+   `/dashboard/settings?stripe=return`.
+4. `GET /api/stripe/connect/status` refresca el estado
+   (`connected` cuando `charges_enabled`), y la UI muestra *Stripe conectado*.
+5. Los pagos de sus reservas ya van a su cuenta.
+
+### Notas operativas
+
+- El reembolso desde el dashboard funciona igual con cuentas conectadas
+  (Stripe revierte la transferencia automáticamente al reembolsar).
+- Cada entorno (test/live) tiene sus propias cuentas conectadas; el modo activo
+  es el que decide dónde se crea la cuenta.
+- Desconectar: por ahora se gestiona en el Dashboard de Stripe del tenant
+  (el botón *Gestionar en Stripe* en la UI abre su panel Express).

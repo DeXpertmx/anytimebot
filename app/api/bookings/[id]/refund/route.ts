@@ -83,7 +83,8 @@ export async function POST(
       );
     }
 
-    // Full refund via Stripe
+    // Destination charges are created on the platform account; Stripe
+    // automatically reverses the transfer to the tenant when refunded.
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
       reason: 'requested_by_customer',

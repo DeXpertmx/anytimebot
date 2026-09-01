@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
 import { getStripeMode } from '@/lib/stripe-mode';
+import { getTenantStripeAccountId } from '@/lib/stripe-connect';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/bookings/create-payment
- * Creates a Stripe Checkout session for a booking that requires payment
+ * Creates a Stripe Checkout session for a booking that requires payment.
+ *
+ * When the tenant has connected their own Stripe account (Stripe Connect), the
+ * Checkout session is created ON that account, so the money goes directly to
+ * the tenant's bank (no platform fee). Otherwise it falls back to the platform
+ * account (legacy behavior).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +39,8 @@ export async function POST(request: NextRequest) {
                 name: true,
                 email: true,
                 stripeCustomerId: true,
+                country: true,
+                currency: true,
               },
             },
           },
@@ -57,20 +65,26 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://anytimebot.app';
     const user = eventType.bookingPage.user;
 
-    // Create or get Stripe customer for the guest
-    let customerId: string | undefined;
-
-    // Check if user has Stripe connected
-    if (!user.stripeCustomerId) {
-      // User doesn't have Stripe connected, use destination charges
-      // The payment will go to the platform and we'll need to transfer
-      console.log('User does not have Stripe customer ID, using platform charges');
-    }
+    // Stripe Connect: when the tenant connected their own account, the payment
+    // is created as a destination charge with on_behalf_of, so the guest sees
+    // the tenant's business on the receipt and Stripe sends the full amount
+    // (minus only Stripe's own fees, no platform fee) to the tenant's balance.
+    const tenantAccountId = await getTenantStripeAccountId(user.id);
 
     // Create checkout session in the active mode (test vs live)
     const mode = await getStripeMode();
-    const session = await (await getStripe(mode)).checkout.sessions.create({
-      ...(user.stripeCustomerId ? { customer: user.stripeCustomerId } : {}),
+    const client = await getStripe(mode);
+    const sessionParams: any = {
+      ...(tenantAccountId
+        ? {
+            // Money goes to the tenant's Stripe balance and from there to their
+            // bank; the receipt is issued on behalf of the tenant's business.
+            on_behalf_of: tenantAccountId,
+            transfer_data: { destination: tenantAccountId },
+          }
+        : user.stripeCustomerId
+          ? { customer: user.stripeCustomerId }
+          : {}),
       payment_method_types: ['card'],
       line_items: [
         {
@@ -102,8 +116,11 @@ export async function POST(request: NextRequest) {
         guestEmail,
         startTime,
         timezone: timezone || 'UTC',
+        tenantAccountId: tenantAccountId || '',
       },
-    });
+    };
+
+    const session = await client.checkout.sessions.create(sessionParams);
 
     return NextResponse.json({
       success: true,

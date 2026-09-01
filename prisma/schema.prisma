@@ -64,6 +64,10 @@ model User {
   plan          SubscriptionPlan @default(FREE)
   stripeCustomerId String?      @unique @map("stripe_customer_id")
   stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  
+  // Stripe Connect (tenant receive booking payments directly)
+  stripeAccountId     String?  @unique @map("stripe_account_id") // Connected account (Express)
+  stripeAccountStatus String   @default("never") @map("stripe_account_status") // "never" | "pending" | "connected" | "rejected"
   foundersBasicCheckoutSessionId String? @unique @map("founders_basic_checkout_session_id")
   foundersBasicPaymentIntentId String? @unique @map("founders_basic_payment_intent_id")
   subscriptionStatus SubscriptionStatus? @map("subscription_status")
@@ -344,6 +348,7 @@ model Booking {
   paymentStatus       PaymentStatus? @map("payment_status")
   stripeSessionId     String?        @map("stripe_session_id")
   stripePaymentIntent String?        @map("stripe_payment_intent") // Stripe PaymentIntent ID for refunds
+  stripeAccountId     String?        @map("stripe_account_id") // Connected account that received the payment
   paymentAmount       Int?           @map("payment_amount") // Amount in cents
   paymentCurrency     String?        @map("payment_currency")
   paidAt              DateTime?      @map("paid_at")
