@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { getStripeMode, getStripeKeys, getStripePriceId } from '@/lib/stripe-mode';
-import type { PlanTier } from '@/lib/plans';
+import { updateUserPlanQuotas, type PlanTier } from '@/lib/plans';
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         name: true,
         plan: true,
         stripeCustomerId: true,
+        stripeSubscriptionId: true,
         foundersBasicCheckoutSessionId: true,
         foundersBasicPaymentIntentId: true,
       },
@@ -129,6 +130,64 @@ export async function POST(req: NextRequest) {
       : await getStripePriceId(mode, 'TEAM');
     if (!subscriptionPriceId) {
       return NextResponse.json({ error: `Stripe price is not configured for ${plan} in ${mode} mode` }, { status: 503 });
+    }
+
+    // If the user already has an active subscription, switch its price on the
+    // existing subscription instead of creating a new one. Stripe prorates the
+    // price difference automatically, so the user only pays the difference.
+    if (user.stripeSubscriptionId) {
+      try {
+        const existingSubscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+        const existingItemId = existingSubscription.items?.data?.[0]?.id;
+        const currentPriceId = existingSubscription.items?.data?.[0]?.price?.id;
+        const isActive = ['active', 'trialing', 'past_due'].includes(existingSubscription.status);
+
+        if (isActive && existingItemId && currentPriceId && currentPriceId !== subscriptionPriceId) {
+          const updated = await stripe.subscriptions.update(user.stripeSubscriptionId, {
+            items: [{ id: existingItemId, price: subscriptionPriceId }],
+            proration_behavior: 'create_prorations',
+            proration_date: Math.floor(Date.now() / 1000),
+          });
+
+          const periodEndSeconds = getSubscriptionPeriodEnd(updated);
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              plan,
+              subscriptionStatus: 'ACTIVE',
+              ...(periodEndSeconds ? { subscriptionEndsAt: new Date(periodEndSeconds * 1000) } : {}),
+            },
+          });
+          await updateUserPlanQuotas(user.id, plan);
+
+          await prisma.subscription.upsert({
+            where: { stripeSubscriptionId: updated.id },
+            create: {
+              userId: user.id,
+              plan,
+              status: 'ACTIVE',
+              stripeSubscriptionId: updated.id,
+              stripePriceId: subscriptionPriceId,
+              ...(periodEndSeconds ? { stripeCurrentPeriodEnd: new Date(periodEndSeconds * 1000) } : {}),
+            },
+            update: {
+              plan,
+              status: 'ACTIVE',
+              stripePriceId: subscriptionPriceId,
+              ...(periodEndSeconds ? { stripeCurrentPeriodEnd: new Date(periodEndSeconds * 1000) } : {}),
+            },
+          });
+
+          console.log(`✅ User ${user.id} switched subscription to ${plan} with proration`);
+          return NextResponse.json({
+            success: true,
+            url: `${origin}/dashboard?payment=success&plan=${plan}`,
+          });
+        }
+      } catch (error) {
+        console.warn('Could not switch existing subscription, falling back to new checkout:', error);
+      }
     }
 
     const checkoutSession = await stripe.checkout.sessions.create({
