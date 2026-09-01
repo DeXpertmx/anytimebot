@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { cn } from '@/lib/utils';
+import { PwaInstallButton } from '@/components/pwa-install-button';
 import {
   Calendar,
   Clock,
@@ -195,6 +196,11 @@ export function DashboardSidebar() {
             );
           })}
         </nav>
+
+        {/* PWA install button (only when the browser offers installation) */}
+        <div className="shrink-0 px-4 pb-4">
+          <PwaInstallButton />
+        </div>
       </div>
       </div>
     </>

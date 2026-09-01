@@ -1,11 +1,13 @@
 /* Anytimebot service worker — conservative: static assets cache-first,
    pages network-first with cache fallback. */
-const CACHE = 'anytimebot-v1';
+const CACHE = 'anytimebot-v2';
+const OFFLINE_URL = '/offline';
 const PRECACHE = [
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-512.png',
+  '/apple-touch-icon.png',
   '/Anytimebot-icon.png',
   '/favicon.svg',
 ];
@@ -59,7 +61,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigations: network-first, cache fallback (offline)
+  // Navigations: network-first, cache fallback, then offline page
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -70,7 +72,9 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(() =>
+          caches.match(request).then((hit) => hit || caches.match(OFFLINE_URL))
+        )
     );
   }
 });

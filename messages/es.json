@@ -128,7 +128,9 @@
     "feedback": "Opiniones",
     "revenue": "Ingresos",
     "memberships": "Membresías",
-    "support": "Soporte"
+    "support": "Soporte",
+    "installApp": "Instalar app",
+    "appInstalled": "App instalada"
   },
   "auth": {
     "signIn": "Iniciar Sesión",

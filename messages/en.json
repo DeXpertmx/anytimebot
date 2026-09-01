@@ -128,7 +128,9 @@
     "feedback": "Feedback",
     "revenue": "Revenue",
     "memberships": "Memberships",
-    "support": "Support"
+    "support": "Support",
+    "installApp": "Install app",
+    "appInstalled": "App installed"
   },
   "auth": {
     "signIn": "Sign In",
@@ -508,7 +510,8 @@
           "Custom Contract Terms"
         ]
       }
-    },      "comparisonTable": {
+    },
+    "comparisonTable": {
       "feature": "Feature",
       "bookingPages": "Booking Pages",
       "customers": "Registered customers",

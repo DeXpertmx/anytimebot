@@ -1,14 +1,18 @@
 {
+  "id": "/",
   "name": "ANYTIMEBOT - Agendamiento Inteligente",
   "short_name": "Anytimebot",
-  "description": "Agenda reuniones y citas con facilidad usando ANYTIMEBOT",
+  "description": "Agenda reuniones y citas con facilidad usando ANYTIMEBOT - la plataforma de scheduling de próxima generación con IA y WhatsApp.",
   "lang": "es",
+  "dir": "ltr",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
