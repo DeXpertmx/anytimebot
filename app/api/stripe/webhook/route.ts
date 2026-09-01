@@ -8,6 +8,7 @@ import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
 import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
+import { sendMembershipWelcome } from '@/lib/email';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
 
 export async function POST(req: NextRequest) {
@@ -225,7 +226,10 @@ async function handleMembershipCreated(
     const { eventTypeId, userId, guestName, guestEmail, tenantAccountId } = meta;
     if (!eventTypeId || !userId) return;
 
-    const eventType = await prisma.eventType.findUnique({ where: { id: eventTypeId } });
+    const eventType = await prisma.eventType.findUnique({
+      where: { id: eventTypeId },
+      include: { bookingPage: { select: { title: true } } },
+    });
     if (!eventType) return;
 
     const stripe = await getStripe(eventMode);
@@ -253,6 +257,18 @@ async function handleMembershipCreated(
       where: { stripeSubscriptionId: subscriptionId },
       create: data,
       update: { ...data, id: undefined },
+    });
+
+    // Confirm the subscription to the client by email.
+    await sendMembershipWelcome({
+      to: data.customerEmail,
+      customerName: data.customerName,
+      eventTitle: eventType.name,
+      price: eventType.price,
+      currency: eventType.currency,
+      interval,
+      nextChargeDate: data.currentPeriodEnd,
+      bookingPageTitle: eventType.bookingPage?.title || undefined,
     });
 
     console.log(`✅ Membership created: ${subscriptionId} for ${data.customerEmail}`);
