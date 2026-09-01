@@ -27,15 +27,20 @@ export function ShareEmbedDialog({ page, open, onOpenChange }: ShareEmbedDialogP
 
   const username = (session?.user as any)?.username || '';
 
-  const publicUrl = page && username ? `${window.location.origin}/${username}/${page.slug}` : '';
-  const profileUrl = username ? `${window.location.origin}/${username}` : '';
+  // SSR-safe: this client component is also pre-rendered on the server (e.g.
+  // mounted from the owner share bar on the public booking page), where
+  // `window` does not exist. Resolve the origin lazily on the client only.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+
+  const publicUrl = page && username ? `${origin}/${username}/${page.slug}` : '';
+  const profileUrl = username ? `${origin}/${username}` : '';
 
   const inlineSnippet = page && username
-    ? `<div data-anytimebot="${username}/${page.slug}" data-height="680"></div>\n<script src="${window.location.origin}/widget.js" async></script>`
+    ? `<div data-anytimebot="${username}/${page.slug}" data-height="680"></div>\n<script src="${origin}/widget.js" async></script>`
     : '';
 
   const buttonSnippet = page && username
-    ? `<div data-anytimebot="${username}/${page.slug}" data-mode="button" data-label="${t('bookingPages.widgetButtonDefaultLabel')}"></div>\n<script src="${window.location.origin}/widget.js" async></script>`
+    ? `<div data-anytimebot="${username}/${page.slug}" data-mode="button" data-label="${t('bookingPages.widgetButtonDefaultLabel')}"></div>\n<script src="${origin}/widget.js" async></script>`
     : '';
 
   const copy = (text: string, message: string) => {
