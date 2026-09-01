@@ -80,21 +80,24 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex justify-between items-center py-4 sm:py-6">
             <div className="flex items-center">
               {logoUrl ? (
                 // Custom logo: hide the Anytimebot wordmark so the page feels like the business's own brand
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={bookingPage.title} className="h-9 w-auto object-contain" />
+                <img src={logoUrl} alt={bookingPage.title} className="h-8 w-auto sm:h-9 object-contain" />
               ) : (
-                <Image
-                  src="/anytimebot-logo.png"
-                  alt="Anytimebot"
-                  width={126}
-                  height={36}
-                  className="object-contain"
-                  unoptimized
-                />
+                // Full Anytimebot logo, scaled responsively (the PNG has transparent padding,
+                // so it intentionally renders a bit larger than the wordmark itself)
+                <div className="relative h-10 w-[150px] sm:h-11 sm:w-[172px]">
+                  <Image
+                    src="/anytimebot-logo.png"
+                    alt="Anytimebot"
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
               )}
             </div>
           </div>
