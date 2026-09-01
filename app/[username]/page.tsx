@@ -278,17 +278,14 @@ export default async function UserPage({ params }: UserPageProps) {
       <footer className="bg-gray-50 border-t">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Image
-                src="/Anytimebot-icon.png"
-                alt="Anytimebot"
-                width={24}
-                height={24}
-                className="object-contain"
-                unoptimized
-              />
-              <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
-            </div>
+            <Image
+              src="/Anytimebot-logo.png"
+              alt="Anytimebot"
+              width={98}
+              height={28}
+              className="object-contain"
+              unoptimized
+            />
             <p className="text-gray-500 text-sm">
               © {new Date().getFullYear()} ANYTIMEBOT · Powered by anytimebot.app
             </p>

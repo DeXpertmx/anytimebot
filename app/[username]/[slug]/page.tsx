@@ -87,17 +87,14 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt={bookingPage.title} className="h-9 w-auto object-contain" />
               ) : (
-                <>
-                  <Image
-                    src="/Anytimebot-icon.png"
-                    alt="Anytimebot"
-                    width={36}
-                    height={36}
-                    className="mr-3 object-contain"
-                    unoptimized
-                  />
-                  <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
-                </>
+                <Image
+                  src="/Anytimebot-logo.png"
+                  alt="Anytimebot"
+                  width={126}
+                  height={36}
+                  className="object-contain"
+                  unoptimized
+                />
               )}
             </div>
           </div>
@@ -232,20 +229,16 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
       )}          {/* Footer */}
       <footer className="bg-white border-t mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center">
-              {/* Footer always keeps the Anytimebot branding, even with a custom logo */}
-              <Image
-                src="/Anytimebot-icon.png"
-                alt="Anytimebot"
-                width={24}
-                height={24}
-                className="mr-2 object-contain"
-                unoptimized
-              />
-              <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
-            </div>
-            <p className="text-gray-500 ml-4">
+          <div className="flex items-center justify-center flex-col sm:flex-row gap-2 sm:gap-3">
+            <Image
+              src="/Anytimebot-logo.png"
+              alt="Anytimebot"
+              width={98}
+              height={28}
+              className="object-contain"
+              unoptimized
+            />
+            <p className="text-gray-500">
               © {new Date().getFullYear()} ANYTIMEBOT. Agendar nunca fue tan sencillo.
             </p>
           </div>
