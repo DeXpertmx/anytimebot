@@ -380,6 +380,20 @@
     "ownerBar": "This is your booking page — share it or embed it on your website",
     "widgetButtonDefaultLabel": "Book now"
   },
+  "bookingForm": {
+    "continueToPayment": "Continue to payment",
+    "confirmBooking": "Confirm booking",
+    "paymentRequired": "Payment Required",
+    "securePaymentNote": "You will be redirected to our secure payment page to complete your booking.",
+    "missingInfo": "Missing Information",
+    "selectEventDateTime": "Please select an event type, date, and time.",
+    "paymentError": "Payment Error",
+    "bookingConfirmed": "Booking Confirmed! 🎉",
+    "bookingConfirmedDesc": "Your meeting has been scheduled for {{date}}. A confirmation email has been sent.",
+    "bookingFailed": "Booking Failed",
+    "missingRequired": "Missing required fields",
+    "fillRequired": "Please fill in: {{fields}}"
+  },
   "pricing": {
     "eyebrow": "Plans for every stage",
     "plansLabel": "Anytimebot plans",

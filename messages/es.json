@@ -380,6 +380,20 @@
     "ownerBar": "Esta es tu página de reserva — compártela o insértala en tu sitio web",
     "widgetButtonDefaultLabel": "Agendar"
   },
+  "bookingForm": {
+    "continueToPayment": "Continuar al pago",
+    "confirmBooking": "Confirmar reserva",
+    "paymentRequired": "Pago requerido",
+    "securePaymentNote": "Serás redirigido a nuestra página segura de pago para completar tu reserva.",
+    "missingInfo": "Falta información",
+    "selectEventDateTime": "Selecciona un tipo de evento, fecha y hora.",
+    "paymentError": "Error de pago",
+    "bookingConfirmed": "¡Reserva confirmada! 🎉",
+    "bookingConfirmedDesc": "Tu reunión ha sido programada para {{date}}. Se ha enviado un correo de confirmación.",
+    "bookingFailed": "La reserva falló",
+    "missingRequired": "Faltan campos obligatorios",
+    "fillRequired": "Completa: {{fields}}"
+  },
   "pricing": {
     "eyebrow": "Planes para cada etapa",
     "plansLabel": "Planes de Anytimebot",

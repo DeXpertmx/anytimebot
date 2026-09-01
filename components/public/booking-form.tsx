@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from '@/lib/i18n/hooks';
 import { TimezoneSelect } from '@/components/ui/timezone-select';
 import { PhoneCountryInput, getDialCode } from '@/components/ui/phone-country-input';
 
@@ -64,6 +65,7 @@ export function BookingForm({
   preselectedEventId,
 }: BookingFormProps) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [selectedEventType, setSelectedEventType] = useState<EventType | null>(
     (preselectedEventId && eventTypes.find((e) => e.id === preselectedEventId)) ||
       eventTypes[0] ||
@@ -285,6 +287,9 @@ export function BookingForm({
               {eventTypes.map((eventType) => (
                 <SelectItem key={eventType.id} value={eventType.id}>
                   {eventType.name} ({eventType.duration} min)
+                  {eventType.collectPayment && eventType.price > 0
+                    ? ` · ${(eventType.price / 100).toFixed(2)} ${eventType.currency.toUpperCase()} ${t('pricing.oneTime')}`
+                    : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -554,7 +559,11 @@ export function BookingForm({
             disabled={isLoading}
             className="w-full bg-indigo-600 hover:bg-indigo-700"
           >
-            {isLoading ? 'Procesando...' : selectedEventType?.collectPayment && selectedEventType.price > 0 ? 'Continuar al pago' : 'Confirmar reserva'}
+            {isLoading
+              ? 'Procesando...'
+              : selectedEventType?.collectPayment && selectedEventType.price > 0
+                ? `${t('bookingForm.continueToPayment')} · ${(selectedEventType.price / 100).toFixed(2)} ${selectedEventType.currency.toUpperCase()}`
+                : t('bookingForm.confirmBooking')}
           </Button>
         </div>
       )}
