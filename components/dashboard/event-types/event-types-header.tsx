@@ -5,7 +5,7 @@ import { CreateEventTypeDialog } from './create-event-type-dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
-export function EventTypesHeader() {
+export function EventTypesHeader({ currency = 'eur' }: { currency?: string }) {
   const { t } = useTranslation();
 
   return (
@@ -14,7 +14,7 @@ export function EventTypesHeader() {
         <h1 className="text-3xl font-bold text-gray-900">{t('eventTypes.title')}</h1>
         <p className="text-gray-600 mt-1">{t('eventTypes.subtitle')}</p>
       </div>
-      <CreateEventTypeDialog>
+      <CreateEventTypeDialog defaultCurrency={currency}>
         <Button className="bg-indigo-600 hover:bg-indigo-700">
           <Plus className="mr-2 h-4 w-4" />
           {t('eventTypes.create')}

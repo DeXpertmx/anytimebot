@@ -46,6 +46,9 @@ interface EditEventTypeFormProps {
     enableLiveAI?: boolean;
     enableRecording?: boolean;
     enableTranscription?: boolean;
+    collectPayment?: boolean;
+    price?: number;
+    currency?: string;
   };
   bookingPages: Array<{
     id: string;
@@ -86,6 +89,9 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     enableLiveAI: eventType.enableLiveAI || false,
     enableRecording: eventType.enableRecording || false,
     enableTranscription: eventType.enableTranscription || false,
+    collectPayment: eventType.collectPayment || false,
+    price: (eventType.price || 0) / 100,
+    currency: eventType.currency || 'eur',
   });
   const [formFields, setFormFields] = useState<FormField[]>(eventType.formFields);
   const [loading, setLoading] = useState(false);
@@ -164,6 +170,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
         },
         body: JSON.stringify({
           ...formData,
+          price: Math.round((parseFloat(formData.price as any) || 0) * 100),
           formFields,
         }),
       });
@@ -344,6 +351,64 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               }
             />
           </div>
+
+          {/* Payment Collection */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className="space-y-0.5">
+              <Label htmlFor="collectPayment" className="text-base">
+                {t('eventTypes.collectPayment')}
+              </Label>
+              <p className="text-sm text-gray-500">
+                {t('eventTypes.collectPaymentDesc')}
+              </p>
+            </div>
+            <Switch
+              id="collectPayment"
+              checked={formData.collectPayment}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, collectPayment: checked })
+              }
+            />
+          </div>
+
+          {formData.collectPayment && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="price">{t('eventTypes.price')}</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })
+                  }
+                />
+                <p className="text-xs text-gray-500">
+                  {t('eventTypes.priceHint')}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="currency">{t('eventTypes.currency')}</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                >
+                  <SelectTrigger id="currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="usd">{t('eventTypes.currencyUsd')}</SelectItem>
+                    <SelectItem value="eur">{t('eventTypes.currencyEur')}</SelectItem>
+                    <SelectItem value="mxn">{t('eventTypes.currencyMxn')}</SelectItem>
+                    <SelectItem value="gbp">{t('eventTypes.currencyGbp')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

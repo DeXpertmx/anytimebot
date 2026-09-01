@@ -31,6 +31,7 @@ import { TeamAssignmentSelector } from './team-assignment-selector';
 
 interface CreateEventTypeDialogProps {
   children: React.ReactNode;
+  defaultCurrency?: string;
 }
 
 interface BookingPage {
@@ -39,7 +40,7 @@ interface BookingPage {
   slug: string;
 }
 
-export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) {
+export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: CreateEventTypeDialogProps) {
   const [open, setOpen] = useState(false);
   const [bookingPages, setBookingPages] = useState<BookingPage[]>([]);
   const [formData, setFormData] = useState({
@@ -53,7 +54,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
     color: '#6366f1',
     requiresConfirmation: false,
     price: '0',
-    currency: 'usd',
+    currency: defaultCurrency,
     collectPayment: false,
     teamId: null as string | null,
     assignmentMode: 'individual',
@@ -110,6 +111,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           ...formData,
           duration: parseInt(formData.duration),
           bufferTime: parseInt(formData.bufferTime),
+          price: Math.round((parseFloat(formData.price) || 0) * 100),
         }),
       });
 
@@ -132,7 +134,7 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
           color: '#6366f1',
           requiresConfirmation: false,
           price: '0',
-          currency: 'usd',
+          currency: defaultCurrency,
           collectPayment: false,
           teamId: null,
           assignmentMode: 'individual',
@@ -414,7 +416,8 @@ export function CreateEventTypeDialog({ children }: CreateEventTypeDialogProps) 
                   id="price"
                   type="number"
                   min="0"
-                  placeholder="0"
+                  step="0.01"
+                  placeholder="0.00"
                   value={formData.price}
                   onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
                 />

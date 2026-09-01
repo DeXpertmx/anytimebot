@@ -35,6 +35,9 @@ interface EventType {
   videoLink?: string;
   color: string;
   requiresConfirmation: boolean;
+  collectPayment?: boolean;
+  price?: number;
+  currency?: string;
   bookingPage: {
     id: string;
     title: string;
@@ -238,6 +241,11 @@ export function EventTypesList() {
                 )}
                 {eventType.requiresConfirmation && (
                   <Badge variant="secondary">{t('eventTypes.requiresConfirmation')}</Badge>
+                )}
+                {eventType.collectPayment && eventType.price && eventType.price > 0 && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                    {(eventType.price / 100).toFixed(2)} {eventType.currency?.toUpperCase()}
+                  </Badge>
                 )}
               </div>
               <div className="flex items-center justify-between text-sm text-gray-500">
