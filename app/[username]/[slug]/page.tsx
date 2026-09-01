@@ -83,23 +83,48 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               {logoUrl ? (
+                // Custom logo: hide the Anytimebot wordmark so the page feels like the business's own brand
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={bookingPage.title} className="h-9 w-auto object-contain mr-3" />
+                <img src={logoUrl} alt={bookingPage.title} className="h-9 w-auto object-contain" />
               ) : (
-                <Image
-                  src="/Anytimebot-icon.png"
-                  alt="Anytimebot"
-                  width={36}
-                  height={36}
-                  className="mr-3 object-contain"
-                  unoptimized
-                />
+                <>
+                  <Image
+                    src="/Anytimebot-icon.png"
+                    alt="Anytimebot"
+                    width={36}
+                    height={36}
+                    className="mr-3 object-contain"
+                    unoptimized
+                  />
+                  <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
+                </>
               )}
-              <span className="text-2xl font-bold text-gray-900">ANYTIMEBOT</span>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Marketing banner for one-time BASIC plan holders (owner only) */}
+      {isOwner && user.plan === 'BASIC' && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <Link
+            href="/pricing"
+            className="flex items-center justify-between gap-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 text-white shadow-md transition-transform hover:scale-[1.01]"
+          >
+            <div>
+              <p className="font-semibold">
+                🚀 Lleva tu negocio al siguiente nivel con Anytimebot
+              </p>
+              <p className="text-sm text-indigo-100 mt-0.5">
+                Desbloquea equipos, chatbot con IA, más páginas de reserva y pagos recurrentes.
+              </p>
+            </div>
+            <span className="shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-indigo-700">
+              Mejorar plan
+            </span>
+          </Link>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Link
@@ -209,19 +234,15 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center">
             <div className="flex items-center">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={bookingPage.title} className="h-6 w-auto object-contain mr-2" />
-              ) : (
-                <Image
-                  src="/Anytimebot-icon.png"
-                  alt="Anytimebot"
-                  width={24}
-                  height={24}
-                  className="mr-2 object-contain"
-                  unoptimized
-                />
-              )}
+              {/* Footer always keeps the Anytimebot branding, even with a custom logo */}
+              <Image
+                src="/Anytimebot-icon.png"
+                alt="Anytimebot"
+                width={24}
+                height={24}
+                className="mr-2 object-contain"
+                unoptimized
+              />
               <span className="text-gray-900 font-semibold">ANYTIMEBOT</span>
             </div>
             <p className="text-gray-500 ml-4">
