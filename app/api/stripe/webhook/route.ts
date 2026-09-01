@@ -237,6 +237,7 @@ async function handleMembershipCreated(
     const interval = sub.items?.data?.[0]?.price?.recurring?.interval ?? 'month';
     const periodStart = sub.current_period_start ?? sub.currentPeriodStart;
     const periodEnd = getSubscriptionPeriodEnd(sub);
+    const customerId = sub.customer ?? sub.customerId ?? null;
 
     const data: any = {
       userId,
@@ -245,6 +246,7 @@ async function handleMembershipCreated(
       customerEmail: meta.guestEmail || booking?.guestEmail || '',
       stripeSubscriptionId: subscriptionId,
       stripeAccountId: tenantAccountId || null,
+      stripeCustomerId: customerId || null,
       price: eventType.price,
       currency: eventType.currency,
       interval,
@@ -259,6 +261,29 @@ async function handleMembershipCreated(
       update: { ...data, id: undefined },
     });
 
+    // Build a customer portal link so the client can self-manage (or cancel)
+    // the subscription. With Stripe Connect the portal lives on the connected
+    // account that owns the subscription.
+    let portalUrl: string | null = null;
+    try {
+      if (customerId) {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.APP_URL ||
+          'https://anytimebot.app';
+        const portal = await stripe.billingPortal.sessions.create(
+          {
+            customer: customerId,
+            return_url: `${baseUrl}/booking/${eventTypeId}?portal=return`,
+          },
+          tenantAccountId ? { stripeAccount: tenantAccountId } : undefined,
+        );
+        portalUrl = portal.url;
+      }
+    } catch (error) {
+      console.error('Error creating customer portal session:', error);
+    }
+
     // Confirm the subscription to the client by email.
     await sendMembershipWelcome({
       to: data.customerEmail,
@@ -269,6 +294,7 @@ async function handleMembershipCreated(
       interval,
       nextChargeDate: data.currentPeriodEnd,
       bookingPageTitle: eventType.bookingPage?.title || undefined,
+      portalUrl,
     });
 
     console.log(`✅ Membership created: ${subscriptionId} for ${data.customerEmail}`);

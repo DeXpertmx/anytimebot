@@ -280,6 +280,7 @@ export async function sendMembershipWelcome(data: {
   interval: string;
   nextChargeDate?: Date | null;
   bookingPageTitle?: string;
+  portalUrl?: string | null;
 }): Promise<boolean> {
   const {
     to,
@@ -290,6 +291,7 @@ export async function sendMembershipWelcome(data: {
     interval,
     nextChargeDate,
     bookingPageTitle,
+    portalUrl,
   } = data;
 
   const fmtPrice = new Intl.NumberFormat('es', {
@@ -339,6 +341,17 @@ export async function sendMembershipWelcome(data: {
               💡 <strong>Recuerda:</strong> tu suscripción se renovará automáticamente cada ${intervalLabel === 'año' ? 'año' : 'mes'} hasta que la canceles.
             </p>
           </div>
+
+          ${portalUrl ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${portalUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);">
+              🔧 Gestionar mi suscripción
+            </a>
+            <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+              Puedes ver tu facturación, actualizar tu método de pago o cancelar la suscripción cuando quieras.
+            </p>
+          </div>
+          ` : ''}
 
           <p style="font-size: 16px; margin-top: 30px;">¡Gracias por confiar en nosotros! 👋</p>
 

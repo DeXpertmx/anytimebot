@@ -188,6 +188,7 @@ model MemberSubscription {
   customerEmail      String   @map("customer_email")
   stripeSubscriptionId String @unique @map("stripe_subscription_id")
   stripeAccountId    String?  @map("stripe_account_id") // Connected account that owns the subscription
+  stripeCustomerId   String?  @map("stripe_customer_id") // Stripe customer for the client portal
   price              Int      @map("price") // cents per billing cycle
   currency           String   @default("eur")
   interval           String   @default("month") // "month" | "year"
