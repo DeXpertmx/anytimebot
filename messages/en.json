@@ -396,6 +396,8 @@
     "perYear": "year",
     "subscriptionNote": "Recurring subscription. It renews automatically every {interval} until you cancel it.",
     "cancelAnytime": "Cancel anytime",
+    "savePercent": "Save {percent}%",
+    "billedAnnually": "Billed annually — discounted total",
     "securePaymentNote": "You will be redirected to our secure payment page to complete your booking.",
     "missingInfo": "Missing Information",
     "selectEventDateTime": "Please select an event type, date, and time.",

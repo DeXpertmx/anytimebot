@@ -101,6 +101,33 @@ export function BookingForm({
         ? t('eventTypes.intervalYear')
         : t('pricing.oneTime');
 
+  // For yearly memberships, compute the annual total and the savings vs. the
+  // monthly alternative. Prefers a real monthly event with the same name on
+  // the same booking page; falls back to the prorated equivalent (price / 12).
+  const yearlySavings = (() => {
+    const et = selectedEventType;
+    if (!et || et.paymentInterval !== 'YEAR' || !et.collectPayment || et.price <= 0) {
+      return null;
+    }
+    const monthlyCounterpart = eventTypes.find(
+      (candidate) =>
+        candidate.id !== et.id &&
+        candidate.collectPayment &&
+        candidate.price > 0 &&
+        (candidate.paymentInterval === 'MONTH' || !candidate.paymentInterval) &&
+        candidate.name.trim().toLowerCase() === et.name.trim().toLowerCase()
+    );
+    const monthlyCost = monthlyCounterpart?.price ?? Math.round(et.price / 12);
+    const annualCost = et.price;
+    const savings = monthlyCost * 12 - annualCost;
+    if (savings <= 0) return null;
+    return {
+      savingsCents: Math.round(savings),
+      currency: et.currency,
+      monthlyEquivalent: monthlyCounterpart ? monthlyCost : null,
+    };
+  })();
+
   // Generate week dates
   const weekDates = Array.from({ length: 7 }, (_, i) =>
     addDays(currentWeekStart, i)
@@ -292,14 +319,38 @@ export function BookingForm({
               <SelectValue placeholder="Select an event type" />
             </SelectTrigger>
             <SelectContent>
-              {eventTypes.map((eventType) => (
-                <SelectItem key={eventType.id} value={eventType.id}>
-                  {eventType.name} ({eventType.duration} min)
-                  {eventType.collectPayment && eventType.price > 0
-                    ? ` · ${(eventType.price / 100).toFixed(2)} ${eventType.currency.toUpperCase()} ${intervalLabel(eventType.paymentInterval)}`
-                    : ''}
-                </SelectItem>
-              ))}
+              {eventTypes.map((eventType) => {
+                const savings = (() => {
+                  if (
+                    eventType.paymentInterval !== 'YEAR' ||
+                    !eventType.collectPayment ||
+                    eventType.price <= 0
+                  ) {
+                    return null;
+                  }
+                  const monthlyCounterpart = eventTypes.find(
+                    (candidate) =>
+                      candidate.id !== eventType.id &&
+                      candidate.collectPayment &&
+                      candidate.price > 0 &&
+                      (candidate.paymentInterval === 'MONTH' || !candidate.paymentInterval) &&
+                      candidate.name.trim().toLowerCase() === eventType.name.trim().toLowerCase()
+                  );
+                  const monthlyCost = monthlyCounterpart?.price ?? Math.round(eventType.price / 12);
+                  const savingsCents = monthlyCost * 12 - eventType.price;
+                  if (savingsCents <= 0) return null;
+                  return Math.round((savingsCents / (eventType.price + savingsCents)) * 100);
+                })();
+                return (
+                  <SelectItem key={eventType.id} value={eventType.id}>
+                    {eventType.name} ({eventType.duration} min)
+                    {eventType.collectPayment && eventType.price > 0
+                      ? ` · ${(eventType.price / 100).toFixed(2)} ${eventType.currency.toUpperCase()} ${intervalLabel(eventType.paymentInterval)}`
+                      : ''}
+                    {savings ? ` · ${t('bookingForm.savePercent', { percent: savings })}` : ''}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -567,6 +618,18 @@ export function BookingForm({
                       : ''}
                 </span>
               </div>
+              {selectedEventType.paymentInterval === 'YEAR' && yearlySavings && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                    {t('bookingForm.savePercent', {
+                      percent: Math.round((yearlySavings.savingsCents / (selectedEventType.price + yearlySavings.savingsCents)) * 100),
+                    })}
+                  </span>
+                  <span className="text-sm font-medium text-emerald-700">
+                    {t('bookingForm.billedAnnually')}
+                  </span>
+                </div>
+              )}
               <p className="text-sm text-emerald-600 mt-1">
                 {selectedEventType.paymentInterval === 'MONTH' || selectedEventType.paymentInterval === 'YEAR'
                   ? t('bookingForm.subscriptionNote', {

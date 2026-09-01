@@ -200,9 +200,36 @@ export default async function UserPage({ params }: UserPageProps) {
 
                 <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
                   {et.collectPayment && et.price > 0 ? (
-                    <span className="text-lg font-bold text-gray-900">
-                      {formatPrice(et.price, et.currency)}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-lg font-bold text-gray-900">
+                        {formatPrice(et.price, et.currency)}
+                        {et.paymentInterval === 'MONTH'
+                          ? '/mes'
+                          : et.paymentInterval === 'YEAR'
+                            ? '/año'
+                            : ''}
+                      </span>
+                      {et.paymentInterval === 'YEAR' && (() => {
+                        const monthly = services.find(
+                          (s) =>
+                            s.et.id !== et.id &&
+                            s.et.collectPayment &&
+                            s.et.price > 0 &&
+                            (s.et.paymentInterval === 'MONTH' || !s.et.paymentInterval) &&
+                            s.et.name.trim().toLowerCase() === et.name.trim().toLowerCase()
+                        )?.et;
+                        const monthlyCost = monthly?.price ?? Math.round(et.price / 12);
+                        const savings = monthlyCost * 12 - et.price;
+                        if (savings > 0) {
+                          return (
+                            <span className="text-xs font-medium text-emerald-600">
+                              Ahorra un {Math.round((savings / (et.price + savings)) * 100)}%
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                   ) : (
                     <span className="text-sm font-medium text-emerald-600">Gratis</span>
                   )}
