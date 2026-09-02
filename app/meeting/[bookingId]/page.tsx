@@ -69,6 +69,7 @@ export default function MeetingPage() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [roomJoined, setRoomJoined] = useState(false);
+  const [externalOpened, setExternalOpened] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -135,6 +136,14 @@ export default function MeetingPage() {
       return;
     }
 
+    if (!videoSession) return;
+    const url = isHost ? videoSession.hostRoomUrl : videoSession.roomUrl;
+    const external = /^(https?:\/\/)?(meet\.google\.com|zoom\.us|teams\.microsoft\.com)(\/|$)/i.test(url);
+    if (external) {
+      window.location.assign(url);
+      return;
+    }
+
     setRoomJoined(true);
   };
 
@@ -164,6 +173,7 @@ export default function MeetingPage() {
   }
 
   const meetingUrl = isHost ? videoSession.hostRoomUrl : videoSession.roomUrl;
+  const isExternalMeeting = /^(https?:\/\/)?(meet\.google\.com|zoom\.us|teams\.microsoft\.com)(\/|$)/i.test(meetingUrl);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -258,12 +268,27 @@ export default function MeetingPage() {
               </div>
             </Card>
           ) : (
-            <div className="w-full h-full bg-black rounded-lg overflow-hidden">
-              <iframe
-                src={`${meetingUrl}?disableDeepLinking=true`}
-                allow="camera; microphone; fullscreen; display-capture; autoplay"
-                className="w-full h-full"
-              />
+            <div className="w-full h-full bg-black rounded-lg overflow-hidden flex flex-col">
+              {isExternalMeeting ? (
+                <div className="flex-1 flex items-center justify-center bg-white p-8 text-center">
+                  <div className="max-w-md">
+                    <Video className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Videollamada externa</h2>
+                    <p className="text-gray-600 mb-6">Esta reunión se abrirá directamente en el servicio de videollamada.</p>
+                    <Button onClick={() => window.location.assign(meetingUrl)} className="h-12 px-6">
+                      <Video className="w-5 h-5 mr-2" />
+                      Abrir videollamada
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  src={`${meetingUrl}${meetingUrl.includes('?') ? '&' : '?'}disableDeepLinking=true`}
+                  allow="camera; microphone; fullscreen; display-capture; autoplay"
+                  className="w-full h-full"
+                  title="Sala de reunión"
+                />
+              )}
             </div>
           )}
         </div>
