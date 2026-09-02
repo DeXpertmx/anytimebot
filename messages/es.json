@@ -409,7 +409,12 @@
     "bookingConfirmedDesc": "Tu reunión ha sido programada para {{date}}. Se ha enviado un correo de confirmación.",
     "bookingFailed": "La reserva falló",
     "missingRequired": "Faltan campos obligatorios",
-    "fillRequired": "Completa: {{fields}}"
+    "fillRequired": "Completa: {{fields}}",
+    "selectDate": "Selecciona una fecha",
+    "selectTime": "Selecciona una hora",
+    "noSlots": "No hay horarios disponibles para esta fecha.",
+    "prevMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente"
   },
   "pricing": {
     "eyebrow": "Planes para cada etapa",

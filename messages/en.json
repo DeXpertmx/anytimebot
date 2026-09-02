@@ -409,7 +409,12 @@
     "bookingConfirmedDesc": "Your meeting has been scheduled for {{date}}. A confirmation email has been sent.",
     "bookingFailed": "Booking Failed",
     "missingRequired": "Missing required fields",
-    "fillRequired": "Please fill in: {{fields}}"
+    "fillRequired": "Please fill in: {{fields}}",
+    "selectDate": "Select a Date",
+    "selectTime": "Select a Time",
+    "noSlots": "No available time slots for this date.",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month"
   },
   "pricing": {
     "eyebrow": "Plans for every stage",
