@@ -178,7 +178,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Page Statistics */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -346,10 +346,10 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
         </Card>
 
         {/* Availability Settings */}
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <CardTitle>Horario de disponibilidad</CardTitle>
                 <p className="text-sm text-gray-600 mt-1">
                   Configura tu horario laboral para esta página de reserva
@@ -378,9 +378,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                 availability.map((slot, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-4 p-4 border rounded-lg bg-gray-50"
+                    className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:flex-row sm:items-end"
                   >
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
                       <div>
                         <Label className="text-xs">Día de la semana</Label>
                         <Select
@@ -389,9 +389,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                             updateAvailabilitySlot(index, 'dayOfWeek', parseInt(value))
                           }
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                        <SelectTrigger className="w-full min-w-0">
+                          <SelectValue />
+                        </SelectTrigger>
                           <SelectContent>
                             {DAYS_OF_WEEK.map((day) => (
                               <SelectItem key={day.value} value={day.value.toString()}>
@@ -410,9 +410,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                             updateAvailabilitySlot(index, 'startTime', value)
                           }
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                        <SelectTrigger className="w-full min-w-0">
+                          <SelectValue />
+                        </SelectTrigger>
                           <SelectContent>
                             {TIME_SLOTS.map((time) => (
                               <SelectItem key={time} value={time}>
@@ -431,9 +431,9 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                             updateAvailabilitySlot(index, 'endTime', value)
                           }
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                        <SelectTrigger className="w-full min-w-0">
+                          <SelectValue />
+                        </SelectTrigger>
                           <SelectContent>
                             {TIME_SLOTS.map((time) => (
                               <SelectItem key={time} value={time}>
@@ -450,7 +450,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                       variant="ghost"
                       size="icon"
                       onClick={() => removeAvailabilitySlot(index)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="self-end text-red-600 hover:bg-red-50 hover:text-red-700 sm:self-auto"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
