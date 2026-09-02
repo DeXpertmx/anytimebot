@@ -52,6 +52,9 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Sábado' },
 ];
 
+// Spanish weekly order (Monday first) for grouping and defaults
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
 const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
   const hour = Math.floor(i / 2);
   const minute = i % 2 === 0 ? '00' : '30';
@@ -119,11 +122,54 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
   const { toast } = useToast();
   const router = useRouter();
 
-  const addAvailabilitySlot = () => {
+  // Add a new range to a specific day. If the day already has ranges, the
+  // new one chains after the last end time (9–14 → 14–15:30) so split
+  // shifts like 9–14 / 15–17 are quick to set up.
+  const addRangeToDay = (dayOfWeek: number) => {
+    const daySlots = availability
+      .filter((s) => s.dayOfWeek === dayOfWeek)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    const formatMinutes = (minutes: number) =>
+      `${Math.floor(minutes / 60)
+        .toString()
+        .padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+
+    if (daySlots.length === 0) {
+      setAvailability([
+        ...availability,
+        { dayOfWeek, startTime: '09:00', endTime: '17:00', isAvailable: true },
+      ]);
+      return;
+    }
+
+    const last = daySlots[daySlots.length - 1];
+    const [h, m] = last.endTime.split(':').map(Number);
+    const startMinutes = h * 60 + m;
+    if (startMinutes >= 22 * 60) {
+      setAvailability([
+        ...availability,
+        { dayOfWeek, startTime: '22:00', endTime: '23:30', isAvailable: true },
+      ]);
+      return;
+    }
+    const endMinutes = Math.min(startMinutes + 90, 23 * 60 + 30);
     setAvailability([
       ...availability,
-      { dayOfWeek: 1, startTime: '09:00', endTime: '17:00', isAvailable: true },
+      {
+        dayOfWeek,
+        startTime: last.endTime,
+        endTime: formatMinutes(endMinutes),
+        isAvailable: true,
+      },
     ]);
+  };
+
+  const addAvailabilitySlot = () => {
+    const firstFreeDay = WEEK_ORDER.find(
+      (day) => !availability.some((s) => s.dayOfWeek === day)
+    );
+    addRangeToDay(firstFreeDay ?? 1);
   };
 
   const removeAvailabilitySlot = (index: number) => {
@@ -191,6 +237,16 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
     });
     closeCopyPanel();
   };
+
+  // Rows grouped per day (Monday first, chronologically within the day)
+  const groupedAvailability = WEEK_ORDER.map((dayOfWeek) => ({
+    dayOfWeek,
+    label: DAYS_OF_WEEK.find((d) => d.value === dayOfWeek)?.label ?? '',
+    slots: availability
+      .map((slot, index) => ({ slot, index }))
+      .filter(({ slot }) => slot.dayOfWeek === dayOfWeek)
+      .sort((a, b) => a.slot.startTime.localeCompare(b.slot.startTime)),
+  })).filter((group) => group.slots.length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,7 +532,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               {availability.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Clock className="h-12 w-12 mx-auto mb-3 text-gray-400" />
@@ -486,163 +542,175 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                   </p>
                 </div>
               ) : (
-                availability.map((slot, index) => (
-                  <Fragment key={index}>
-                  <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:flex-row sm:items-end">
-                    <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
-                      <div>
-                        <Label className="text-xs">Día de la semana</Label>
-                        <Select
-                          value={slot.dayOfWeek.toString()}
-                          onValueChange={(value) =>
-                            updateAvailabilitySlot(index, 'dayOfWeek', parseInt(value))
-                          }
-                        >
-                        <SelectTrigger className="w-full min-w-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                          <SelectContent>
-                            {DAYS_OF_WEEK.map((day) => (
-                              <SelectItem key={day.value} value={day.value.toString()}>
-                                {day.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                groupedAvailability.map((group) => (
+                  <section key={group.dayOfWeek} className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <h4 className="text-sm font-semibold text-gray-900">
+                          {group.label}
+                        </h4>
+                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                          {group.slots.length === 1
+                            ? '1 franja'
+                            : `${group.slots.length} franjas`}
+                        </span>
                       </div>
-
-                      <div>
-                        <Label className="text-xs">Hora de inicio</Label>
-                        <Select
-                          value={slot.startTime}
-                          onValueChange={(value) =>
-                            updateAvailabilitySlot(index, 'startTime', value)
-                          }
-                        >
-                        <SelectTrigger className="w-full min-w-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                          <SelectContent>
-                            {TIME_SLOTS.map((time) => (
-                              <SelectItem key={time} value={time}>
-                                {time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Hora de finalización</Label>
-                        <Select
-                          value={slot.endTime}
-                          onValueChange={(value) =>
-                            updateAvailabilitySlot(index, 'endTime', value)
-                          }
-                        >
-                        <SelectTrigger className="w-full min-w-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                          <SelectContent>
-                            {TIME_SLOTS.map((time) => (
-                              <SelectItem key={time} value={time}>
-                                {time}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 self-end sm:self-auto">
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        onClick={() => openCopyPanel(index)}
-                        aria-label="Copiar horario a otros días"
-                        title="Copiar horario a otros días"
-                        className="text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
+                        size="sm"
+                        onClick={() => addRangeToDay(group.dayOfWeek)}
+                        className="shrink-0 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
                       >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeAvailabilitySlot(index)}
-                        aria-label="Eliminar horario"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Añadir franja
                       </Button>
                     </div>
-                  </div>
 
-                  {/* Copy panel: pick target days for this row's time range */}
-                  {copyFrom === index && (
-                    <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
-                      <p className="text-xs font-semibold text-indigo-800 mb-2">
-                        Copiar {slot.startTime}–{slot.endTime} a otros días
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {DAYS_OF_WEEK.filter((day) => day.value !== slot.dayOfWeek).map((day) => {
-                          const existing = availability.find(
-                            (s) => s.dayOfWeek === day.value
-                          );
-                          const active = copyDays.includes(day.value);
-                          return (
-                            <button
-                              key={day.value}
+                    <div className="space-y-3">
+                      {group.slots.map(({ slot, index }) => (
+                        <Fragment key={index}>
+                        <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm sm:flex-row sm:items-end">
+                          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                              <Label className="text-xs">Hora de inicio</Label>
+                              <Select
+                                value={slot.startTime}
+                                onValueChange={(value) =>
+                                  updateAvailabilitySlot(index, 'startTime', value)
+                                }
+                              >
+                              <SelectTrigger className="w-full min-w-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                                <SelectContent>
+                                  {TIME_SLOTS.map((time) => (
+                                    <SelectItem key={time} value={time}>
+                                      {time}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-xs">Hora de finalización</Label>
+                              <Select
+                                value={slot.endTime}
+                                onValueChange={(value) =>
+                                  updateAvailabilitySlot(index, 'endTime', value)
+                                }
+                              >
+                              <SelectTrigger className="w-full min-w-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                                <SelectContent>
+                                  {TIME_SLOTS.map((time) => (
+                                    <SelectItem key={time} value={time}>
+                                      {time}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 self-end sm:self-auto">
+                            <Button
                               type="button"
-                              onClick={() => toggleCopyDay(day.value)}
-                              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                                active
-                                  ? 'border-indigo-600 bg-indigo-600 text-white'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300'
-                              }`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openCopyPanel(index)}
+                              aria-label="Copiar horario a otros días"
+                              title="Copiar horario a otros días"
+                              className="text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
                             >
-                              {day.label}
-                              {existing && (
-                                <span
-                                  className={
-                                    active ? 'text-indigo-100' : 'text-slate-400'
-                                  }
-                                >
-                                  · {existing.startTime}–{existing.endTime}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-2">
-                        Se sustituirá el horario actual de los días seleccionados.
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={copyDays.length === 0}
-                          onClick={applyCopyToDays}
-                          className="bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          <Copy className="h-3.5 w-3.5 mr-1.5" />
-                          Copiar a {copyDays.length}{' '}
-                          {copyDays.length === 1 ? 'día' : 'días'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={closeCopyPanel}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeAvailabilitySlot(index)}
+                              aria-label="Eliminar franja"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Copy panel: pick target days for this row's time range */}
+                        {copyFrom === index && (
+                          <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
+                            <p className="text-xs font-semibold text-indigo-800 mb-2">
+                              Copiar {slot.startTime}–{slot.endTime} a otros días
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {WEEK_ORDER.filter((dayValue) => dayValue !== slot.dayOfWeek).map((dayValue) => {
+                                const day = DAYS_OF_WEEK.find(
+                                  (d) => d.value === dayValue
+                                )!;
+                                const existingRanges = availability
+                                  .filter((s) => s.dayOfWeek === dayValue)
+                                  .map((s) => `${s.startTime}–${s.endTime}`)
+                                  .sort();
+                                const active = copyDays.includes(dayValue);
+                                return (
+                                  <button
+                                    key={dayValue}
+                                    type="button"
+                                    onClick={() => toggleCopyDay(dayValue)}
+                                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                      active
+                                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300'
+                                    }`}
+                                  >
+                                    {day.label}
+                                    {existingRanges.length > 0 && (
+                                      <span
+                                        className={
+                                          active ? 'text-indigo-100' : 'text-slate-400'
+                                        }
+                                      >
+                                        · {existingRanges.join(' + ')}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-2">
+                              Se sustituirá el horario actual de los días seleccionados.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={copyDays.length === 0}
+                                onClick={applyCopyToDays}
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                              >
+                                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                                Copiar a {copyDays.length}{' '}
+                                {copyDays.length === 1 ? 'día' : 'días'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={closeCopyPanel}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        </Fragment>
+                      ))}
                     </div>
-                  )}
-                  </Fragment>
+                  </section>
                 ))
               )}
             </div>
