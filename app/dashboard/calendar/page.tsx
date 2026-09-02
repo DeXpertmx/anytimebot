@@ -271,9 +271,14 @@ export default function CalendarPage() {
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-0.5">
                       {dayItems.slice(0, 4).map((booking, index) => (
-                        <div
+                        <button
                           key={booking.id}
-                          className="truncate rounded-sm border-l-[3px] px-1 py-0.5 text-[10px] leading-tight shadow-sm"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBooking(booking);
+                          }}
+                          className="block w-full truncate rounded-sm border-l-[3px] px-1 py-0.5 text-left text-[10px] leading-tight shadow-sm hover:brightness-95"
                           style={{
                             borderLeftColor: booking.eventType.color || palette[index % palette.length],
                             backgroundColor: booking.status === 'CONFIRMED' ? '#dcfce7' : '#fef3c7',
@@ -281,7 +286,7 @@ export default function CalendarPage() {
                           }}
                         >
                           <span className="font-semibold">{formatTime(booking.startTime)}</span> {booking.guestName}
-                        </div>
+                        </button>
                       ))}
                       {dayItems.length > 4 && (
                         <div className="text-[10px] font-medium text-indigo-600">+{dayItems.length - 4} más</div>
