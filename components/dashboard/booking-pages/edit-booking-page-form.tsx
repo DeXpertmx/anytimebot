@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { isValidUsername } from '@/lib/utils';
-import { Save, Loader2, Globe, Calendar, Clock, Plus, Trash2, Wand2 } from 'lucide-react';
+import { Save, Loader2, Globe, Calendar, Clock, Copy, Plus, Trash2, Wand2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -148,6 +148,48 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
       title: 'Disponibilidad actualizada',
       description: `Plantilla aplicada: ${preset.label}`,
     });
+  };
+
+  // Copy one row's time range onto other days of the week
+  const [copyFrom, setCopyFrom] = useState<number | null>(null);
+  const [copyDays, setCopyDays] = useState<number[]>([]);
+
+  const openCopyPanel = (index: number) => {
+    setCopyFrom(index);
+    setCopyDays([]);
+  };
+
+  const closeCopyPanel = () => setCopyFrom(null);
+
+  const toggleCopyDay = (dayOfWeek: number) => {
+    setCopyDays((current) =>
+      current.includes(dayOfWeek)
+        ? current.filter((d) => d !== dayOfWeek)
+        : [...current, dayOfWeek]
+    );
+  };
+
+  const applyCopyToDays = () => {
+    if (copyFrom === null) return;
+    const source = availability[copyFrom];
+    if (!source || copyDays.length === 0) {
+      closeCopyPanel();
+      return;
+    }
+    setAvailability((current) => {
+      const kept = current.filter((s) => !copyDays.includes(s.dayOfWeek));
+      const added = copyDays.map((dayOfWeek) => ({ ...source, dayOfWeek }));
+      // Keep the list tidy: group by day (Sunday first, as in the selects)
+      return [...kept, ...added].sort(
+        (a, b) =>
+          a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime)
+      );
+    });
+    toast({
+      title: 'Horario copiado',
+      description: `Se aplicó ${source.startTime}–${source.endTime} a ${copyDays.length} día(s).`,
+    });
+    closeCopyPanel();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -445,10 +487,8 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                 </div>
               ) : (
                 availability.map((slot, index) => (
-                  <div
-                    key={index}
-                    className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:flex-row sm:items-end"
-                  >
+                  <Fragment key={index}>
+                  <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:flex-row sm:items-end">
                     <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
                       <div>
                         <Label className="text-xs">Día de la semana</Label>
@@ -514,16 +554,95 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                       </div>
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeAvailabilitySlot(index)}
-                      className="self-end text-red-600 hover:bg-red-50 hover:text-red-700 sm:self-auto"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 self-end sm:self-auto">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openCopyPanel(index)}
+                        aria-label="Copiar horario a otros días"
+                        title="Copiar horario a otros días"
+                        className="text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeAvailabilitySlot(index)}
+                        aria-label="Eliminar horario"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+
+                  {/* Copy panel: pick target days for this row's time range */}
+                  {copyFrom === index && (
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
+                      <p className="text-xs font-semibold text-indigo-800 mb-2">
+                        Copiar {slot.startTime}–{slot.endTime} a otros días
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {DAYS_OF_WEEK.filter((day) => day.value !== slot.dayOfWeek).map((day) => {
+                          const existing = availability.find(
+                            (s) => s.dayOfWeek === day.value
+                          );
+                          const active = copyDays.includes(day.value);
+                          return (
+                            <button
+                              key={day.value}
+                              type="button"
+                              onClick={() => toggleCopyDay(day.value)}
+                              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                active
+                                  ? 'border-indigo-600 bg-indigo-600 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300'
+                              }`}
+                            >
+                              {day.label}
+                              {existing && (
+                                <span
+                                  className={
+                                    active ? 'text-indigo-100' : 'text-slate-400'
+                                  }
+                                >
+                                  · {existing.startTime}–{existing.endTime}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-2">
+                        Se sustituirá el horario actual de los días seleccionados.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={copyDays.length === 0}
+                          onClick={applyCopyToDays}
+                          className="bg-indigo-600 hover:bg-indigo-700"
+                        >
+                          <Copy className="h-3.5 w-3.5 mr-1.5" />
+                          Copiar a {copyDays.length}{' '}
+                          {copyDays.length === 1 ? 'día' : 'días'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={closeCopyPanel}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </Fragment>
                 ))
               )}
             </div>
