@@ -422,7 +422,8 @@
     "stepBack": "Back",
     "summaryTitle": "Your booking",
     "changeDate": "Change date",
-    "changeTime": "Change time"
+    "changeTime": "Change time",
+    "welcomeEvent": "Welcome! You chose {{event}}"
   },
   "pricing": {
     "eyebrow": "Plans for every stage",

@@ -422,7 +422,8 @@
     "stepBack": "Volver",
     "summaryTitle": "Resumen de tu reserva",
     "changeDate": "Cambiar fecha",
-    "changeTime": "Cambiar hora"
+    "changeTime": "Cambiar hora",
+    "welcomeEvent": "Bienvenido, eligió {{event}}"
   },
   "pricing": {
     "eyebrow": "Planes para cada etapa",

@@ -382,6 +382,13 @@ export function BookingForm({
       {/* ---------- Step 1: Fecha ---------- */}
       {step === 1 && (
         <>
+          {selectedEventType && (
+            <p className="text-center text-sm text-slate-600">
+              {t('bookingForm.welcomeEvent', {
+                event: selectedEventType.name,
+              })}
+            </p>
+          )}
       {/* Event Type Selection */}
       {eventTypes.length > 1 && (
         <div>
