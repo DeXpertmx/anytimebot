@@ -51,11 +51,6 @@ export default async function EmbedBookingPage({ params }: EmbedBookingPageProps
           eventTypes={bookingPage.eventTypes}
           availability={bookingPage.availability}
           timezone={user.timezone}
-          host={{
-            name: user.name || user.email || '',
-            image: user.image,
-            username: user.username || '',
-          }}
         />
       </div>
 

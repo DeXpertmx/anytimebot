@@ -220,11 +220,6 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                 availability={bookingPage.availability}
                 timezone={user.timezone}
                 preselectedEventId={preselectedEventId}
-                host={{
-                  name: user.name || user.email || '',
-                  image: user.image,
-          username: user.username || '',
-        }}
               />
             </div>
           </div>
