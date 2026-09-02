@@ -435,6 +435,8 @@
     "selectOption": "Select an option",
     "customEmailPlaceholder": "name@example.com",
     "customPhonePlaceholder": "+1 (555) 123-4567",
+    "asidePickDate": "Pick a date",
+    "asidePickTime": "Pick a time",
     "errorTitle": "Error",
     "genericError": "An unexpected error occurred",
     "paymentSessionFailed": "Failed to create payment session",

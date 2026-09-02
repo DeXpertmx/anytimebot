@@ -59,6 +59,11 @@ interface BookingFormProps {
   availability: Availability[];
   timezone: string;
   preselectedEventId?: string;
+  host?: {
+    name: string;
+    image?: string | null;
+    username: string;
+  };
 }
 
 export function BookingForm({
@@ -67,6 +72,7 @@ export function BookingForm({
   availability,
   timezone,
   preselectedEventId,
+  host,
 }: BookingFormProps) {
   const { toast } = useToast();
   const { t, i18n: i18nInstance } = useTranslation();
@@ -329,7 +335,9 @@ export function BookingForm({
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit}>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start lg:gap-8">
+        <div className="min-w-0 space-y-6">
       {/* Stepper: Fecha → Hora → Detalles */}
       <nav
         aria-label={t('bookingForm.stepsAria')}
@@ -855,6 +863,89 @@ export function BookingForm({
         </div>
         </>
       )}
+        </div>
+
+        {/* Sticky summary (Calendly-style, desktop only) */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="space-y-3 p-4">
+              {/* Event */}
+              {selectedEventType && (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                      style={{ backgroundColor: brandColor }}
+                    >
+                      {selectedEventType.name?.[0]?.toUpperCase() || 'E'}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {selectedEventType.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {selectedEventType.duration} min
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    {selectedDate ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <Calendar className="h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="capitalize">
+                          {format(selectedDate, 'EEEE, d MMMM', { locale: dateLocale })}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400">
+                        {t('bookingForm.asidePickDate')}
+                      </p>
+                    )}
+                    {selectedDate && !selectedTime && (
+                      <p className="text-xs text-slate-400">
+                        {t('bookingForm.asidePickTime')}
+                      </p>
+                    )}
+                    {selectedTime && (
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                        <Clock className="h-4 w-4 shrink-0 text-slate-400" />
+                        <span className="font-semibold" style={{ color: brandColor }}>
+                          {selectedTime}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Host */}
+            {host && (
+              <div className="flex items-center gap-2.5 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
+                {host.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={host.image}
+                    alt=""
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                    {(host.name || host.username)?.[0]?.toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-gray-900">
+                    {host.name}
+                  </p>
+                  <p className="truncate text-[11px] text-gray-500">@{host.username}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
     </form>
   );
 }

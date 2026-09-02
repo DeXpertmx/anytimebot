@@ -435,6 +435,8 @@
     "selectOption": "Selecciona una opción",
     "customEmailPlaceholder": "nombre@ejemplo.com",
     "customPhonePlaceholder": "+34 600 000 000",
+    "asidePickDate": "Elige una fecha",
+    "asidePickTime": "Elige una hora",
     "errorTitle": "Error",
     "genericError": "Se produjo un error inesperado",
     "paymentSessionFailed": "No se pudo iniciar la sesión de pago",
