@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Clock, MapPin, User, Mail, Phone, Video } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, User, Mail, Phone, Video, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     loadBooking();
@@ -54,6 +55,31 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
       toast.error('No se pudo cargar la reserva');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Get-or-create the video session (idempotent) before entering the room,
+  // so bookings created without a session don't land on "Video session not found".
+  const joinMeeting = async () => {
+    if (!booking || joining) return;
+    setJoining(true);
+    try {
+      const res = await fetch('/api/video-sessions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error || 'No se pudo crear la sala de reunión');
+        return;
+      }
+      router.push(`/meeting/${booking.id}`);
+    } catch (error) {
+      console.error('Error creating video session:', error);
+      toast.error('No se pudo crear la sala de reunión');
+    } finally {
+      setJoining(false);
     }
   };
 
@@ -107,11 +133,16 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
         <div className="flex items-center gap-3">
           {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
             <Button
-              onClick={() => router.push(`/meeting/${booking.id}`)}
+              onClick={joinMeeting}
+              disabled={joining}
               className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
             >
-              <Video className="h-4 w-4 mr-2" />
-              Unirse a la Reunión
+              {joining ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Video className="h-4 w-4 mr-2" />
+              )}
+              {joining ? 'Creando sala...' : 'Unirse a la Reunión'}
             </Button>
           )}
           <Badge
