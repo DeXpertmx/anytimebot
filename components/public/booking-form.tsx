@@ -206,8 +206,8 @@ export function BookingForm({
 
     if (!selectedEventType || !selectedDate || !selectedTime) {
       toast({
-        title: 'Missing Information',
-        description: 'Please select an event type, date, and time.',
+        title: t('bookingForm.missingInfo'),
+        description: t('bookingForm.selectEventDateTime'),
         variant: 'destructive',
       });
       return;
@@ -219,8 +219,10 @@ export function BookingForm({
     );
     if (missingRequired.length > 0) {
       toast({
-        title: 'Missing Information',
-        description: `Please fill in: ${missingRequired.map((f) => f.label).join(', ')}`,
+        title: t('bookingForm.missingRequired'),
+        description: t('bookingForm.fillRequired', {
+          fields: missingRequired.map((f) => f.label).join(', '),
+        }),
         variant: 'destructive',
       });
       return;
@@ -258,8 +260,8 @@ export function BookingForm({
         } else {
           const error = await paymentResponse.json();
           toast({
-            title: 'Payment Error',
-            description: error.error || 'Failed to create payment session',
+            title: t('bookingForm.paymentError'),
+            description: error.error || t('bookingForm.paymentSessionFailed'),
             variant: 'destructive',
           });
           setIsLoading(false);
@@ -290,11 +292,10 @@ export function BookingForm({
       if (response.ok) {
         const booking = await response.json();
         toast({
-          title: 'Booking Confirmed! 🎉',
-          description: `Your meeting has been scheduled for ${format(
-            startTime,
-            'PPP p'
-          )}. A confirmation email has been sent.`,
+          title: t('bookingForm.bookingConfirmed'),
+          description: t('bookingForm.bookingConfirmedDesc', {
+            date: format(startTime, 'PPP p'),
+          }),
         });
 
         // Reset form
@@ -310,16 +311,16 @@ export function BookingForm({
       } else {
         const error = await response.json();
         toast({
-          title: 'Booking Failed',
-          description: error.error || 'Failed to create booking',
+          title: t('bookingForm.bookingFailed'),
+          description: error.error || t('bookingForm.bookingCreateFailed'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('Error creating booking:', error);
       toast({
-        title: 'Error',
-        description: 'An error occurred while creating the booking',
+        title: t('bookingForm.errorTitle'),
+        description: t('bookingForm.genericError'),
         variant: 'destructive',
       });
     } finally {
@@ -639,11 +640,13 @@ export function BookingForm({
           </div>
 
         <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">Your Information</h4>
+          <h4 className="font-semibold text-gray-900">
+            {t('bookingForm.yourInformation')}
+          </h4>
           
           <div>
             <Label htmlFor="guestName">
-              Name <span className="text-red-500">*</span>
+              {t('bookingForm.name')} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="guestName"
@@ -652,13 +655,13 @@ export function BookingForm({
                 setFormData({ ...formData, guestName: e.target.value })
               }
               required
-              placeholder="Enter your full name"
+              placeholder={t('bookingForm.namePlaceholder')}
             />
           </div>
 
           <div>
             <Label htmlFor="guestEmail">
-              Email <span className="text-red-500">*</span>
+              {t('bookingForm.email')} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="guestEmail"
@@ -668,12 +671,12 @@ export function BookingForm({
                 setFormData({ ...formData, guestEmail: e.target.value })
               }
               required
-              placeholder="your.email@example.com"
+              placeholder={t('bookingForm.emailPlaceholder')}
             />
           </div>
 
           <div>
-            <Label htmlFor="guestPhone">Teléfono (opcional)</Label>
+            <Label htmlFor="guestPhone">{t('bookingForm.phone')}</Label>
             <PhoneCountryInput
               id="guestPhone"
               value={formData.guestPhone}
@@ -686,14 +689,14 @@ export function BookingForm({
 
           <div>
             <Label htmlFor="timezone">
-              Time Zone <span className="text-red-500">*</span>
+              {t('bookingForm.timezone')} <span className="text-red-500">*</span>
             </Label>
             <TimezoneSelect
               value={userTimezone}
               onValueChange={setUserTimezone}
             />
             <p className="text-sm text-gray-500 mt-1">
-              All times will be shown in your selected timezone
+              {t('bookingForm.timezoneNote')}
             </p>
           </div>
 
@@ -734,7 +737,7 @@ export function BookingForm({
                   }
                 >
                   <SelectTrigger id={field.id}>
-                    <SelectValue placeholder="Select an option" />
+                    <SelectValue placeholder={t('bookingForm.selectOption')} />
                   </SelectTrigger>
                   <SelectContent>
                     {field.options.map((option) => (
@@ -754,7 +757,7 @@ export function BookingForm({
                     setFormData({ ...formData, [field.id]: e.target.value })
                   }
                   required={field.required}
-                  placeholder={field.placeholder || 'name@example.com'}
+                  placeholder={field.placeholder || t('bookingForm.customEmailPlaceholder')}
                 />
               )}
               {field.type === 'PHONE' && (
@@ -766,7 +769,7 @@ export function BookingForm({
                     setFormData({ ...formData, [field.id]: e.target.value })
                   }
                   required={field.required}
-                  placeholder={field.placeholder || '+1 (555) 123-4567'}
+                  placeholder={field.placeholder || t('bookingForm.customPhonePlaceholder')}
                 />
               )}
               {field.type === 'CHECKBOX' && (

@@ -423,7 +423,22 @@
     "summaryTitle": "Resumen de tu reserva",
     "changeDate": "Cambiar fecha",
     "changeTime": "Cambiar hora",
-    "welcomeEvent": "Bienvenido, eligió {{event}}"
+    "welcomeEvent": "Bienvenido, eligió {{event}}",
+    "yourInformation": "Tus datos",
+    "name": "Nombre",
+    "namePlaceholder": "Escribe tu nombre completo",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "tu.email@ejemplo.com",
+    "phone": "Teléfono (opcional)",
+    "timezone": "Zona horaria",
+    "timezoneNote": "Todas las horas se mostrarán en tu zona horaria seleccionada",
+    "selectOption": "Selecciona una opción",
+    "customEmailPlaceholder": "nombre@ejemplo.com",
+    "customPhonePlaceholder": "+34 600 000 000",
+    "errorTitle": "Error",
+    "genericError": "Se produjo un error inesperado",
+    "paymentSessionFailed": "No se pudo iniciar la sesión de pago",
+    "bookingCreateFailed": "No se pudo crear la reserva"
   },
   "pricing": {
     "eyebrow": "Planes para cada etapa",

@@ -423,7 +423,22 @@
     "summaryTitle": "Your booking",
     "changeDate": "Change date",
     "changeTime": "Change time",
-    "welcomeEvent": "Welcome! You chose {{event}}"
+    "welcomeEvent": "Welcome! You chose {{event}}",
+    "yourInformation": "Your details",
+    "name": "Name",
+    "namePlaceholder": "Enter your full name",
+    "email": "Email",
+    "emailPlaceholder": "your.email@example.com",
+    "phone": "Phone (optional)",
+    "timezone": "Time Zone",
+    "timezoneNote": "All times will be shown in your selected timezone",
+    "selectOption": "Select an option",
+    "customEmailPlaceholder": "name@example.com",
+    "customPhonePlaceholder": "+1 (555) 123-4567",
+    "errorTitle": "Error",
+    "genericError": "An unexpected error occurred",
+    "paymentSessionFailed": "Failed to create payment session",
+    "bookingCreateFailed": "Failed to create booking"
   },
   "pricing": {
     "eyebrow": "Plans for every stage",
