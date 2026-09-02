@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { format, addDays, isSameDay } from 'date-fns';
 import { es as esLocale, enUS } from 'date-fns/locale';
-import { Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,6 +84,16 @@ export function BookingForm({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const changeStep = (next: 1 | 2 | 3) => {
+    setStep(next);
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   const [userTimezone, setUserTimezone] = useState<string>(() => {
     // Get user's timezone on client side
     try {
@@ -98,6 +108,12 @@ export function BookingForm({
     guestPhone: '',
     guestCountry: 'ES',
   });
+
+  const STEPS: { n: 1 | 2 | 3; labelKey: string }[] = [
+    { n: 1, labelKey: 'stepDate' },
+    { n: 2, labelKey: 'stepTime' },
+    { n: 3, labelKey: 'stepDetails' },
+  ];
 
   const intervalLabel = (interval?: string) =>
     interval === 'MONTH'
@@ -284,6 +300,7 @@ export function BookingForm({
         // Reset form
         setSelectedDate(null);
         setSelectedTime('');
+        setStep(1);
         setFormData({
           guestName: '',
           guestEmail: '',
@@ -311,7 +328,60 @@ export function BookingForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+      {/* Stepper: Fecha → Hora → Detalles */}
+      <nav
+        aria-label={t('bookingForm.stepsAria')}
+        className="flex items-center justify-center gap-3 sm:gap-4"
+      >
+        {STEPS.map((s, index) => {
+          const done = step > s.n;
+          const active = step === s.n;
+          return (
+            <div key={s.n} className="flex items-center gap-3 sm:gap-4">
+              {index > 0 && (
+                <div
+                  className={`h-0.5 w-6 rounded-full transition-colors sm:w-12 ${
+                    step > index ? 'bg-indigo-500' : 'bg-slate-200'
+                  }`}
+                />
+              )}
+              <button
+                type="button"
+                disabled={!done}
+                onClick={() => changeStep(s.n)}
+                className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 ${
+                  done ? 'cursor-pointer' : 'cursor-default'
+                }`}
+              >
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                    active
+                      ? 'text-white shadow-sm'
+                      : done
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-400'
+                  }`}
+                  style={active ? { backgroundColor: brandColor } : undefined}
+                >
+                  {done ? <Check className="h-3.5 w-3.5" /> : s.n}
+                </span>
+                <span
+                  className={`text-xs font-medium sm:text-sm ${
+                    active ? 'text-gray-900' : done ? 'text-gray-600' : 'text-slate-400'
+                  }`}
+                >
+                  {t(`bookingForm.${s.labelKey}`)}
+                </span>
+              </button>
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* ---------- Step 1: Fecha ---------- */}
+      {step === 1 && (
+        <>
       {/* Event Type Selection */}
       {eventTypes.length > 1 && (
         <div>
@@ -414,6 +484,7 @@ export function BookingForm({
                     if (!isDisabled) {
                       setSelectedDate(date);
                       setSelectedTime('');
+                      changeStep(2);
                     }
                   }}
                   disabled={isDisabled}
@@ -444,8 +515,25 @@ export function BookingForm({
         </div>
       </div>
 
-      {/* Time Selection */}
-      {selectedDate && (
+      </>
+      )}
+
+      {/* ---------- Step 2: Hora ---------- */}
+      {step === 2 && selectedDate && (
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => changeStep(1)}
+              className="-ml-2 text-slate-500 hover:text-slate-800"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              {t('bookingForm.stepBack')}
+            </Button>
+          </div>
+
         <div>
           <div className="mb-3">
             <Label className="block">{t('bookingForm.selectTime')}</Label>
@@ -466,7 +554,10 @@ export function BookingForm({
                 <button
                   key={slot}
                   type="button"
-                  onClick={() => setSelectedTime(slot)}
+                  onClick={() => {
+                    setSelectedTime(slot);
+                    changeStep(3);
+                  }}
                   style={
                     selectedTime === slot
                       ? { backgroundColor: brandColor, borderColor: brandColor }
@@ -484,11 +575,63 @@ export function BookingForm({
             </div>
           )}
         </div>
+      </>
       )}
 
-      {/* Información del invitado */}
-      {selectedTime && (
-        <div className="space-y-4 border-t pt-6">
+      {/* ---------- Step 3: Detalles ---------- */}
+      {step === 3 && selectedDate && selectedTime && (
+        <>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => changeStep(2)}
+              className="-ml-2 text-slate-500 hover:text-slate-800"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              {t('bookingForm.stepBack')}
+            </Button>
+          </div>
+
+          {/* Selection summary — keeps the chosen date/time visible */}
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+              {t('bookingForm.summaryTitle')}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-800">
+              <span className="font-semibold">
+                {selectedEventType?.name} ({selectedEventType?.duration} min)
+                {selectedEventType?.collectPayment && selectedEventType.price > 0
+                  ? ` · ${(selectedEventType.price / 100).toFixed(2)} ${selectedEventType.currency.toUpperCase()}`
+                  : ''}
+              </span>
+              <span className="capitalize text-gray-600">
+                {format(selectedDate, 'EEEE, d MMMM', { locale: dateLocale })}
+              </span>
+              <span className="font-semibold" style={{ color: brandColor }}>
+                {selectedTime}
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => changeStep(1)}
+                className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-800"
+              >
+                {t('bookingForm.changeDate')}
+              </button>
+              <button
+                type="button"
+                onClick={() => changeStep(2)}
+                className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-800"
+              >
+                {t('bookingForm.changeTime')}
+              </button>
+            </div>
+          </div>
+
+        <div className="space-y-4">
           <h4 className="font-semibold text-gray-900">Your Information</h4>
           
           <div>
@@ -700,6 +843,7 @@ export function BookingForm({
                 : t('bookingForm.confirmBooking')}
           </Button>
         </div>
+        </>
       )}
     </form>
   );

@@ -414,7 +414,15 @@
     "selectTime": "Selecciona una hora",
     "noSlots": "No hay horarios disponibles para esta fecha.",
     "prevMonth": "Mes anterior",
-    "nextMonth": "Mes siguiente"
+    "nextMonth": "Mes siguiente",
+    "stepsAria": "Pasos de la reserva",
+    "stepDate": "Fecha",
+    "stepTime": "Hora",
+    "stepDetails": "Tus datos",
+    "stepBack": "Volver",
+    "summaryTitle": "Resumen de tu reserva",
+    "changeDate": "Cambiar fecha",
+    "changeTime": "Cambiar hora"
   },
   "pricing": {
     "eyebrow": "Planes para cada etapa",

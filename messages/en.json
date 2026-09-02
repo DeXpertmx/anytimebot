@@ -414,7 +414,15 @@
     "selectTime": "Select a Time",
     "noSlots": "No available time slots for this date.",
     "prevMonth": "Previous month",
-    "nextMonth": "Next month"
+    "nextMonth": "Next month",
+    "stepsAria": "Booking steps",
+    "stepDate": "Date",
+    "stepTime": "Time",
+    "stepDetails": "Your details",
+    "stepBack": "Back",
+    "summaryTitle": "Your booking",
+    "changeDate": "Change date",
+    "changeTime": "Change time"
   },
   "pricing": {
     "eyebrow": "Plans for every stage",
