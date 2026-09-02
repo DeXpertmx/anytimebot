@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { isValidEmail, isValidPhone, addMinutes } from '@/lib/utils';
-import { sendBookingConfirmationWithTemplate } from '@/lib/email';
+import { sendBookingConfirmationWithTemplate, sendHostBookingApprovalRequest } from '@/lib/email';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability } from '@/lib/google-calendar';
@@ -484,6 +484,31 @@ export async function POST(request: NextRequest) {
           console.error('Failed to send WhatsApp confirmation:', whatsappError);
           // Don't fail the booking if WhatsApp fails
         }
+      }
+    }
+
+    // When the booking requires host confirmation it stays PENDING: notify the
+    // host by email (and Web Push below) so they can approve it from the dashboard.
+    if (booking.status === 'PENDING' && eventType.requiresConfirmation) {
+      const host = booking.eventType?.bookingPage?.user;
+      try {
+        if (host?.email) {
+          const appBaseUrl = getPublicAppUrl();
+          await sendHostBookingApprovalRequest({
+            userId: host.id,
+            to: host.email,
+            hostName: host.name,
+            guestName,
+            guestEmail,
+            guestPhone: guestPhone || undefined,
+            eventTitle: eventType.name,
+            startTime: bookingStartTime,
+            timezone,
+            dashboardUrl: `${appBaseUrl}/dashboard/bookings?status=pending`,
+          });
+        }
+      } catch (hostEmailError) {
+        console.error('Failed to send host booking-request email:', hostEmailError);
       }
     }
 

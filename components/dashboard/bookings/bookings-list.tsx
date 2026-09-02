@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { Calendar, Clock, MapPin, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -60,7 +60,13 @@ const statusLabels = {
 
 export function BookingsList({ bookings }: BookingsListProps) {
   const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState('all');
+  const searchParams = useSearchParams();
+  const requestedStatus = searchParams.get('status');
+  const initialTab =
+    requestedStatus && ['pending', 'confirmed', 'upcoming', 'past'].includes(requestedStatus)
+      ? requestedStatus
+      : 'all';
+  const [selectedTab, setSelectedTab] = useState(initialTab);
 
   const filteredBookings = bookings.filter((booking) => {
     if (selectedTab === 'all') return true;

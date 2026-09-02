@@ -807,3 +807,104 @@ export async function sendBookingReschedule(data: {
     html,
   });
 }
+
+/**
+ * Notify the host when a new booking requires their confirmation.
+ * The host approves it from the dashboard (bookings list / calendar).
+ */
+export async function sendHostBookingApprovalRequest(data: {
+  userId: string;
+  to: string;
+  hostName?: string | null;
+  guestName: string;
+  guestEmail: string;
+  guestPhone?: string | null;
+  eventTitle: string;
+  startTime: Date;
+  timezone?: string;
+  dashboardUrl: string;
+}): Promise<boolean> {
+  const {
+    userId,
+    to,
+    hostName,
+    guestName,
+    guestEmail,
+    guestPhone,
+    eventTitle,
+    startTime,
+    timezone = 'UTC',
+    dashboardUrl,
+  } = data;
+
+  const template = await getEmailTemplate(userId, 'booking_request');
+  if (template) {
+    const variables = {
+      hostName: hostName || '',
+      guestName,
+      guestEmail,
+      guestPhone: guestPhone || '',
+      eventTitle,
+      startTime: formatDateWithTimezone(startTime, timezone),
+      dashboardUrl,
+    };
+    const html = replaceTemplateVariables(template.htmlBody, variables);
+    const subject = replaceTemplateVariables(template.subject, variables);
+    return sendEmail({ to, subject, html });
+  }
+
+  const formattedDate = formatDateWithTimezone(startTime, timezone);
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+        <div style="background-color: #f59e0b; color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          <h1 style="margin: 0; font-size: 28px;">Nueva solicitud de reserva ⏳</h1>
+        </div>
+
+        <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <p style="font-size: 18px; margin-top: 0;">Hola ${hostName || 'tu'},</p>
+
+          <p style="font-size: 16px; color: #555;">
+            Has recibido una nueva solicitud de reserva que está pendiente de tu confirmación:
+          </p>
+
+          <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
+            <h2 style="margin-top: 0; color: white; font-size: 24px;">${eventTitle}</h2>
+            <div style="margin: 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3);">
+              <p style="margin: 8px 0;"><strong>👤 Cliente:</strong> ${guestName} (${guestEmail})${guestPhone ? ` · ${guestPhone}` : ''}</p>
+              <p style="margin: 8px 0;"><strong>📅 Fecha:</strong> ${formattedDate}</p>
+              <p style="margin: 8px 0;"><strong>🌍 Zona horaria:</strong> ${timezone}</p>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${dashboardUrl}" style="display: inline-block; padding: 16px 32px; background: #f59e0b; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+              ✅ Ver y aprobar en el panel
+            </a>
+            <p style="margin-top: 10px; color: #6b7280; font-size: 14px;">
+              Puedes confirmar o cancelar la reserva desde Reservas o el Calendario.
+            </p>
+          </div>
+
+          <p style="font-size: 16px; margin-top: 30px;">Un saludo,</p>
+          <p style="font-size: 16px;">El equipo de ANYTIMEBOT</p>
+
+          <div style="margin-top: 40px; padding-top: 25px; border-top: 2px solid #e5e7eb; text-align: center;">
+            <p style="color: #6b7280; font-size: 14px; margin: 5px 0;">© ${new Date().getFullYear()} <strong>ANYTIMEBOT</strong></p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `⏳ Solicitud de reserva: ${eventTitle}`,
+    html,
+  });
+}
