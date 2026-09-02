@@ -82,12 +82,14 @@ export function BookingsList({ bookings }: BookingsListProps) {
     return booking.status.toLowerCase() === selectedTab;
   });
 
-  const handleStatusChange = async (bookingId: string, status: 'CONFIRMED' | 'CANCELLED') => {
-    const confirmed =
+  const handleStatusChange = async (bookingId: string, status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED') => {
+    const message =
       status === 'CANCELLED'
-        ? window.confirm('¿Seguro que quieres cancelar esta reserva? El cliente recibirá un aviso de cancelación.')
-        : window.confirm('¿Confirmar esta reserva? El cliente recibirá la confirmación con los detalles de la cita.');
-    if (!confirmed) return;
+        ? '¿Seguro que quieres cancelar esta reserva? El cliente recibirá un aviso de cancelación.'
+        : status === 'COMPLETED'
+          ? '¿Marcar esta reserva como finalizada? Podrás añadir notas o un resumen desde el detalle.'
+          : '¿Confirmar esta reserva? El cliente recibirá la confirmación con los detalles de la cita.';
+    if (!window.confirm(message)) return;
 
     try {
       const response = await fetch(`/api/bookings/${bookingId}`, {
@@ -98,11 +100,13 @@ export function BookingsList({ bookings }: BookingsListProps) {
 
       const data = await response.json();
       if (response.ok && data.success) {
-        toast.success(
+        const successMsg =
           status === 'CONFIRMED'
             ? 'Reserva confirmada. El cliente recibirá el correo y el mensaje con los detalles.'
-            : 'Reserva cancelada. El cliente recibirá el aviso de cancelación.'
-        );
+            : status === 'COMPLETED'
+              ? 'Reserva finalizada correctamente.'
+              : 'Reserva cancelada. El cliente recibirá el aviso de cancelación.';
+        toast.success(successMsg);
         window.location.reload();
       } else {
         toast.error(data?.error || 'No se pudo actualizar la reserva');
@@ -261,6 +265,14 @@ export function BookingsList({ bookings }: BookingsListProps) {
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" />
                           Confirmar reserva
+                        </DropdownMenuItem>
+                      )}
+                      {booking.status === 'CONFIRMED' && (
+                        <DropdownMenuItem
+                          onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-2 text-indigo-600" />
+                          Finalizar cita
                         </DropdownMenuItem>
                       )}
                       {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (

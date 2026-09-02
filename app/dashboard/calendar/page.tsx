@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2 } from 'lucide-react';
+import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2, Flag, Save } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Booking {
@@ -14,6 +14,8 @@ interface Booking {
   startTime: string;
   endTime: string;
   status: string;
+  notes?: string | null;
+  completedAt?: string | null;
   paymentStatus?: string | null;
   paymentAmount?: number | null;
   paymentCurrency?: string | null;
@@ -26,6 +28,22 @@ interface TimeOff { id: string; name?: string | null; start: string; end: string
 const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const palette = ['#63b3ed', '#a78bfa', '#86efac', '#f9a8d4', '#fcd34d'];
 type ViewMode = 'month' | 'week' | 'day';
+
+const bookingStatusLabel = (status: string) =>
+  status === 'CONFIRMED'
+    ? 'Confirmada'
+    : status === 'CANCELLED'
+      ? 'Cancelada'
+      : status === 'COMPLETED'
+        ? 'Finalizada'
+        : 'Pendiente';
+
+const bookingChipStyle = (status: string) => {
+  if (status === 'CANCELLED') return { backgroundColor: '#fee2e2', color: '#991b1b', textDecoration: 'line-through' as const };
+  if (status === 'COMPLETED') return { backgroundColor: '#e2e8f0', color: '#475569' };
+  if (status === 'CONFIRMED') return { backgroundColor: '#dcfce7', color: '#166534' };
+  return { backgroundColor: '#fef3c7', color: '#92400e' };
+};
 
 export default function CalendarPage() {
   const { data: session, status } = useSession() || {};
@@ -57,6 +75,8 @@ export default function CalendarPage() {
   const [refunding, setRefunding] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [bookingVersion, setBookingVersion] = useState(0);
+  const [bookingNotesDraft, setBookingNotesDraft] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
 
   const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
 
@@ -95,6 +115,10 @@ export default function CalendarPage() {
     return () => { cancelled = true; };
   }, [selectedBooking]);
   useEffect(() => { if (session) load(); }, [session]);
+  // Sync the notes draft whenever a different booking detail is opened
+  useEffect(() => {
+    setBookingNotesDraft(selectedBooking?.notes ?? '');
+  }, [selectedBooking?.id]);
   useEffect(() => { if (searchParams.get('success') === 'true') { toast.success('Google Calendar conectado exitosamente'); window.history.replaceState({}, '', '/dashboard/calendar'); } }, [searchParams]);
 
   const monthDays = useMemo(() => { const first = new Date(month.getFullYear(), month.getMonth(), 1); const start = new Date(first); start.setDate(first.getDate() - first.getDay()); return Array.from({ length: 42 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; }); }, [month]);
@@ -157,12 +181,15 @@ export default function CalendarPage() {
     }
   };
 
-  // Confirm or cancel a booking from the detail modal
-  const handleBookingStatus = async (booking: Booking, status: 'CONFIRMED' | 'CANCELLED') => {
-    const ok = status === 'CANCELLED'
-      ? window.confirm('¿Seguro que quieres cancelar esta cita? El cliente recibirá un aviso de cancelación.')
-      : window.confirm('¿Confirmar esta cita? El cliente recibirá la confirmación con los detalles.');
-    if (!ok) return;
+  // Confirm, cancel or finish a booking from the detail modal
+  const handleBookingStatus = async (booking: Booking, status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED') => {
+    const message =
+      status === 'CANCELLED'
+        ? '¿Seguro que quieres cancelar esta cita? El cliente recibirá un aviso de cancelación.'
+        : status === 'COMPLETED'
+          ? '¿Marcar esta cita como finalizada? Podrás añadir notas o un resumen después.'
+          : '¿Confirmar esta cita? El cliente recibirá la confirmación con los detalles.';
+    if (!window.confirm(message)) return;
     setActionLoading(true);
     try {
       const res = await fetch(`/api/bookings/${booking.id}`, {
@@ -172,7 +199,8 @@ export default function CalendarPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(status === 'CONFIRMED' ? 'Cita confirmada' : 'Cita cancelada');
+        const toastMsg = status === 'CONFIRMED' ? 'Cita confirmada' : status === 'CANCELLED' ? 'Cita cancelada' : 'Cita finalizada';
+        toast.success(toastMsg);
         setSelectedBooking(prev => prev ? { ...prev, status } : prev);
         setBookingVersion(v => v + 1);
         load();
@@ -183,6 +211,34 @@ export default function CalendarPage() {
       toast.error('Error al actualizar la cita');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Save the host notes / meeting summary without changing the status
+  const saveBookingNotes = async () => {
+    if (!selectedBooking) return;
+    setNotesSaving(true);
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: selectedBooking.status,
+          notes: bookingNotesDraft.trim() ? bookingNotesDraft.trim() : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Notas guardadas');
+        setSelectedBooking(prev => prev ? { ...prev, notes: bookingNotesDraft.trim() ? bookingNotesDraft.trim() : null } : prev);
+        load();
+      } else {
+        toast.error(data.error || 'No se pudieron guardar las notas');
+      }
+    } catch {
+      toast.error('Error al guardar las notas');
+    } finally {
+      setNotesSaving(false);
     }
   };
 
@@ -311,8 +367,7 @@ export default function CalendarPage() {
                           className="block w-full truncate rounded-sm border-l-[3px] px-1 py-0.5 text-left text-[10px] leading-tight shadow-sm hover:brightness-95"
                           style={{
                             borderLeftColor: booking.eventType.color || palette[index % palette.length],
-                            backgroundColor: booking.status === 'CONFIRMED' ? '#dcfce7' : '#fef3c7',
-                            color: booking.status === 'CONFIRMED' ? '#166534' : '#92400e',
+                            ...bookingChipStyle(booking.status),
                           }}
                         >
                           <span className="font-semibold">{formatTime(booking.startTime)}</span> {booking.guestName}
@@ -364,7 +419,7 @@ export default function CalendarPage() {
                             style={{
                               top: `${(new Date(booking.startTime).getMinutes() / 60) * 60}px`,
                               borderLeftColor: booking.eventType.color || palette[0],
-                              backgroundColor: booking.status === 'CONFIRMED' ? '#dcfce7' : '#fef3c7',
+                              ...bookingChipStyle(booking.status),
                             }}
                           >
                             <strong className="block truncate text-[11px]">{booking.guestName}</strong>
@@ -412,10 +467,10 @@ export default function CalendarPage() {
               <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm">
                 <span>
                   <span className="font-medium">Estado: </span>
-                  {selectedBooking.status === 'CONFIRMED' ? 'Confirmada' : selectedBooking.status === 'CANCELLED' ? 'Cancelada' : 'Pendiente'}
+                  {bookingStatusLabel(selectedBooking.status)}
                 </span>
-                {selectedBooking.status !== 'CANCELLED' && (
-                  <div className="flex items-center gap-2">
+                {selectedBooking.status !== 'CANCELLED' && selectedBooking.status !== 'COMPLETED' && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {selectedBooking.status === 'PENDING' && (
                       <Button
                         size="sm"
@@ -425,6 +480,17 @@ export default function CalendarPage() {
                       >
                         {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                         Confirmar
+                      </Button>
+                    )}
+                    {selectedBooking.status === 'CONFIRMED' && (
+                      <Button
+                        size="sm"
+                        className="bg-indigo-600 text-white hover:bg-indigo-700"
+                        disabled={actionLoading}
+                        onClick={() => handleBookingStatus(selectedBooking, 'COMPLETED')}
+                      >
+                        {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flag className="h-3.5 w-3.5" />}
+                        Finalizar
                       </Button>
                     )}
                     <Button
@@ -439,6 +505,24 @@ export default function CalendarPage() {
                     </Button>
                   </div>
                 )}
+              </div>
+
+              {/* Notes & meeting summary */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notas y resumen de la reunión</p>
+                <textarea
+                  value={bookingNotesDraft}
+                  onChange={(e) => setBookingNotesDraft(e.target.value)}
+                  rows={3}
+                  placeholder="Escribe lo sucedido, acuerdos o un resumen de la cita..."
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none resize-none"
+                />
+                <div className="mt-2 flex justify-end">
+                  <Button size="sm" variant="outline" disabled={notesSaving} onClick={saveBookingNotes}>
+                    {notesSaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1 h-3.5 w-3.5" />}
+                    Guardar notas
+                  </Button>
+                </div>
               </div>
 
               {/* Payment info */}
@@ -515,10 +599,12 @@ export default function CalendarPage() {
                               ? 'bg-emerald-100 text-emerald-700'
                               : item.status === 'CANCELLED'
                                 ? 'bg-rose-100 text-rose-700'
-                                : 'bg-amber-100 text-amber-700'
+                                : item.status === 'COMPLETED'
+                                  ? 'bg-slate-200 text-slate-600'
+                                  : 'bg-amber-100 text-amber-700'
                           }`}
                         >
-                          {item.status === 'CONFIRMED' ? 'Confirmada' : item.status === 'CANCELLED' ? 'Cancelada' : 'Pendiente'}
+                          {bookingStatusLabel(item.status)}
                         </span>
                       </li>
                     ))}

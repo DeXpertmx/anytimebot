@@ -389,6 +389,10 @@ model Booking {
   status     BookingStatus @default(PENDING)
   formData   Json?       @map("form_data") // Custom form fields data
   googleCalendarEventId String? @map("google_calendar_event_id") // Google Calendar Event ID
+
+  // Host notes / post-meeting summary (internal)
+  notes       String?   @db.Text
+  completedAt DateTime? @map("completed_at") // When the host marked the appointment as finished
   
   // Team Assignment
   assignedMemberId String? @map("assigned_member_id") // Which team member is assigned

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Clock, MapPin, User, Mail, Phone, Video, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, User, Mail, Phone, Video, Loader2, CheckCircle2, XCircle, Flag, NotebookPen, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,9 @@ interface Booking {
   endTime: string;
   timezone: string;
   status: string;
+  notes?: string | null;
+  completedAt?: string | null;
+  updatedAt?: string;
   formData?: any;
   eventType: {
     name: string;
@@ -31,11 +34,23 @@ interface Booking {
   };
 }
 
+function bookingStatusLabel(status: string) {
+  switch (status) {
+    case 'CONFIRMED': return 'Confirmada';
+    case 'CANCELLED': return 'Cancelada';
+    case 'COMPLETED': return 'Finalizada';
+    default: return 'Pendiente';
+  }
+}
+
 export default function BookingDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
 
   useEffect(() => {
     loadBooking();
@@ -49,12 +64,74 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
       const data = await response.json();
       if (data.success) {
         setBooking(data.data);
+        setNotesDraft(data.data.notes ?? '');
       }
     } catch (error) {
       console.error('Error loading booking:', error);
       toast.error('No se pudo cargar la reserva');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Change the booking status (confirm / finish / cancel) with guest notification.
+  const updateBookingStatus = async (status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED') => {
+    if (!booking || actionLoading) return;
+    const message =
+      status === 'CANCELLED'
+        ? '¿Seguro que quieres cancelar esta cita? El cliente recibirá un aviso de cancelación.'
+        : status === 'COMPLETED'
+          ? '¿Marcar esta cita como finalizada? Podrás añadir notas o un resumen después.'
+          : '¿Confirmar esta cita? El cliente recibirá la confirmación con los detalles.';
+    if (!window.confirm(message)) return;
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        const toastMsg = status === 'CONFIRMED' ? 'Cita confirmada' : status === 'COMPLETED' ? 'Cita finalizada' : 'Cita cancelada';
+        toast.success(toastMsg);
+        await loadBooking();
+      } else {
+        toast.error(data?.error || 'No se pudo actualizar la cita');
+      }
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      toast.error('Error al actualizar la cita');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Save the host notes / meeting summary without changing the status.
+  const saveNotes = async () => {
+    if (!booking || notesSaving) return;
+    setNotesSaving(true);
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: booking.status,
+          notes: notesDraft.trim() ? notesDraft.trim() : null,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success('Notas guardadas');
+        setBooking({ ...booking, notes: notesDraft.trim() ? notesDraft.trim() : null });
+      } else {
+        toast.error(data?.error || 'No se pudieron guardar las notas');
+      }
+    } catch (error) {
+      console.error('Error saving booking notes:', error);
+      toast.error('Error al guardar las notas');
+    } finally {
+      setNotesSaving(false);
     }
   };
 
@@ -130,7 +207,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           {(booking.status === 'CONFIRMED' || booking.status === 'PENDING') && (
             <Button
               onClick={joinMeeting}
@@ -145,6 +222,38 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
               {joining ? 'Creando sala...' : 'Unirse a la Reunión'}
             </Button>
           )}
+          {booking.status === 'PENDING' && (
+            <Button
+              variant="outline"
+              disabled={actionLoading}
+              onClick={() => updateBookingStatus('CONFIRMED')}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              Confirmar
+            </Button>
+          )}
+          {booking.status === 'CONFIRMED' && (
+            <Button
+              disabled={actionLoading}
+              onClick={() => updateBookingStatus('COMPLETED')}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Flag className="h-4 w-4 mr-2" />}
+              Finalizar cita
+            </Button>
+          )}
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+            <Button
+              variant="outline"
+              disabled={actionLoading}
+              onClick={() => updateBookingStatus('CANCELLED')}
+              className="border-rose-300 text-rose-600 hover:bg-rose-50"
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Cancelar cita
+            </Button>
+          )}
           <Badge
             variant={
               booking.status === 'CONFIRMED'
@@ -154,7 +263,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                 : 'secondary'
             }
           >
-            {booking.status}
+            {bookingStatusLabel(booking.status)}
           </Badge>
         </div>
       </div>
@@ -266,6 +375,36 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                     </a>
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notas y resumen del host */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <NotebookPen className="h-5 w-5" />
+                Notas y resumen de la reunión
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                rows={4}
+                placeholder="Escribe lo sucedido, acuerdos tomados o un resumen de la cita..."
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <div className="mt-3 flex items-center justify-end gap-2">
+                {booking.notes ? (
+                  <p className="mr-auto text-xs text-muted-foreground">Última actualización: {new Date(booking.updatedAt ?? booking.completedAt ?? new Date()).toLocaleString('es-ES')}</p>
+                ) : (
+                  <p className="mr-auto text-xs text-muted-foreground">Notas internas: solo las verás tú.</p>
+                )}
+                <Button variant="outline" onClick={saveNotes} disabled={notesSaving}>
+                  {notesSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Guardar notas
+                </Button>
               </div>
             </CardContent>
           </Card>

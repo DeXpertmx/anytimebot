@@ -78,7 +78,10 @@ export async function GET(
   }
 }
 
-// PUT /api/bookings/[id] - Update booking status
+// PUT /api/bookings/[id] - Update booking status and/or host notes.
+// Accepts CONFIRMED | CANCELLED | COMPLETED | PENDING. Guest notifications
+// (email/WhatsApp) are only sent when the status actually changes, so saving
+// notes or re-saving the same state never re-notifies.
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -93,9 +96,16 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { status } = body;
+    const { status, notes } = body;
 
-    if (!status || !['CONFIRMED', 'CANCELLED', 'PENDING'].includes(status)) {
+    if ((!status || !['CONFIRMED', 'CANCELLED', 'PENDING', 'COMPLETED'].includes(status)) && notes === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid payload' },
+        { status: 400 }
+      );
+    }
+
+    if (status && !['CONFIRMED', 'CANCELLED', 'PENDING', 'COMPLETED'].includes(status)) {
       return NextResponse.json(
         { success: false, error: 'Invalid status' },
         { status: 400 }
@@ -121,9 +131,35 @@ export async function PUT(
       );
     }
 
+    const prevStatus = existingBooking.status;
+    const nextStatus = (status as string) || prevStatus;
+
+    // A meeting can only be marked as finished if it was pending/confirmed;
+    // cancelling after it was already finished is not allowed.
+    if (nextStatus === 'COMPLETED' && prevStatus !== 'COMPLETED' && !['CONFIRMED', 'PENDING'].includes(prevStatus)) {
+      return NextResponse.json(
+        { success: false, error: 'Solo se puede finalizar una cita confirmada o pendiente' },
+        { status: 400 }
+      );
+    }
+    if (nextStatus === 'CANCELLED' && prevStatus === 'COMPLETED') {
+      return NextResponse.json(
+        { success: false, error: 'No se puede cancelar una cita ya finalizada' },
+        { status: 400 }
+      );
+    }
+
+    const data: Record<string, unknown> = {};
+    if (status) data.status = nextStatus;
+    if (notes !== undefined) data.notes = notes === '' || notes === null ? null : String(notes);
+    if (nextStatus === 'COMPLETED' && prevStatus !== 'COMPLETED') data.completedAt = new Date();
+    if (prevStatus === 'COMPLETED' && nextStatus !== 'COMPLETED') data.completedAt = null;
+
+    const statusChanged = prevStatus !== nextStatus;
+
     const updatedBooking = await prisma.booking.update({
       where: { id: params.id },
-      data: { status: status as any },
+      data: data as any,
       include: {
         eventType: {
           include: {
@@ -140,9 +176,9 @@ export async function PUT(
     const ownerUser = updatedBooking.eventType?.bookingPage?.user ?? null;
     const baseUrl = getPublicAppUrl();
 
-    // When the host confirms a pending booking, notify the guest by email and
-    // WhatsApp with the booking details plus links to reschedule/cancel.
-    if (status === 'CONFIRMED') {
+    // When the host confirms a booking, notify the guest by email and WhatsApp
+    // with the details plus links to reschedule/cancel (only on a real change).
+    if (nextStatus === 'CONFIRMED' && statusChanged) {
       const cancelToken = generateBookingToken(updatedBooking.id, 'cancel');
       const rescheduleToken = generateBookingToken(updatedBooking.id, 'reschedule');
 
@@ -206,8 +242,8 @@ export async function PUT(
       }
     }
 
-    // Notify the guest by email when the host cancels a booking.
-    if (status === 'CANCELLED') {
+    // Notify the guest by email when the host cancels a booking (real change only).
+    if (nextStatus === 'CANCELLED' && statusChanged) {
       try {
         await sendCancellationEmail({
           to: updatedBooking.guestEmail,
@@ -221,8 +257,8 @@ export async function PUT(
       }
     }
 
-    // Send WhatsApp notification if booking is cancelled and user has WhatsApp enabled
-    if (status === 'CANCELLED' && updatedBooking.guestPhone) {
+    // Send WhatsApp cancellation if booking is cancelled and user has WhatsApp enabled
+    if (nextStatus === 'CANCELLED' && statusChanged && updatedBooking.guestPhone) {
       const user = await prisma.user.findUnique({
         where: { id: updatedBooking.eventType.bookingPage.user.id },
         select: {
@@ -267,23 +303,31 @@ export async function PUT(
       }
     }
 
-    if (status === 'CANCELLED') {
-      await notifyBookingCancelled(
-        updatedBooking.eventType.bookingPage.user.id,
-        updatedBooking.guestName,
-        updatedBooking.eventType.name,
-        updatedBooking.id,
-      );
+    if (nextStatus === 'CANCELLED' && statusChanged) {
+      try {
+        await notifyBookingCancelled(
+          updatedBooking.eventType.bookingPage.user.id,
+          updatedBooking.guestName,
+          updatedBooking.eventType.name,
+          updatedBooking.id,
+        );
+      } catch (pushError) {
+        console.error('Failed to notify booking cancelled:', pushError);
+      }
 
       // Notify the Anytimebot admin of the cancellation via the system WhatsApp number.
-      await notifyAdminBookingCancelled({
-        guestName: updatedBooking.guestName,
-        guestEmail: updatedBooking.guestEmail,
-        guestPhone: updatedBooking.guestPhone,
-        eventTypeName: updatedBooking.eventType.name,
-        startTime: updatedBooking.startTime,
-        timezone: updatedBooking.timezone,
-      });
+      try {
+        await notifyAdminBookingCancelled({
+          guestName: updatedBooking.guestName,
+          guestEmail: updatedBooking.guestEmail,
+          guestPhone: updatedBooking.guestPhone,
+          eventTypeName: updatedBooking.eventType.name,
+          startTime: updatedBooking.startTime,
+          timezone: updatedBooking.timezone,
+        });
+      } catch (adminError) {
+        console.error('Failed to notify admin of cancellation:', adminError);
+      }
     }
 
     return NextResponse.json({
