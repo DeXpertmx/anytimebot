@@ -196,14 +196,21 @@ export async function sendBookingConfirmation(
     eventTypeName: string;
     startTime: string;
     timezone: string;
+    cancelUrl?: string;
+    rescheduleUrl?: string;
   }
 ): Promise<boolean> {
+  const manageBlock =
+    bookingData.cancelUrl || bookingData.rescheduleUrl
+      ? `\n\n🔧 ¿Necesitas modificar o cancelar tu cita?\n${bookingData.rescheduleUrl ? `🔄 Reprogramar: ${bookingData.rescheduleUrl}\n` : ''}${bookingData.cancelUrl ? `❌ Cancelar: ${bookingData.cancelUrl}` : ''}`
+      : '';
+
   const message = `¡Hola ${bookingData.guestName}! 👋
 
 Tu reunión ha sido confirmada:
 📅 Tipo: ${bookingData.eventTypeName}
 🕐 Fecha y hora: ${bookingData.startTime}
-🌍 Zona horaria: ${bookingData.timezone}
+🌍 Zona horaria: ${bookingData.timezone}${manageBlock}
 
 ¡Te esperamos!`;
 

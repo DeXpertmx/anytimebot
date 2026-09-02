@@ -55,6 +55,7 @@ export async function createCalendarEvent(
     start: Date;
     end: Date;
     attendees?: string[];
+    conferenceData?: calendar_v3.Schema$ConferenceData;
   }
 ) {
   try {
@@ -73,6 +74,7 @@ export async function createCalendarEvent(
         timeZone: 'UTC',
       },
       attendees: eventData.attendees?.map((email) => ({ email })),
+      conferenceData: eventData.conferenceData,
       reminders: {
         useDefault: true,
       },
@@ -81,6 +83,7 @@ export async function createCalendarEvent(
     const response = await calendar.events.insert({
       calendarId: 'primary',
       requestBody: event,
+      conferenceDataVersion: eventData.conferenceData ? 1 : undefined,
       sendUpdates: 'all',
     });
 
@@ -101,6 +104,7 @@ export async function updateCalendarEvent(
     start?: Date;
     end?: Date;
     attendees?: string[];
+    conferenceData?: calendar_v3.Schema$ConferenceData;
   }
 ) {
   try {
@@ -130,6 +134,7 @@ export async function updateCalendarEvent(
       calendarId: 'primary',
       eventId,
       requestBody: event,
+      conferenceDataVersion: eventData.conferenceData ? 1 : undefined,
       sendUpdates: 'all',
     });
 

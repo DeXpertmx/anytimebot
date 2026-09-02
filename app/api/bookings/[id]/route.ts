@@ -4,8 +4,20 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendBookingCancellation } from '@/lib/evolution-api';
-import { notifyAdminBookingCancelled } from '@/lib/system-whatsapp';
+import {
+  sendBookingCancellation as sendCancellationEmail,
+  sendBookingConfirmationWithTemplate,
+} from '@/lib/email';
+import {
+  sendBookingConfirmation as sendWhatsAppBookingConfirmation,
+} from '@/lib/whatsapp';
+import {
+  notifyAdminBookingCancelled,
+  sendSystemBookingConfirmation,
+} from '@/lib/system-whatsapp';
 import { notifyBookingCancelled } from '@/lib/push-notifications';
+import { generateBookingToken } from '@/lib/booking-tokens';
+import { getPublicAppUrl } from '@/lib/public-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,6 +136,90 @@ export async function PUT(
         },
       },
     });
+
+    const ownerUser = updatedBooking.eventType?.bookingPage?.user ?? null;
+    const baseUrl = getPublicAppUrl();
+
+    // When the host confirms a pending booking, notify the guest by email and
+    // WhatsApp with the booking details plus links to reschedule/cancel.
+    if (status === 'CONFIRMED') {
+      const cancelToken = generateBookingToken(updatedBooking.id, 'cancel');
+      const rescheduleToken = generateBookingToken(updatedBooking.id, 'reschedule');
+
+      let meetingPageUrl: string | undefined;
+      try {
+        const vs = await prisma.videoSession.findUnique({ where: { bookingId: updatedBooking.id } });
+        if (vs) meetingPageUrl = `${baseUrl}/meeting/${updatedBooking.id}`;
+      } catch {
+        // Best-effort
+      }
+
+      try {
+        await sendBookingConfirmationWithTemplate({
+          userId: ownerUser?.id ?? '',
+          to: updatedBooking.guestEmail,
+          guestName: updatedBooking.guestName,
+          eventTitle: updatedBooking.eventType.name,
+          startTime: updatedBooking.startTime,
+          duration: updatedBooking.eventType.duration,
+          location: updatedBooking.eventType.location,
+          videoLink: updatedBooking.eventType.videoLink || undefined,
+          timezone: updatedBooking.timezone,
+          bookingId: updatedBooking.id,
+          cancelToken,
+          rescheduleToken,
+          meetingPageUrl,
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+      }
+
+      if (updatedBooking.guestPhone) {
+        const cancelUrl = `${baseUrl}/booking/cancel?token=${cancelToken}`;
+        const rescheduleUrl = `${baseUrl}/booking/reschedule?token=${rescheduleToken}`;
+        try {
+          const sent = await sendWhatsAppBookingConfirmation(
+            ownerUser?.id ?? '',
+            updatedBooking.guestPhone,
+            {
+              guestName: updatedBooking.guestName,
+              eventTypeName: updatedBooking.eventType.name,
+              startTime: updatedBooking.startTime.toLocaleString('es-ES', { timeZone: updatedBooking.timezone }),
+              timezone: updatedBooking.timezone,
+              cancelUrl,
+              rescheduleUrl,
+            },
+          );
+          if (!sent) {
+            await sendSystemBookingConfirmation(updatedBooking.guestPhone, {
+              guestName: updatedBooking.guestName,
+              eventTypeName: updatedBooking.eventType.name,
+              startTime: updatedBooking.startTime.toLocaleString('es-ES', { timeZone: updatedBooking.timezone }),
+              timezone: updatedBooking.timezone,
+              cancelUrl,
+              rescheduleUrl,
+            });
+          }
+        } catch (whatsappError) {
+          console.error('Failed to send WhatsApp confirmation:', whatsappError);
+        }
+      }
+    }
+
+    // Notify the guest by email when the host cancels a booking.
+    if (status === 'CANCELLED') {
+      try {
+        await sendCancellationEmail({
+          to: updatedBooking.guestEmail,
+          guestName: updatedBooking.guestName,
+          eventTitle: updatedBooking.eventType.name,
+          startTime: updatedBooking.startTime,
+          timezone: updatedBooking.timezone,
+        });
+      } catch (emailError) {
+        console.error('Failed to send cancellation email:', emailError);
+      }
+    }
 
     // Send WhatsApp notification if booking is cancelled and user has WhatsApp enabled
     if (status === 'CANCELLED' && updatedBooking.guestPhone) {

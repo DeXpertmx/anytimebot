@@ -473,10 +473,21 @@ ${bookingSummary(data)}${amount}`;
 /** Booking confirmation sent from the Anytimebot notification number. */
 export async function sendSystemBookingConfirmation(
   to: string,
-  data: { guestName: string; eventTypeName: string; startTime: string; timezone: string },
+  data: {
+    guestName: string;
+    eventTypeName: string;
+    startTime: string;
+    timezone: string;
+    cancelUrl?: string;
+    rescheduleUrl?: string;
+  },
   deps?: SystemWhatsAppDeps,
 ): Promise<boolean> {
-  const message = `¡Hola ${data.guestName}! 👋\n\nTu reunión ha sido confirmada:\n📅 Tipo: ${data.eventTypeName}\n🕐 Fecha y hora: ${data.startTime}\n🌍 Zona horaria: ${data.timezone}\n\n¡Te esperamos!`;
+  const manageBlock =
+    data.cancelUrl || data.rescheduleUrl
+      ? `\n\n🔧 ¿Necesitas modificar o cancelar tu cita?\n${data.rescheduleUrl ? `🔄 Reprogramar: ${data.rescheduleUrl}\n` : ''}${data.cancelUrl ? `❌ Cancelar: ${data.cancelUrl}` : ''}`
+      : '';
+  const message = `¡Hola ${data.guestName}! 👋\n\nTu reunión ha sido confirmada:\n📅 Tipo: ${data.eventTypeName}\n🕐 Fecha y hora: ${data.startTime}\n🌍 Zona horaria: ${data.timezone}${manageBlock}\n\n¡Te esperamos!`;
   return sendSystemWhatsAppMessage(to, message, undefined, deps);
 }
 

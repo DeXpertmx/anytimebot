@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb } from 'lucide-react';
+import { Calendar, Clock, MapPin, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'react-hot-toast';
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
@@ -75,19 +76,34 @@ export function BookingsList({ bookings }: BookingsListProps) {
     return booking.status.toLowerCase() === selectedTab;
   });
 
-  const handleCancelBooking = async (bookingId: string) => {
+  const handleStatusChange = async (bookingId: string, status: 'CONFIRMED' | 'CANCELLED') => {
+    const confirmed =
+      status === 'CANCELLED'
+        ? window.confirm('¿Seguro que quieres cancelar esta reserva? El cliente recibirá un aviso de cancelación.')
+        : window.confirm('¿Confirmar esta reserva? El cliente recibirá la confirmación con los detalles de la cita.');
+    if (!confirmed) return;
+
     try {
       const response = await fetch(`/api/bookings/${bookingId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
+        body: JSON.stringify({ status }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(
+          status === 'CONFIRMED'
+            ? 'Reserva confirmada. El cliente recibirá el correo y el mensaje con los detalles.'
+            : 'Reserva cancelada. El cliente recibirá el aviso de cancelación.'
+        );
         window.location.reload();
+      } else {
+        toast.error(data?.error || 'No se pudo actualizar la reserva');
       }
     } catch (error) {
-      console.error('Error cancelling booking:', error);
+      console.error('Error updating booking:', error);
+      toast.error('Error al actualizar la reserva');
     }
   };
 
@@ -235,15 +251,15 @@ export function BookingsList({ bookings }: BookingsListProps) {
                       </DropdownMenuItem>
                       {booking.status === 'PENDING' && (
                         <DropdownMenuItem
-                          onClick={() => handleCancelBooking(booking.id)}
-                          className="text-red-600"
+                          onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
                         >
-                          Cancelar reserva
+                          <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" />
+                          Confirmar reserva
                         </DropdownMenuItem>
                       )}
-                      {booking.status === 'CONFIRMED' && (
+                      {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                         <DropdownMenuItem
-                          onClick={() => handleCancelBooking(booking.id)}
+                          onClick={() => handleStatusChange(booking.id, 'CANCELLED')}
                           className="text-red-600"
                         >
                           Cancelar reserva

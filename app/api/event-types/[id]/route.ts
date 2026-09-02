@@ -121,7 +121,7 @@ export async function PUT(
     if (bufferTime !== undefined) updateData.bufferTime = parseInt(bufferTime);
     if (location !== undefined) updateData.location = location;
     if (videoLink !== undefined) updateData.videoLink = videoLink;
-    if (videoProvider !== undefined) updateData.videoProvider = videoProvider;
+    if (videoProvider !== undefined) updateData.videoProvider = videoProvider === 'DAILY' ? 'GOOGLE_MEET' : videoProvider;
     if (color !== undefined) updateData.color = color;
     if (requiresConfirmation !== undefined) updateData.requiresConfirmation = requiresConfirmation;
     if (price !== undefined) updateData.price = parseInt(price);
@@ -133,7 +133,7 @@ export async function PUT(
     if (formSchema !== undefined) updateData.formSchema = formSchema;
     if (routingRules !== undefined) updateData.routingRules = routingRules;
     if (enableRouting !== undefined) updateData.enableRouting = enableRouting;
-    if (videoProvider !== undefined) updateData.videoProvider = videoProvider;
+    if (videoProvider !== undefined) updateData.videoProvider = videoProvider === 'DAILY' ? 'GOOGLE_MEET' : videoProvider;
     if (enableEmbeddedVideo !== undefined) updateData.enableEmbeddedVideo = enableEmbeddedVideo;
     if (enableLiveAI !== undefined) updateData.enableLiveAI = enableLiveAI;
     if (enableRecording !== undefined) updateData.enableRecording = enableRecording;

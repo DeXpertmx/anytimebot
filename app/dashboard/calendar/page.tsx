@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus } from 'lucide-react';
+import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Booking {
@@ -55,6 +55,7 @@ export default function CalendarPage() {
   const [newNotes, setNewNotes] = useState('');
   const [creating, setCreating] = useState(false);
   const [refunding, setRefunding] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [bookingVersion, setBookingVersion] = useState(0);
 
   const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
@@ -153,6 +154,35 @@ export default function CalendarPage() {
       toast.error('Error al procesar el reembolso');
     } finally {
       setRefunding(false);
+    }
+  };
+
+  // Confirm or cancel a booking from the detail modal
+  const handleBookingStatus = async (booking: Booking, status: 'CONFIRMED' | 'CANCELLED') => {
+    const ok = status === 'CANCELLED'
+      ? window.confirm('¿Seguro que quieres cancelar esta cita? El cliente recibirá un aviso de cancelación.')
+      : window.confirm('¿Confirmar esta cita? El cliente recibirá la confirmación con los detalles.');
+    if (!ok) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(status === 'CONFIRMED' ? 'Cita confirmada' : 'Cita cancelada');
+        setSelectedBooking(prev => prev ? { ...prev, status } : prev);
+        setBookingVersion(v => v + 1);
+        load();
+      } else {
+        toast.error(data.error || 'No se pudo actualizar la cita');
+      }
+    } catch {
+      toast.error('Error al actualizar la cita');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -379,8 +409,36 @@ export default function CalendarPage() {
                 <Mail className="h-4 w-4 text-indigo-500" />
                 <p className="text-sm text-slate-600">{selectedBooking.guestEmail}</p>
               </div>
-              <div className="rounded-lg bg-slate-50 p-3 text-sm">
-                <span className="font-medium">Estado: </span>{selectedBooking.status === 'CONFIRMED' ? 'Confirmada' : 'Pendiente'}
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm">
+                <span>
+                  <span className="font-medium">Estado: </span>
+                  {selectedBooking.status === 'CONFIRMED' ? 'Confirmada' : selectedBooking.status === 'CANCELLED' ? 'Cancelada' : 'Pendiente'}
+                </span>
+                {selectedBooking.status !== 'CANCELLED' && (
+                  <div className="flex items-center gap-2">
+                    {selectedBooking.status === 'PENDING' && (
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        disabled={actionLoading}
+                        onClick={() => handleBookingStatus(selectedBooking, 'CONFIRMED')}
+                      >
+                        {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                        Confirmar
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                      disabled={actionLoading}
+                      onClick={() => handleBookingStatus(selectedBooking, 'CANCELLED')}
+                    >
+                      {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Payment info */}

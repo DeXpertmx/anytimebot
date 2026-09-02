@@ -353,10 +353,24 @@ export async function POST(request: NextRequest) {
             summary: `${eventType.name} - ${guestName}`,
             description: `Booking with ${guestName}\nEmail: ${guestEmail}${guestPhone ? `\nPhone: ${guestPhone}` : ''}`,
             location: eventType.location === 'video' && eventType.videoLink ? eventType.videoLink : eventType.location,
+            conferenceData: eventType.videoProvider === 'GOOGLE_MEET' ? {
+              createRequest: {
+                requestId: `anytimebot-${booking.id}`,
+                conferenceSolutionKey: { type: 'hangoutsMeet' },
+              },
+            } : undefined,
             start: bookingStartTime,
             end: bookingEndTime,
             attendees: [guestEmail],
           });
+
+          const generatedMeetUrl = eventType.videoProvider === 'GOOGLE_MEET'
+            ? calendarEvent?.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === 'video')?.uri
+            : undefined;
+
+          if (generatedMeetUrl) {
+            eventType.videoLink = generatedMeetUrl;
+          }
 
           if (calendarEvent?.id) {
             googleCalendarEventId = calendarEvent.id;
@@ -405,58 +419,71 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send confirmation email
-    try {
-      const baseUrl = getPublicAppUrl();
-      const meetingPageUrl = videoSession ? `${baseUrl}/meeting/${booking.id}` : undefined;
-
-      await sendBookingConfirmationWithTemplate({
-        userId: booking.eventType.bookingPage.userId,
-        to: guestEmail,
-        guestName,
-        eventTitle: eventType.name,
-        startTime: bookingStartTime,
-        duration: eventType.duration,
-        location: eventType.location,
-        videoLink: eventType.videoLink || undefined,
-        timezone,
-        bookingId: booking.id,
-        cancelToken,
-        rescheduleToken,
-        meetingPageUrl,
-      });
-    } catch (emailError) {
-      console.error('Failed to send confirmation email:', emailError);
-      // Don't fail the booking if email fails
-    }
-
-    // Send WhatsApp notification if guest has phone
-    if (guestPhone && booking.eventType.bookingPage.userId) {
+    // Notify the guest only when the booking is actually confirmed. For event
+    // types that require host confirmation the status is PENDING here, so the
+    // guest receives the confirmation (with reschedule/cancel links) later when
+    // the host confirms it from the dashboard.
+    if (booking.status === 'CONFIRMED') {
+      // Send confirmation email
       try {
-        const sent = await sendWhatsAppBookingConfirmation(
-          booking.eventType.bookingPage.userId,
-          guestPhone,
-          {
-            guestName,
-            eventTypeName: eventType.name,
-            startTime: bookingStartTime.toLocaleString('es-ES', { timeZone: timezone }),
-            timezone,
-          }
-        );
+        const baseUrl = getPublicAppUrl();
+        const meetingPageUrl = videoSession ? `${baseUrl}/meeting/${booking.id}` : undefined;
 
-        // Fallback: when the business hasn't connected its own WhatsApp, send the
-        // confirmation from the Anytimebot notification number.
-        if (!sent) {
-          await sendSystemBookingConfirmation(guestPhone, {
-            guestName,
-            eventTypeName: eventType.name,
-            startTime: bookingStartTime.toLocaleString('es-ES', { timeZone: timezone }),
-            timezone,
-          });
+        await sendBookingConfirmationWithTemplate({
+          userId: booking.eventType.bookingPage.userId,
+          to: guestEmail,
+          guestName,
+          eventTitle: eventType.name,
+          startTime: bookingStartTime,
+          duration: eventType.duration,
+          location: eventType.location,
+          videoLink: eventType.videoLink || undefined,
+          timezone,
+          bookingId: booking.id,
+          cancelToken,
+          rescheduleToken,
+          meetingPageUrl,
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't fail the booking if email fails
+      }
+
+      // Send WhatsApp notification if guest has phone
+      if (guestPhone && booking.eventType.bookingPage.userId) {
+        const appBaseUrl = getPublicAppUrl();
+        const cancelUrl = `${appBaseUrl}/booking/cancel?token=${cancelToken}`;
+        const rescheduleUrl = `${appBaseUrl}/booking/reschedule?token=${rescheduleToken}`;
+        try {
+          const sent = await sendWhatsAppBookingConfirmation(
+            booking.eventType.bookingPage.userId,
+            guestPhone,
+            {
+              guestName,
+              eventTypeName: eventType.name,
+              startTime: bookingStartTime.toLocaleString('es-ES', { timeZone: timezone }),
+              timezone,
+              cancelUrl,
+              rescheduleUrl,
+            }
+          );
+
+          // Fallback: when the business hasn't connected its own WhatsApp, send the
+          // confirmation from the Anytimebot notification number.
+          if (!sent) {
+            await sendSystemBookingConfirmation(guestPhone, {
+              guestName,
+              eventTypeName: eventType.name,
+              startTime: bookingStartTime.toLocaleString('es-ES', { timeZone: timezone }),
+              timezone,
+              cancelUrl,
+              rescheduleUrl,
+            });
+          }
+        } catch (whatsappError) {
+          console.error('Failed to send WhatsApp confirmation:', whatsappError);
+          // Don't fail the booking if WhatsApp fails
         }
-      } catch (whatsappError) {
-        console.error('Failed to send WhatsApp confirmation:', whatsappError);
-        // Don't fail the booking if WhatsApp fails
       }
     }
 

@@ -85,7 +85,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     color: eventType.color,
     requiresConfirmation: eventType.requiresConfirmation,
     bookingPageId: eventType.bookingPageId,
-    videoProvider: eventType.videoProvider || 'DAILY',
+    videoProvider: eventType.videoProvider === 'DAILY' ? 'GOOGLE_MEET' : (eventType.videoProvider || 'GOOGLE_MEET'),
     enableEmbeddedVideo: eventType.enableEmbeddedVideo || false,
     enableLiveAI: eventType.enableLiveAI || false,
     enableRecording: eventType.enableRecording || false,
@@ -454,7 +454,6 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DAILY">{t('eventTypes.dailyRecommendedFull')}</SelectItem>
                   <SelectItem value="GOOGLE_MEET">{t('eventTypes.googleMeet')}</SelectItem>
                   <SelectItem value="ZOOM">{t('eventTypes.zoom')}</SelectItem>
                   <SelectItem value="TEAMS">{t('eventTypes.teams')}</SelectItem>
@@ -466,7 +465,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               </p>
             </div>
 
-            {formData.videoProvider === 'DAILY' && (
+            {false && formData.videoProvider === 'DAILY' && (
               <>
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                   <div className="space-y-0.5">

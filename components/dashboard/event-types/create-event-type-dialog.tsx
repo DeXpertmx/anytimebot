@@ -50,7 +50,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
     bufferTime: '5',
     location: 'video',
     videoLink: '',
-    videoProvider: 'DAILY',
+    videoProvider: 'GOOGLE_MEET',
     color: '#6366f1',
     requiresConfirmation: false,
     price: '0',
@@ -131,7 +131,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           bufferTime: '5',
           location: 'video',
           videoLink: '',
-          videoProvider: 'DAILY',
+          videoProvider: 'GOOGLE_MEET',
           color: '#6366f1',
           requiresConfirmation: false,
           price: '0',
@@ -184,7 +184,6 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
   ];
 
   const videoProviderOptions = [
-    { value: 'DAILY', label: t('eventTypes.dailyRecommended') },
     { value: 'GOOGLE_MEET', label: t('eventTypes.googleMeet') },
     { value: 'ZOOM', label: t('eventTypes.zoom') },
     { value: 'TEAMS', label: t('eventTypes.teams') },
