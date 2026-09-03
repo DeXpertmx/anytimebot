@@ -292,6 +292,8 @@
     "emptyDesc": "Los clientes aparecen automáticamente cuando alguien reserva una cita",
     "editTitle": "Editar cliente",
     "name": "Nombre",
+    "company": "Empresa",
+    "email": "Email",
     "phone": "Teléfono",
     "notes": "Notas",
     "notesPlaceholder": "Notas internas sobre este cliente...",

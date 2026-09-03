@@ -137,6 +137,7 @@ model Customer {
   userId    String   @map("user_id")
   email     String
   name      String?
+  company   String?
   phone     String?
   notes     String?
   tags      String[] @default([])

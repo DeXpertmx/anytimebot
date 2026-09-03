@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
         { email: { contains: q, mode: 'insensitive' } },
+        { company: { contains: q, mode: 'insensitive' } },
         { phone: { contains: q } },
         { tags: { has: q.toLowerCase() } },
       ];
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest) {
     const header = [
       'name',
       'email',
+      'company',
       'phone',
       'tags',
       'notes',
@@ -99,6 +101,7 @@ export async function GET(request: NextRequest) {
       return [
         customer.name || '',
         customer.email,
+        customer.company || '',
         customer.phone || '',
         customer.tags.join('; '),
         customer.notes || '',

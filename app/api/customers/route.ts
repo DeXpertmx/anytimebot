@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
         { email: { contains: q, mode: 'insensitive' } },
+        { company: { contains: q, mode: 'insensitive' } },
         { phone: { contains: q } },
         { tags: { has: q.toLowerCase() } },
       ];

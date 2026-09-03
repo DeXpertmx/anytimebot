@@ -292,6 +292,8 @@
     "emptyDesc": "Customers appear automatically when someone books a meeting",
     "editTitle": "Edit customer",
     "name": "Name",
+    "company": "Company",
+    "email": "Email",
     "phone": "Phone",
     "notes": "Notes",
     "notesPlaceholder": "Internal notes about this customer...",

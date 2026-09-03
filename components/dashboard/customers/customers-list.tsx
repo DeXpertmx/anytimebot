@@ -17,6 +17,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
 import {
+  Building2,
   CalendarDays,
   ChevronDown,
   ChevronUp,
@@ -36,6 +37,7 @@ interface Customer {
   id: string;
   email: string;
   name?: string | null;
+  company?: string | null;
   phone?: string | null;
   notes?: string | null;
   tags: string[];
@@ -69,7 +71,14 @@ export function CustomersList() {
   const [availableTags, setAvailableTags] = useState<{ name: string; count: number }[]>([]);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', notes: '', tags: [] as string[] });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    company: '',
+    phone: '',
+    notes: '',
+    tags: [] as string[],
+  });
   const [tagInput, setTagInput] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -146,6 +155,8 @@ export function CustomersList() {
     setEditing(customer);
     setForm({
       name: customer.name || '',
+      email: customer.email || '',
+      company: customer.company || '',
       phone: customer.phone || '',
       notes: customer.notes || '',
       tags: [...customer.tags],
@@ -351,6 +362,12 @@ export function CustomersList() {
                           <Mail className="h-3.5 w-3.5" />
                           {customer.email}
                         </span>
+                        {customer.company && (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="h-3.5 w-3.5" />
+                            {customer.company}
+                          </span>
+                        )}
                         {customer.phone && (
                           <span className="flex items-center gap-1">
                             <Phone className="h-3.5 w-3.5" />
@@ -514,12 +531,31 @@ export function CustomersList() {
             <DialogTitle>{t('crm.editTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="customer-name">{t('crm.name')}</Label>
+                <Input
+                  id="customer-name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customer-company">{t('crm.company')}</Label>
+                <Input
+                  id="customer-company"
+                  value={form.company}
+                  onChange={(e) => setForm({ ...form, company: e.target.value })}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="customer-name">{t('crm.name')}</Label>
+              <Label htmlFor="customer-email">{t('crm.email')}</Label>
               <Input
-                id="customer-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                id="customer-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </div>
             <div className="space-y-2">

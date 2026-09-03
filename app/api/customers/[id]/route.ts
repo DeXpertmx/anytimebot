@@ -13,7 +13,7 @@ async function getOwnedCustomer(id: string, userId: string) {
   return customer && customer.userId === userId ? customer : null;
 }
 
-// PATCH /api/customers/[id] - update notes, tags, name or phone
+// PATCH /api/customers/[id] - update notes, tags, name, email, company or phone
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -33,7 +33,31 @@ export async function PATCH(
     const data: any = {};
 
     if (typeof body.name === 'string') data.name = body.name.trim() || null;
+    if (typeof body.company === 'string') data.company = body.company.trim() || null;
     if (typeof body.phone === 'string') data.phone = body.phone.trim() || null;
+    // Email change: validate format and uniqueness within this owner's CRM.
+    // Email is the contact's identity anchor (booking stats, history), so it
+    // cannot be emptied.
+    if (typeof body.email === 'string') {
+      const email = body.email.trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid email address' },
+          { status: 400 }
+        );
+      }
+      const clash = await prisma.customer.findFirst({
+        where: { userId, email, id: { not: params.id } },
+        select: { id: true },
+      });
+      if (clash) {
+        return NextResponse.json(
+          { success: false, error: 'A customer with this email already exists' },
+          { status: 409 }
+        );
+      }
+      data.email = email;
+    }
     if (typeof body.notes === 'string') data.notes = body.notes.trim() || null;
     if (Array.isArray(body.tags)) {
       const tags = [
