@@ -7,6 +7,7 @@ import { sendBookingCancellation } from '@/lib/evolution-api';
 import {
   sendBookingCancellation as sendCancellationEmail,
   sendBookingConfirmationWithTemplate,
+  sendPostMeetingSummary,
 } from '@/lib/email';
 import {
   sendBookingConfirmation as sendWhatsAppBookingConfirmation,
@@ -18,6 +19,7 @@ import {
 import { notifyBookingCancelled } from '@/lib/push-notifications';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { getPublicAppUrl } from '@/lib/public-url';
+import { generateMeetingSummary } from '@/lib/meeting-summary';
 
 export const dynamic = 'force-dynamic';
 
@@ -157,7 +159,7 @@ export async function PUT(
 
     const statusChanged = prevStatus !== nextStatus;
 
-    const updatedBooking = await prisma.booking.update({
+    let updatedBooking = await prisma.booking.update({
       where: { id: params.id },
       data: data as any,
       include: {
@@ -173,8 +175,52 @@ export async function PUT(
       },
     });
 
+    // When the meeting is marked as finished for the first time, generate an
+    // AI summary (OrcaRouter → DeepSeek), save it into the booking notes and
+    // email the guest a thank-you message with that summary. Best-effort: a
+    // failure here must never break the finalization.
+    let generatedSummary: string | null = null;
+    if (nextStatus === 'COMPLETED' && statusChanged) {
+      try {
+        const { summary, skipped } = await generateMeetingSummary(params.id);
+        if (!skipped && summary) {
+          generatedSummary = summary;
+          updatedBooking = { ...updatedBooking, notes: summary };
+        }
+      } catch (summaryError) {
+        console.error('Failed to generate meeting summary:', summaryError);
+      }
+    }
+
     const ownerUser = updatedBooking.eventType?.bookingPage?.user ?? null;
     const baseUrl = getPublicAppUrl();
+
+    // Thank-you email to the guest with the meeting summary once the host
+    // marks the appointment as finished. Only the generated summary is shared
+    // — the host's private notes are never sent.
+    if (nextStatus === 'COMPLETED' && statusChanged) {
+      const bookingPage = updatedBooking.eventType?.bookingPage;
+      const owner = bookingPage?.user;
+      const bookingUrl =
+        owner?.username && bookingPage?.slug
+          ? `${baseUrl}/${owner.username}/${bookingPage.slug}`
+          : undefined;
+      try {
+        await sendPostMeetingSummary({
+          userId: owner?.id ?? '',
+          to: updatedBooking.guestEmail,
+          guestName: updatedBooking.guestName,
+          hostName: owner?.name,
+          eventTitle: updatedBooking.eventType.name,
+          startTime: updatedBooking.startTime,
+          timezone: updatedBooking.timezone,
+          summary: generatedSummary,
+          bookingUrl,
+        });
+      } catch (emailError) {
+        console.error('Failed to send post-meeting summary email:', emailError);
+      }
+    }
 
     // When the host confirms a booking, notify the guest by email and WhatsApp
     // with the details plus links to reschedule/cancel (only on a real change).

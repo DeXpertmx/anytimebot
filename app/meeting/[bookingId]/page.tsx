@@ -3,13 +3,14 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { AlertCircle, Loader2, Video, FileText, Users, CheckCircle, MessageSquare } from 'lucide-react';
+import { AlertCircle, Loader2, Video, FileText, Users, CheckCircle, MessageSquare, Flag, Save, NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 interface VideoSession {
   id: string;
@@ -26,6 +27,9 @@ interface VideoSession {
     guestEmail: string;
     startTime: string;
     endTime: string;
+    status: string;
+    notes?: string | null;
+    completedAt?: string | null;
     formData: any;
     eventType: {
       id: string;
@@ -70,6 +74,19 @@ export default function MeetingPage() {
   const [isHost, setIsHost] = useState(false);
   const [roomJoined, setRoomJoined] = useState(false);
   const [externalOpened, setExternalOpened] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState('PENDING');
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const bookingStatusLabel = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED': return 'Confirmada';
+      case 'CANCELLED': return 'Cancelada';
+      case 'COMPLETED': return 'Finalizada';
+      default: return 'Pendiente';
+    }
+  };
 
   useEffect(() => {
     if (!bookingId) return;
@@ -88,6 +105,8 @@ export default function MeetingPage() {
 
         setVideoSession(sessionData.videoSession);
         setConsentGiven(sessionData.videoSession.recordingConsent);
+        setBookingStatus(sessionData.videoSession.booking?.status ?? 'PENDING');
+        setNotesDraft(sessionData.videoSession.booking?.notes ?? '');
 
         // Fetch briefing
         const briefingRes = await fetch(`/api/briefings/${bookingId}`);
@@ -145,6 +164,74 @@ export default function MeetingPage() {
     }
 
     setRoomJoined(true);
+  };
+
+  // Mark the meeting as finished from inside the room without leaving the call.
+  const updateBookingStatus = async (status: 'COMPLETED') => {
+    if (!videoSession || actionLoading) return;
+    if (!window.confirm('¿Marcar esta cita como finalizada? Podrás añadir notas o un resumen después.')) return;
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/bookings/${videoSession.booking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setBookingStatus(status);
+        // The server may have auto-generated an AI summary into the notes.
+        const generatedNotes = data.data?.notes;
+        setVideoSession({
+          ...videoSession,
+          booking: {
+            ...videoSession.booking,
+            status,
+            ...(generatedNotes !== undefined ? { notes: generatedNotes } : {}),
+          },
+        });
+        if (generatedNotes) setNotesDraft(generatedNotes);
+        toast.success(generatedNotes ? 'Cita finalizada y resumen generado' : 'Cita finalizada');
+      } else {
+        toast.error(data?.error || 'No se pudo finalizar la cita');
+      }
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      toast.error('Error al finalizar la cita');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Save the host notes / meeting summary without changing the status.
+  const saveNotes = async () => {
+    if (!videoSession || notesSaving) return;
+    setNotesSaving(true);
+    try {
+      const response = await fetch(`/api/bookings/${videoSession.booking.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: bookingStatus,
+          notes: notesDraft.trim() ? notesDraft.trim() : null,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success('Notas guardadas');
+        setVideoSession({
+          ...videoSession,
+          booking: { ...videoSession.booking, notes: notesDraft.trim() ? notesDraft.trim() : null },
+        });
+      } else {
+        toast.error(data?.error || 'No se pudieron guardar las notas');
+      }
+    } catch (error) {
+      console.error('Error saving booking notes:', error);
+      toast.error('Error al guardar las notas');
+    } finally {
+      setNotesSaving(false);
+    }
   };
 
   if (loading) {
@@ -317,6 +404,10 @@ export default function MeetingPage() {
                   Info
                 </TabsTrigger>
               )}
+              <TabsTrigger value="close" className="flex-1">
+                <Flag className="w-4 h-4 mr-2" />
+                Cierre
+              </TabsTrigger>
             </TabsList>
 
             <ScrollArea className="flex-1 px-4 pb-4">
@@ -401,6 +492,73 @@ export default function MeetingPage() {
                     No hay respuestas del formulario
                   </p>
                 )}
+              </TabsContent>
+
+              <TabsContent value="close" className="mt-4">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-sm text-gray-900 mb-2">Estado de la cita</h4>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      bookingStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700'
+                      : bookingStatus === 'CANCELLED' ? 'bg-rose-100 text-rose-700'
+                      : bookingStatus === 'CONFIRMED' ? 'bg-indigo-100 text-indigo-700'
+                      : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {bookingStatus === 'COMPLETED' && <CheckCircle className="w-3.5 h-3.5" />}
+                      {bookingStatusLabel(bookingStatus)}
+                    </span>
+                  </div>
+
+                  {bookingStatus === 'COMPLETED' ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+                      Cita finalizada. Puedes seguir añadiendo notas o un resumen de la reunión.
+                    </div>
+                  ) : bookingStatus === 'CANCELLED' ? (
+                    <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-sm text-rose-800">
+                      Esta cita fue cancelada.
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => updateBookingStatus('COMPLETED')}
+                      disabled={actionLoading}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {actionLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Flag className="w-4 h-4 mr-2" />}
+                      Finalizar cita
+                    </Button>
+                  )}
+
+                  {!actionLoading && bookingStatus !== 'COMPLETED' && (
+                    <p className="text-xs text-gray-500">
+                      Al finalizar se genera automáticamente un resumen con IA que se guarda en las notas.
+                    </p>
+                  )}
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="font-semibold text-sm text-gray-900 mb-2 flex items-center gap-1.5">
+                      <NotebookPen className="w-4 h-4" />
+                      Notas y resumen
+                    </h4>
+                    <textarea
+                      value={notesDraft}
+                      onChange={(e) => setNotesDraft(e.target.value)}
+                      rows={5}
+                      placeholder="Escribe lo sucedido, acuerdos tomados o un resumen de la cita..."
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none resize-none"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={saveNotes}
+                      disabled={notesSaving}
+                      className="w-full mt-2"
+                    >
+                      {notesSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                      Guardar notas
+                    </Button>
+                  </div>
+                </div>
               </TabsContent>
             </ScrollArea>
           </Tabs>

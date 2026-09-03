@@ -506,6 +506,158 @@ export async function sendMembershipOverdue(data: {
 }
 
 /**
+ * Very small, safe Markdown → HTML converter used for the AI meeting summary
+ * inside emails. It escapes first, then renders headings, lists and bold text.
+ * It is intentionally conservative (no raw HTML passthrough).
+ */
+function markdownToHtml(markdown: string): string {
+  const escaped = markdown
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+  const lines = escaped.split('\n');
+  const html: string[] = [];
+  let listOpen = false;
+  const closeList = () => {
+    if (listOpen) {
+      html.push('</ul>');
+      listOpen = false;
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const heading = line.match(/^(#{1,4})\s+(.*)$/);
+    if (heading) {
+      closeList();
+      const level = Math.min(heading[1].length + 1, 4);
+      html.push(`<h${level} style="color: #1f2937; margin: 18px 0 6px; font-size: ${level <= 2 ? 17 : 15}px;">${heading[2]}</h${level}>`);
+      continue;
+    }
+    if (/^\s*[-*]\s+/.test(line)) {
+      if (!listOpen) {
+        html.push('<ul style="margin: 8px 0 12px; padding-left: 20px;">');
+        listOpen = true;
+      }
+      html.push(`<li style="margin: 4px 0;">${line.replace(/^\s*[-*]\s+/, '')}</li>`);
+      continue;
+    }
+    closeList();
+    if (line.trim() === '') continue;
+    html.push(`<p style="margin: 6px 0; color: #4b5563;">${line}</p>`);
+  }
+  closeList();
+  return html.join('\n');
+}
+
+/**
+ * Send the guest a thank-you email with the AI meeting summary when the host
+ * marks the appointment as finished. Only the freshly generated summary is
+ * included — the host's private notes are never sent to the guest.
+ */
+export async function sendPostMeetingSummary(data: {
+  userId: string;
+  to: string;
+  guestName: string;
+  hostName?: string | null;
+  eventTitle: string;
+  startTime: Date;
+  timezone?: string;
+  summary?: string | null;
+  bookingUrl?: string;
+}): Promise<boolean> {
+  const {
+    userId,
+    to,
+    guestName,
+    hostName,
+    eventTitle,
+    startTime,
+    timezone = 'UTC',
+    summary,
+    bookingUrl,
+  } = data;
+
+  const formattedDate = formatDateWithTimezone(startTime, timezone);
+  const summaryHtml = summary ? markdownToHtml(summary) : '';
+
+  // Custom template support (type: post_meeting)
+  const template = await getEmailTemplate(userId, 'post_meeting');
+  if (template) {
+    const variables = {
+      guestName,
+      hostName: hostName || '',
+      eventTitle,
+      startTime: formattedDate,
+      timezone,
+      summary: summary || '',
+      summaryHtml,
+      bookingUrl: bookingUrl || '',
+    };
+    const html = replaceTemplateVariables(template.htmlBody, variables);
+    const subject = replaceTemplateVariables(template.subject, variables);
+    return sendEmail({ to, subject, html });
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          <h1 style="margin: 0; font-size: 26px;">¡Gracias por tu reunión! 🎉</h1>
+        </div>
+
+        <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <p style="font-size: 18px; margin-top: 0;">Hola ${guestName},</p>
+
+          <p style="font-size: 16px; color: #555;">
+            Ha sido un placer reunirnos contigo. Aquí tienes un resumen de la reunión <strong>${eventTitle}</strong> (${formattedDate}):
+          </p>
+
+          ${summaryHtml ? `
+          <div style="margin: 25px 0; padding: 20px; background-color: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb;">
+            ${summaryHtml}
+          </div>
+          ` : ''}
+
+          ${hostName ? `<p style="font-size: 16px;">Un saludo,<br><strong>${hostName}</strong></p>` : `<p style="font-size: 16px;">Un saludo,<br><strong>ANYTIMEBOT</strong></p>`}
+
+          ${bookingUrl ? `
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${bookingUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);">
+              📅 Agendar otra reunión
+            </a>
+          </div>
+          ` : ''}
+
+          <div style="margin-top: 40px; padding-top: 25px; border-top: 2px solid #e5e7eb; text-align: center;">
+            <p style="color: #6b7280; font-size: 14px; margin: 5px 0;">
+              © ${new Date().getFullYear()} <strong>ANYTIMEBOT</strong>
+            </p>
+            <p style="color: #9ca3af; font-size: 13px; margin: 5px 0;">
+              Agendamiento inteligente hecho simple
+            </p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `📝 Gracias por tu reunión: ${eventTitle}`,
+    html,
+  });
+}
+
+/**
  * Send booking reminder email (24 hours before)
  */
 export async function sendBookingReminder(data: {
