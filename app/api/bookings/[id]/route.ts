@@ -11,10 +11,12 @@ import {
 } from '@/lib/email';
 import {
   sendBookingConfirmation as sendWhatsAppBookingConfirmation,
+  sendMeetingSummary as sendWhatsAppMeetingSummary,
 } from '@/lib/whatsapp';
 import {
   notifyAdminBookingCancelled,
   sendSystemBookingConfirmation,
+  sendSystemMeetingSummary,
 } from '@/lib/system-whatsapp';
 import { notifyBookingCancelled } from '@/lib/push-notifications';
 import { generateBookingToken } from '@/lib/booking-tokens';
@@ -219,6 +221,39 @@ export async function PUT(
         });
       } catch (emailError) {
         console.error('Failed to send post-meeting summary email:', emailError);
+      }
+
+      // Also thank the guest by WhatsApp with the meeting summary. Tries the
+      // tenant's connected number first and falls back to the Anytimebot
+      // notification number. Only the generated summary is shared.
+      if (updatedBooking.guestPhone) {
+        const formattedStart = updatedBooking.startTime.toLocaleString('es-ES', {
+          timeZone: updatedBooking.timezone,
+        });
+        try {
+          const sent = await sendWhatsAppMeetingSummary(
+            owner?.id ?? '',
+            updatedBooking.guestPhone,
+            {
+              guestName: updatedBooking.guestName,
+              eventTitle: updatedBooking.eventType.name,
+              startTime: formattedStart,
+              summary: generatedSummary,
+              bookingUrl,
+            },
+          );
+          if (!sent) {
+            await sendSystemMeetingSummary(updatedBooking.guestPhone, {
+              guestName: updatedBooking.guestName,
+              eventTitle: updatedBooking.eventType.name,
+              startTime: formattedStart,
+              summary: generatedSummary,
+              bookingUrl,
+            });
+          }
+        } catch (whatsappError) {
+          console.error('Failed to send WhatsApp meeting summary:', whatsappError);
+        }
       }
     }
 

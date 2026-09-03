@@ -15,6 +15,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma as defaultPrisma } from '@/lib/db';
 import { getWhatsAppBaseUrl, getWhatsAppGlobalApiKey } from '@/lib/whatsapp-manager';
+import { buildPostMeetingWhatsAppMessage } from '@/lib/whatsapp';
 
 export const SYSTEM_WHATSAPP_KEY = 'system_whatsapp';
 export const SYSTEM_WHATSAPP_INSTANCE = 'anytimebot_system';
@@ -489,6 +490,25 @@ export async function sendSystemBookingConfirmation(
       : '';
   const message = `¡Hola ${data.guestName}! 👋\n\nTu reunión ha sido confirmada:\n📅 Tipo: ${data.eventTypeName}\n🕐 Fecha y hora: ${data.startTime}\n🌍 Zona horaria: ${data.timezone}${manageBlock}\n\n¡Te esperamos!`;
   return sendSystemWhatsAppMessage(to, message, undefined, deps);
+}
+
+/**
+ * Send the post-meeting thank-you + AI summary via the Anytimebot
+ * notification number (fallback when the tenant has no connected number).
+ * Only the generated summary is included — private host notes are never sent.
+ */
+export async function sendSystemMeetingSummary(
+  to: string,
+  data: {
+    guestName: string;
+    eventTitle: string;
+    startTime: string;
+    summary?: string | null;
+    bookingUrl?: string;
+  },
+  deps?: SystemWhatsAppDeps,
+): Promise<boolean> {
+  return sendSystemWhatsAppMessage(to, buildPostMeetingWhatsAppMessage(data), undefined, deps);
 }
 
 // --- low-level helpers ------------------------------------------------------

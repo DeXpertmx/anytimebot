@@ -277,3 +277,82 @@ Si necesitas reagendar, no dudes en contactarnos.`;
     message,
   });
 }
+
+/**
+ * Convert the AI-generated Markdown summary into WhatsApp-flavored plain
+ * text: headings become bold lines, bullets become `•`, and code/link
+ * markers are stripped so the text renders cleanly in WhatsApp.
+ */
+export function formatSummaryForWhatsApp(summary: string): string {
+  const lines = summary.split('\n').map((line) => line.trimEnd());
+  const cleaned = lines
+    .map((line) => {
+      if (/^#{1,6}\s+/.test(line)) return `*${line.replace(/^#{1,6}\s+/, '')}*`;
+      if (/^[-*]\s+/.test(line)) return `• ${line.replace(/^[-*]\s+/, '')}`;
+      return line;
+    })
+    .filter((line, index, arr) => !(line.trim() === '' && (index === 0 || arr[index - 1].trim() === '')));
+  return cleaned
+    .join('\n')
+    .replace(/\*\*([^*]+)\*\*/g, '*$1*')
+    .replace(/__([^_]+)__/g, '_$1_')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim();
+}
+
+/**
+ * Build the guest-facing WhatsApp message sent when the host marks the
+ * meeting as finished. Only the freshly generated summary is included — the
+ * host's private notes are never shared. Kept short when there is no summary.
+ */
+export function buildPostMeetingWhatsAppMessage(data: {
+  guestName: string;
+  eventTitle: string;
+  startTime: string;
+  summary?: string | null;
+  bookingUrl?: string;
+}): string {
+  const { guestName, eventTitle, startTime, summary, bookingUrl } = data;
+  const greeting = `¡Hola ${guestName}! 👋`;
+  const meetingLine = `Gracias por tu reunión "${eventTitle}" (${startTime}).`;
+
+  let body: string;
+  if (summary && summary.trim()) {
+    body = `${greeting}\n\n${meetingLine}\n\n📝 *Resumen de la reunión:*\n${formatSummaryForWhatsApp(summary)}`;
+  } else {
+    body = `${greeting}\n\n${meetingLine}\n\n¡Esperamos que haya sido muy productiva!`;
+  }
+
+  const cta = bookingUrl ? `\n\n📅 ¿Quieres agendar otra reunión?\n${bookingUrl}` : '';
+  const message = `${body}${cta}`;
+
+  // WhatsApp text messages are capped (~4096 chars); keep the CTA intact and
+  // truncate the summary body when needed.
+  if (message.length > 4000) {
+    const budget = Math.max(600, 4000 - cta.length - 1);
+    return `${body.slice(0, budget).trimEnd()}…${cta}`;
+  }
+  return message;
+}
+
+/**
+ * Send the post-meeting thank-you + summary via WhatsApp from the tenant's
+ * connected number.
+ */
+export async function sendMeetingSummary(
+  userId: string,
+  to: string,
+  data: {
+    guestName: string;
+    eventTitle: string;
+    startTime: string;
+    summary?: string | null;
+    bookingUrl?: string;
+  }
+): Promise<boolean> {
+  return await sendWhatsAppMessage({
+    userId,
+    to,
+    message: buildPostMeetingWhatsAppMessage(data),
+  });
+}
