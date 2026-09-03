@@ -5,7 +5,7 @@
  */
 
 import { prisma } from './db';
-import { getResendApiKey } from './email-config';
+import { sendMail } from './mailer';
 
 interface DeliveryOptions {
   hostEmail: string;
@@ -24,7 +24,7 @@ interface DeliveryOptions {
 }
 
 /**
- * Send briefing via email using Resend
+ * Send briefing via email using the active provider (SMTP preferred, Resend fallback)
  */
 export async function sendBriefingEmail(
   to: string,
@@ -33,31 +33,12 @@ export async function sendBriefingEmail(
   meetingDetails: DeliveryOptions['meetingDetails']
 ): Promise<boolean> {
   try {
-    const apiKey = await getResendApiKey();
-    if (!apiKey || apiKey === 're_placeholder') {
-      console.error('Resend API key not configured');
-      return false;
-    }
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: 'ANYTIMEBOT <noreply@anytimebot.app>',
-        to,
-        subject,
-        html: generateBriefingEmailHTML(briefing, meetingDetails),
-      }),
+    const result = await sendMail({
+      to,
+      subject,
+      html: generateBriefingEmailHTML(briefing, meetingDetails),
     });
-
-    if (!response.ok) {
-      console.error('Email send failed:', await response.text());
-      return false;
-    }
-
-    return true;
+    return result.ok;
   } catch (error) {
     console.error('Error sending email:', error);
     return false;

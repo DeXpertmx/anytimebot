@@ -88,10 +88,21 @@ export default function SettingsPage() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://anytimebot.app/api/stripe/webhook');
 
-  const [emailStatus, setEmailStatus] = useState<{ configured: boolean; stored: boolean; source: string } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ configured: boolean; stored: boolean; source: string; provider: 'smtp' | 'resend' } | null>(null);
+  const [emailTab, setEmailTab] = useState<'smtp' | 'resend'>('smtp');
   const [emailApiKey, setEmailApiKey] = useState('');
+  const [smtpForm, setSmtpForm] = useState({
+    smtpHost: '',
+    smtpPort: '',
+    smtpSecure: false,
+    smtpUser: '',
+    smtpPass: '',
+    smtpFromName: '',
+    smtpFromEmail: '',
+  });
   const [savingEmail, setSavingEmail] = useState(false);
   const [clearingEmail, setClearingEmail] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -191,22 +202,49 @@ export default function SettingsPage() {
     }
   };
 
+  const refreshEmailStatus = async () => {
+    const data = await fetch('/api/admin/email-credentials')
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (data) setEmailStatus(data);
+  };
+
   const handleSaveEmail = async () => {
-    if (!emailApiKey.trim()) {
-      toast.error('Enter the Resend API key');
-      return;
+    let payload: Record<string, string | boolean>;
+    if (emailTab === 'resend') {
+      if (!emailApiKey.trim()) {
+        toast.error('Enter the Resend API key');
+        return;
+      }
+      payload = { apiKey: emailApiKey.trim() };
+    } else {
+      if (!smtpForm.smtpHost.trim()) {
+        toast.error('Enter the SMTP host');
+        return;
+      }
+      payload = {
+        provider: 'auto',
+        smtpHost: smtpForm.smtpHost.trim(),
+        smtpPort: smtpForm.smtpPort.trim(),
+        smtpSecure: smtpForm.smtpSecure,
+        smtpUser: smtpForm.smtpUser.trim(),
+        smtpPass: smtpForm.smtpPass.trim(),
+        smtpFromName: smtpForm.smtpFromName.trim(),
+        smtpFromEmail: smtpForm.smtpFromEmail.trim(),
+      };
     }
     setSavingEmail(true);
     try {
       const response = await fetch('/api/admin/email-credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: emailApiKey }),
+        body: JSON.stringify(payload),
       });
       if (response.ok) {
         toast.success('Email credentials saved — system emails are now enabled');
         setEmailApiKey('');
-        setEmailStatus({ configured: true, stored: true, source: 'database' });
+        setSmtpForm({ smtpHost: '', smtpPort: '', smtpSecure: false, smtpUser: '', smtpPass: '', smtpFromName: '', smtpFromEmail: '' });
+        await refreshEmailStatus();
       } else {
         const data = await response.json().catch(() => ({}));
         toast.error(data.error || 'Failed to save email credentials');
@@ -215,6 +253,28 @@ export default function SettingsPage() {
       toast.error('Failed to save email credentials');
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    setTestingEmail(true);
+    try {
+      const response = await fetch('/api/admin/email-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: true }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`Test email sent via ${data.provider === 'smtp' ? 'SMTP' : 'Resend'} — check your inbox`);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Test email failed');
+      }
+    } catch (error) {
+      toast.error('Test email failed');
+    } finally {
+      setTestingEmail(false);
     }
   };
 
@@ -227,8 +287,8 @@ export default function SettingsPage() {
         body: JSON.stringify({ clear: true }),
       });
       if (response.ok) {
-        toast.success('Saved email credentials cleared (env var still applies)');
-        setEmailStatus({ configured: false, stored: false, source: 'env' });
+        toast.success('Saved email credentials cleared (env vars still apply)');
+        await refreshEmailStatus();
       } else {
         const data = await response.json().catch(() => ({}));
         toast.error(data.error || 'Failed to clear email credentials');
@@ -438,14 +498,15 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Email (Resend)
+            Email (SMTP / Resend)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             System emails (booking confirmations, reminders, membership welcome/overdue,
-            feedback surveys, briefings) are sent through Resend. Paste the API key here
-            to enable them without touching environment variables or redeploying.
+            feedback surveys, briefings) are sent through SMTP when configured,
+            falling back to Resend. Configure your provider here without touching
+            environment variables or redeploying.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/40 p-3">
@@ -455,7 +516,8 @@ export default function SettingsPage() {
                 <p className="text-sm">
                   {emailStatus.configured ? (
                     <span className="text-emerald-600">
-                      Configured ({emailStatus.source === 'database' ? 'stored in database' : 'env var RESEND_API_KEY'})
+                      Configured via {emailStatus.provider === 'smtp' ? 'SMTP' : 'Resend'}{' '}
+                      ({emailStatus.source === 'database' ? 'stored in database' : 'environment variables'})
                     </span>
                   ) : (
                     <span className="text-amber-600">Not configured — emails are disabled</span>
@@ -467,15 +529,102 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs">Resend API key</Label>
-            <Input
-              type="password"
-              placeholder="re_..."
-              value={emailApiKey}
-              onChange={(e) => setEmailApiKey(e.target.value)}
-            />
+          <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
+            {(['smtp', 'resend'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setEmailTab(tab)}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  emailTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-muted-foreground hover:text-slate-900'
+                }`}
+              >
+                {tab === 'smtp' ? 'SMTP' : 'Resend API'}
+              </button>
+            ))}
           </div>
+
+          {emailTab === 'smtp' ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-xs">SMTP host</Label>
+                  <Input
+                    placeholder="smtp.tuproveedor.com"
+                    value={smtpForm.smtpHost}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtpHost: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Port</Label>
+                  <Input
+                    placeholder="587 (TLS) / 465 (SSL)"
+                    value={smtpForm.smtpPort}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtpPort: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={smtpForm.smtpSecure}
+                  onChange={(e) => setSmtpForm({ ...smtpForm, smtpSecure: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Use SSL/TLS (secure connection, port 465)
+              </label>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Username</Label>
+                  <Input
+                    placeholder="tu@tuproveedor.com"
+                    value={smtpForm.smtpUser}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtpUser: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={smtpForm.smtpPass}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtpPass: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">From name (optional)</Label>
+                  <Input
+                    placeholder="ANYTIMEBOT"
+                    value={smtpForm.smtpFromName}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtpFromName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">From email (optional)</Label>
+                  <Input
+                    placeholder="noreply@anytimebot.app"
+                    value={smtpForm.smtpFromEmail}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtpFromEmail: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label className="text-xs">Resend API key</Label>
+              <Input
+                type="password"
+                placeholder="re_..."
+                value={emailApiKey}
+                onChange={(e) => setEmailApiKey(e.target.value)}
+              />
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <Button size="sm" disabled={savingEmail} onClick={handleSaveEmail}>
@@ -488,12 +637,19 @@ export default function SettingsPage() {
                 Clear
               </Button>
             )}
+            {emailStatus?.configured && (
+              <Button size="sm" variant="secondary" disabled={testingEmail} onClick={handleTestEmail}>
+                <Mail className="h-4 w-4 mr-1" />
+                {testingEmail ? 'Sending...' : 'Send test email'}
+              </Button>
+            )}
           </div>
 
           <p className="text-xs text-muted-foreground">
-            To receive the key: create an API key at resend.com and verify the domain
-            anytimebot.app (add the DNS records Resend provides). Emails are sent from
-            <code className="mx-1">noreply@anytimebot.app</code>.
+            SMTP takes precedence when a host is set. To use Resend instead, create an API
+            key at resend.com and verify the domain anytimebot.app (add the DNS records
+            Resend provides). Emails are sent from
+            <code className="mx-1">noreply@anytimebot.app</code> by default.
           </p>
         </CardContent>
       </Card>

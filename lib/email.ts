@@ -2,7 +2,7 @@
 // Email utility functions
 
 import { prisma } from '@/lib/db';
-import { getResendApiKey } from '@/lib/email-config';
+import { sendMail } from '@/lib/mailer';
 
 export interface EmailOptions {
   to: string;
@@ -49,46 +49,16 @@ export function replaceTemplateVariables(template: string, variables: Record<str
 }
 
 /**
- * Low-level Resend send. Returns the Resend message id on success so callers
- * can log it for traceability (e.g. membership welcome emails).
+ * Low-level send through the active provider (SMTP preferred, Resend fallback).
+ * Returns the provider message id on success so callers can log it for
+ * traceability (e.g. membership welcome emails).
  */
 async function sendEmailRaw({ to, subject, html }: EmailOptions): Promise<{ ok: boolean; resendId?: string }> {
-  try {
-    const apiKey = await getResendApiKey();
-
-    if (!apiKey || apiKey === 're_placeholder') {
-      console.error('Resend API key not configured');
-      return { ok: false };
-    }
-
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: 'ANYTIMEBOT <noreply@anytimebot.app>',
-        to: [to],
-        subject,
-        html,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Email sending failed:', error);
-      return { ok: false };
-    }
-
-    const result = await response.json();
-    const resendId = typeof result?.id === 'string' ? result.id : '';
-    console.log(`[email] sent id=${resendId} to=${to} subject="${subject}"`);
-    return { ok: true, resendId };
-  } catch (error) {
-    console.error('Error sending email:', error);
-    return { ok: false };
+  const result = await sendMail({ to, subject, html });
+  if (result.ok) {
+    return { ok: true, resendId: result.id };
   }
+  return { ok: false };
 }
 
 /**
