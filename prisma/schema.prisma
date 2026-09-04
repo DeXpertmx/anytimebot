@@ -437,6 +437,7 @@ model Availability {
 
 model Booking {
   id         String      @id @default(cuid())
+  seriesId String? @map("series_id") // recurring appointment series this booking belongs to
   eventTypeId String     @map("event_type_id")
   guestName  String      @map("guest_name")
   guestEmail String      @map("guest_email")
@@ -479,7 +480,24 @@ model Booking {
   meetingBriefings MeetingBriefing[]
   feedback Feedback?
 
+  // Relations
+  series BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+
+  @@index([seriesId])
   @@map("bookings")
+}
+
+// A recurring appointment series. The first occurrence's Booking holds the
+// recurrence rule; each later booking of the run points at it via seriesId.
+// Cancelling the series only touches future occurrences.
+model BookingSeries {
+  id         String   @id @default(cuid())
+  recurrence Json     @map("recurrence") // { freq: 'WEEKLY'|'BIWEEKLY', interval: 1|2, count: number, byWeekday: 0-6 }
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  bookings Booking[]
+
+  @@map("booking_series")
 }
 
 model BookingFormField {

@@ -84,6 +84,8 @@ export function BookingForm({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [repeatFreq, setRepeatFreq] = useState<'' | 'WEEKLY' | 'BIWEEKLY'>('');
+  const [repeatCount, setRepeatCount] = useState(4);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -284,23 +286,43 @@ export function BookingForm({
           endTime: endTime.toISOString(),
           timezone: userTimezone,
           formData: formData,
+          ...(repeatFreq
+            ? {
+                recurrence: {
+                  freq: repeatFreq,
+                  time: selectedTime,
+                  byWeekday: selectedDate.getDay(),
+                  count: repeatCount,
+                },
+              }
+            : {}),
         }),
       });
 
       if (response.ok) {
-        const booking = await response.json();
+        const result = await response.json();
+        const seriesInfo = result?.series;
         toast({
-          title: 'Booking Confirmed! 🎉',
-          description: `Your meeting has been scheduled for ${format(
-            startTime,
-            'PPP p'
-          )}. A confirmation email has been sent.`,
+          title: seriesInfo
+            ? t('bookingForm.seriesConfirmedTitle', { count: seriesInfo.occurrences })
+            : 'Booking Confirmed! 🎉',
+          description: seriesInfo
+            ? t('bookingForm.seriesConfirmedDesc', {
+                count: seriesInfo.occurrences,
+                summary: seriesInfo.summary,
+              })
+            : `Your meeting has been scheduled for ${format(
+              startTime,
+              'PPP p'
+            )}. A confirmation email has been sent.`,
         });
 
         // Reset form
         setSelectedDate(null);
         setSelectedTime('');
         setStep(1);
+        setRepeatFreq('');
+        setRepeatCount(4);
         setFormData({
           guestName: '',
           guestEmail: '',
@@ -778,6 +800,60 @@ export function BookingForm({
               )}
             </div>
           ))}
+
+          {/* Repeat options — hide entirely for paid one-time events (a
+              Checkout session covers exactly one occurrence). */}
+          {!(selectedEventType?.collectPayment && selectedEventType.price > 0 && selectedEventType.paymentInterval === 'ONE_TIME') && (
+            <div className="rounded-xl border border-gray-200 p-4">
+              <Label className="text-sm font-medium">
+                {t('bookingForm.repeatTitle')}
+              </Label>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {t('bookingForm.repeatHint')}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  { value: '', label: t('bookingForm.repeatNo') },
+                  { value: 'WEEKLY', label: t('bookingForm.repeatWeekly') },
+                  { value: 'BIWEEKLY', label: t('bookingForm.repeatBiweekly') },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRepeatFreq(opt.value as '' | 'WEEKLY' | 'BIWEEKLY')}
+                    className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                      repeatFreq === opt.value
+                        ? 'border-transparent text-white'
+                        : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                    }`}
+                    style={repeatFreq === opt.value ? { backgroundColor: brandColor } : undefined}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {repeatFreq && (
+                <div className="mt-3 flex items-center gap-3">
+                  <label className="text-sm text-gray-600" htmlFor="repeat-count">
+                    {t('bookingForm.repeatCount')}
+                  </label>
+                  <select
+                    id="repeat-count"
+                    value={repeatCount}
+                    onChange={(e) => setRepeatCount(Number(e.target.value))}
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                  >
+                    {[4, 6, 8, 12, 16, 24, 52].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-gray-500">
+                    {t('bookingForm.repeatTotal', { count: repeatCount })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Price Display */}
           {selectedEventType?.collectPayment && selectedEventType.price > 0 && (

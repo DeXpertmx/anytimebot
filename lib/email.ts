@@ -833,6 +833,61 @@ export async function sendBookingCancellation(data: {
 }
 
 /**
+ * Cancellation of a recurring series: lists the cancelled future dates.
+ */
+export async function sendSeriesCancellation(data: {
+  to: string;
+  guestName: string;
+  eventTitle: string;
+  startTimes: Date[];
+  timezone?: string;
+}): Promise<boolean> {
+  const { to, guestName, eventTitle, startTimes, timezone = 'UTC' } = data;
+
+  const rows = startTimes
+    .map(
+      (d) =>
+        `<li style="margin:4px 0;color:#7f1d1d;">📅 ${formatDateWithTimezone(d, timezone)}</li>`
+    )
+    .join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+        <div style="background-color: #dc2626; color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          <h1 style="margin: 0; font-size: 28px;">Serie de Reservas Cancelada</h1>
+        </div>
+
+        <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <p style="font-size: 18px; margin-top: 0;">Hola ${guestName},</p>
+
+          <p style="font-size: 16px; color: #555;">Tu serie de citas recurrentes de <strong>${eventTitle}</strong> ha sido cancelada. Las siguientes fechas quedan canceladas:</p>
+
+          <ul style="background-color: #fee2e2; padding: 25px 25px 25px 45px; border-radius: 12px; margin: 25px 0; border-left: 4px solid #dc2626; list-style: none;">${rows}</ul>
+
+          <p style="font-size: 16px; color: #555;">Las citas que ya se realizaron no se ven afectadas.</p>
+
+          <div style="text-align: center; margin: 35px 0;">
+            <p style="font-size: 14px; color: #888; margin: 0;">Agendamiento inteligente hecho simple</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `❌ Serie Cancelada: ${eventTitle}`,
+    html,
+  });
+}
+
+/**
  * Send booking reschedule email
  */
 export async function sendBookingReschedule(data: {

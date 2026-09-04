@@ -7,7 +7,8 @@ import { isValidEmail, isValidPhone, addMinutes } from '@/lib/utils';
 import { sendBookingConfirmationWithTemplate, sendHostBookingApprovalRequest } from '@/lib/email';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
-import { createCalendarEvent, checkAvailability as checkCalendarAvailability } from '@/lib/google-calendar';
+import { createCalendarEvent, checkAvailability as checkCalendarAvailability, listCalendarEvents } from '@/lib/google-calendar';
+import { parseRecurrence, expandRecurrence, describeRecurrence, MAX_SERIES_HORIZON_DAYS, type RecurrenceRule } from '@/lib/series';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
 import { createVideoSession } from '@/lib/video-session';
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+          series: true,
         },
         orderBy: { startTime: 'asc' },
         skip: (page - 1) * limit,
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
       timezone = 'UTC',
       formData = {},
       routingFormResponses = {},
+      recurrence,
     } = body;
 
     // Record the data subject's explicit consent to process their data for
@@ -192,6 +195,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ─── Recurring series (optional) ───
+    // A series repeats the picked slot weekly or biweekly. Paid one-time event
+    // types are excluded: a Stripe Checkout session covers exactly one
+    // occurrence, so recurring + payment would silently undercharge.
+    const rule: RecurrenceRule | null = parseRecurrence(recurrence);
+    if (recurrence && !rule) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid recurrence rule' },
+        { status: 400 }
+      );
+    }
+    const isPaidOneTime = eventType.collectPayment && eventType.price > 0 && eventType.paymentInterval === 'ONE_TIME';
+    if (rule && isPaidOneTime) {
+      return NextResponse.json(
+        { success: false, error: 'Recurring bookings are not available for paid event types' },
+        { status: 400 }
+      );
+    }
+
     // CRM: keep the guest's contact record up to date
     await upsertCustomerFromBooking(eventType.bookingPage.userId, {
       email: guestEmail,
@@ -203,59 +225,87 @@ export async function POST(request: NextRequest) {
     const bookingStartTime = new Date(startTime);
     const bookingEndTime = addMinutes(bookingStartTime, eventType.duration);
 
-    // Block bookings that fall inside the owner's time off (vacations / absences)
-    const blockingTimeOff = await prisma.timeOff.findFirst({
-      where: {
-        userId: eventType.bookingPage.userId,
-        start: { lte: bookingEndTime },
-        end: { gte: bookingStartTime },
-      },
-    });
+    // Expand the recurrence rule into concrete occurrence starts. The first
+    // occurrence is the user-picked slot, exactly as a single booking.
+    const occurrences = rule
+      ? expandRecurrence(rule, { firstStart: bookingStartTime })
+      : [bookingStartTime];
 
-    if (blockingTimeOff) {
-      return NextResponse.json(
-        { success: false, error: 'The host is unavailable during the selected time' },
-        { status: 409 }
-      );
+    // Guard: the whole series must stay inside the booking horizon.
+    if (occurrences.length > 1) {
+      const last = occurrences[occurrences.length - 1];
+      if (last.getTime() - bookingStartTime.getTime() > MAX_SERIES_HORIZON_DAYS * 24 * 3600 * 1000) {
+        return NextResponse.json(
+          { success: false, error: 'Recurrence exceeds the maximum series horizon' },
+          { status: 400 }
+        );
+      }
     }
 
-    // Check for conflicts
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        eventTypeId,
-        status: { in: ['CONFIRMED', 'PENDING'] },
-        OR: [
-          {
-            startTime: { lte: bookingStartTime },
-            endTime: { gt: bookingStartTime },
-          },
-          {
-            startTime: { lt: bookingEndTime },
-            endTime: { gte: bookingEndTime },
-          },
-          {
-            startTime: { gte: bookingStartTime },
-            endTime: { lte: bookingEndTime },
-          },
-        ],
-      },
-    });
+    // Block bookings that fall inside the owner's time off (vacations /
+    // absences) — checked for every occurrence of the series.
+    for (const occ of occurrences) {
+      const occEnd = addMinutes(occ, eventType.duration);
+      const blockingTimeOff = await prisma.timeOff.findFirst({
+        where: {
+          userId: eventType.bookingPage.userId,
+          start: { lte: occEnd },
+          end: { gte: occ },
+        },
+      });
+      if (blockingTimeOff) {
+        return NextResponse.json(
+          { success: false, error: 'The host is unavailable during the selected time' },
+          { status: 409 }
+        );
+      }
+    }
 
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { success: false, error: 'Time slot is already booked' },
-        { status: 409 }
-      );
+    // Check for conflicts for every occurrence. NOTE: deliberately NOT filtered
+    // by eventTypeId — a conflict is any active booking of this owner that
+    // overlaps, whatever event type it came from.
+    for (const occ of occurrences) {
+      const occEnd = addMinutes(occ, eventType.duration);
+      const conflictingBooking = await prisma.booking.findFirst({
+        where: {
+          status: { in: ['CONFIRMED', 'PENDING'] },
+          eventType: { bookingPage: { userId: eventType.bookingPage.userId } },
+          OR: [
+            {
+              startTime: { lte: occ },
+              endTime: { gt: occ },
+            },
+            {
+              startTime: { lt: occEnd },
+              endTime: { gte: occEnd },
+            },
+            {
+              startTime: { gte: occ },
+              endTime: { lte: occEnd },
+            },
+          ],
+        },
+      });
+
+      if (conflictingBooking) {
+        return NextResponse.json(
+          { success: false, error: 'Time slot is already booked' },
+          { status: 409 }
+        );
+      }
     }
 
     // Assign team member if this is a team event
     let assignedMemberId: string | null = null;
     if (eventType.teamId && eventType.assignmentMode !== 'individual') {
       try {
+        // For series, assign against the LAST occurrence so a member who is
+        // free this week but travelling later does not capture the whole run.
+        const assignmentStart = occurrences[occurrences.length - 1];
         const assignment = await assignTeamMember({
           eventTypeId,
-          startTime: bookingStartTime,
-          endTime: bookingEndTime,
+          startTime: assignmentStart,
+          endTime: addMinutes(assignmentStart, eventType.duration),
           formData,
           routingFormResponses: Object.keys(routingFormResponses).length > 0 ? routingFormResponses : undefined,
         });
@@ -283,20 +333,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create booking
+    // Create booking(s). For a series: one BookingSeries row, the first
+    // occurrence created with the full include used by the rest of the flow
+    // (emails, calendar, webhooks), then the remaining occurrences in bulk.
+    // All conflicts were validated before any insert, so this never partially
+    // books under normal operation.
+    const series = rule
+      ? await prisma.bookingSeries.create({
+          data: { recurrence: { ...rule } },
+        })
+      : null;
+
+    const baseBookingData = {
+      eventTypeId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      timezone,
+      status: (eventType.requiresConfirmation ? 'PENDING' : 'CONFIRMED') as 'PENDING' | 'CONFIRMED',
+      formData,
+      assignedMemberId,
+    };
+
     const booking = await prisma.booking.create({
-      data: {
-        eventTypeId,
-        guestName,
-        guestEmail,
-        guestPhone,
-        startTime: bookingStartTime,
-        endTime: bookingEndTime,
-        timezone,
-        status: eventType.requiresConfirmation ? 'PENDING' : 'CONFIRMED',
-        formData,
-        assignedMemberId,
-      },
+      data: series
+        ? { ...baseBookingData, seriesId: series.id, startTime: bookingStartTime, endTime: bookingEndTime }
+        : { ...baseBookingData, startTime: bookingStartTime, endTime: bookingEndTime },
       include: {
         eventType: {
           include: {
@@ -309,6 +371,17 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    if (series && occurrences.length > 1) {
+      await prisma.booking.createMany({
+        data: occurrences.slice(1).map((occ) => ({
+          ...baseBookingData,
+          seriesId: series.id,
+          startTime: occ,
+          endTime: addMinutes(occ, eventType.duration),
+        })),
+      });
+    }
 
     // Save routing form responses if provided
     if (eventType.enableRouting && eventType.formSchema && Object.keys(routingFormResponses).length > 0) {
@@ -326,7 +399,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create Google Calendar event if user has calendar sync enabled
+    // Create Google Calendar event(s) if user has calendar sync enabled.
+    // For a series: one free/busy sweep across the whole span, then one event
+    // per occurrence (best-effort — the bookings already exist in the DB).
     let googleCalendarEventId: string | undefined;
     const bookingOwner = await prisma.user.findUnique({
       where: { id: booking.eventType.bookingPage.userId },
@@ -342,45 +417,65 @@ export async function POST(request: NextRequest) {
 
     if (bookingOwner?.calendarSyncEnabled && bookingOwner.accounts.length > 0 && bookingOwner.accounts[0].access_token) {
       try {
-        // Check calendar availability first
-        const isAvailable = await checkCalendarAvailability(
-          bookingOwner.id,
-          bookingStartTime,
-          bookingEndTime
-        );
+        const seriesLastEnd = series
+          ? addMinutes(occurrences[occurrences.length - 1], eventType.duration)
+          : bookingEndTime;
+
+        // Check calendar availability first (single call covering the span)
+        const isAvailable = series
+          ? (await listCalendarEvents(bookingOwner.id, bookingStartTime, seriesLastEnd)).length === 0
+          : await checkCalendarAvailability(
+              bookingOwner.id,
+              bookingStartTime,
+              bookingEndTime
+            );
 
         if (isAvailable) {
-          const calendarEvent = await createCalendarEvent(bookingOwner.id, {
-            summary: `${eventType.name} - ${guestName}`,
-            description: `Booking with ${guestName}\nEmail: ${guestEmail}${guestPhone ? `\nPhone: ${guestPhone}` : ''}`,
-            location: eventType.location === 'video' && eventType.videoLink ? eventType.videoLink : eventType.location,
-            conferenceData: eventType.videoProvider === 'GOOGLE_MEET' ? {
-              createRequest: {
-                requestId: `anytimebot-${booking.id}`,
-                conferenceSolutionKey: { type: 'hangoutsMeet' },
-              },
-            } : undefined,
-            start: bookingStartTime,
-            end: bookingEndTime,
-            attendees: [guestEmail],
-          });
+          const occurrenceBookings = series
+            ? await prisma.booking.findMany({
+                where: { seriesId: series.id },
+                orderBy: { startTime: 'asc' },
+                select: { id: true },
+              })
+            : [{ id: booking.id }];
 
-          const generatedMeetUrl = eventType.videoProvider === 'GOOGLE_MEET'
-            ? calendarEvent?.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === 'video')?.uri
-            : undefined;
+          for (let i = 0; i < occurrences.length; i++) {
+            const occ = occurrences[i];
+            const occEnd = addMinutes(occ, eventType.duration);
+            const occBookingId = occurrenceBookings[i]?.id ?? booking.id;
 
-          if (generatedMeetUrl) {
-            eventType.videoLink = generatedMeetUrl;
-          }
-
-          if (calendarEvent?.id) {
-            googleCalendarEventId = calendarEvent.id;
-            
-            // Update booking with calendar event ID
-            await prisma.booking.update({
-              where: { id: booking.id },
-              data: { googleCalendarEventId: calendarEvent.id },
+            const calendarEvent = await createCalendarEvent(bookingOwner.id, {
+              summary: `${eventType.name} - ${guestName}`,
+              description: `Booking with ${guestName}\nEmail: ${guestEmail}${guestPhone ? `\nPhone: ${guestPhone}` : ''}`,
+              location: eventType.location === 'video' && eventType.videoLink ? eventType.videoLink : eventType.location,
+              conferenceData: eventType.videoProvider === 'GOOGLE_MEET' ? {
+                createRequest: {
+                  requestId: `anytimebot-${occBookingId}`,
+                  conferenceSolutionKey: { type: 'hangoutsMeet' },
+                },
+              } : undefined,
+              start: occ,
+              end: occEnd,
+              attendees: [guestEmail],
             });
+
+            if (i === 0) {
+              const generatedMeetUrl = eventType.videoProvider === 'GOOGLE_MEET'
+                ? calendarEvent?.conferenceData?.entryPoints?.find((entry) => entry.entryPointType === 'video')?.uri
+                : undefined;
+
+              if (generatedMeetUrl) {
+                eventType.videoLink = generatedMeetUrl;
+              }
+            }
+
+            if (calendarEvent?.id) {
+              if (i === 0) googleCalendarEventId = calendarEvent.id;
+              await prisma.booking.update({
+                where: { id: occBookingId },
+                data: { googleCalendarEventId: calendarEvent.id },
+              }).catch(() => undefined);
+            }
           }
         } else {
           console.warn('Time slot not available in Google Calendar, but proceeding with booking');
@@ -522,15 +617,31 @@ export async function POST(request: NextRequest) {
     );
 
     // Outgoing webhook for external integrations (best-effort, persisted first).
+    // For series, include the recurrence rule so external platforms can render
+    // the pattern without extra round-trips.
+    const bookingPayload = series
+      ? { ...buildBookingPayload('booking.created', booking), recurrence: { ...rule!, count: occurrences.length } }
+      : buildBookingPayload('booking.created', booking);
     await dispatchWebhookEvent(
       booking.eventType.bookingPage.userId,
       'booking.created',
-      buildBookingPayload('booking.created', booking),
+      bookingPayload,
     );
+
+    const seriesInfo = series && rule
+      ? {
+          id: series.id,
+          ...rule,
+          occurrences: occurrences.length,
+          summary: describeRecurrence(rule, 'es'),
+          lastStart: occurrences[occurrences.length - 1].toISOString(),
+        }
+      : null;
 
     return NextResponse.json({
       success: true,
       data: booking,
+      series: seriesInfo,
     });
   } catch (error) {
     console.error('Error creating booking:', error);

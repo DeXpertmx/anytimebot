@@ -25,6 +25,9 @@ export default async function BookingsPage() {
           eventTypes: {
             include: {
               bookings: {
+                include: {
+                  series: true,
+                },
                 orderBy: {
                   startTime: 'desc',
                 },
