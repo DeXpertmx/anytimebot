@@ -126,6 +126,11 @@ export function DashboardSidebar() {
       icon: LifeBuoy,
     },
     {
+      name: t('dashboard.api'),
+      href: '/dashboard/api',
+      icon: Shield,
+    },
+    {
       name: t('dashboard.settings'),
       href: '/dashboard/settings',
       icon: Settings,

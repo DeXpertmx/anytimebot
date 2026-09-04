@@ -127,6 +127,7 @@ model User {
   customers    Customer[]
   supportTickets SupportTicket[]
   memberSubscriptions MemberSubscription[]
+  apiKeys      ApiKey[]
 
   @@map("users")
 }
@@ -149,6 +150,25 @@ model Customer {
   @@unique([userId, email])
   @@index([userId, createdAt])
   @@map("customers")
+}
+
+// Public API keys for external integrations (webhooks, sync platforms).
+// Only a SHA-256 hash of the key is stored; the raw key is shown once at creation.
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String // Label given by the user, e.g. "Zapier"
+  keyHash     String   @unique @map("key_hash") // SHA-256 hex of the full key
+  prefix      String // First 8 chars shown in UI, e.g. "atb_live"
+  lastUsedAt  DateTime? @map("last_used_at")
+  requestCount Int     @default(0) @map("request_count")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
 }
 
 // Time off / vacation blocks: whole-day ranges where the owner is unavailable
