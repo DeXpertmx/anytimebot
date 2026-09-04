@@ -279,9 +279,9 @@ export default function CalendarPage() {
   if (status === 'loading' || loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="-m-6 flex min-h-[calc(100vh-4rem)] flex-col bg-slate-50/70">
+    <div className="-m-4 flex min-h-[calc(100vh-4rem)] flex-col bg-slate-50/70 sm:-m-6">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg border bg-white p-1 shadow-sm">
             {(['month', 'week', 'day'] as ViewMode[]).map(mode => (
