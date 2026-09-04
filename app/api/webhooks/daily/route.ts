@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { updateVideoSessionAfterMeeting, generateMeetingSummary } from '@/lib/video-session';
 import { getRoomRecordings } from '@/lib/daily';
 import { sendEmail } from '@/lib/email';
+import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,10 +78,30 @@ async function handleRoomClosed(roomName: string) {
     }
 
     // Update booking status to completed
-    await prisma.booking.update({
+    const completedBooking = await prisma.booking.update({
       where: { id: videoSession.bookingId },
       data: { status: 'COMPLETED' },
+      include: {
+        eventType: {
+          include: {
+            bookingPage: {
+              select: { id: true, title: true, slug: true, userId: true },
+            },
+          },
+        },
+      },
     });
+
+    // Outgoing webhook for external integrations (best-effort, persisted first).
+    try {
+      await dispatchWebhookEvent(
+        completedBooking.eventType.bookingPage.userId,
+        'booking.completed',
+        buildBookingPayload('booking.completed', completedBooking),
+      );
+    } catch {
+      // Best-effort; never fail the Daily webhook processing.
+    }
 
     // Fetch recordings if available
     const recordings = await getRoomRecordings(roomName);

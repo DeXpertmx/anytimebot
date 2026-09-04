@@ -22,6 +22,7 @@ import { notifyBookingCancelled } from '@/lib/push-notifications';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { generateMeetingSummary } from '@/lib/meeting-summary';
+import { dispatchWebhookEvent, buildBookingPayload, type WebhookEvent } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -411,6 +412,22 @@ export async function PUT(
       }
     }
 
+    // Outgoing webhook for external integrations on any real status change
+    // (best-effort, persisted first). PENDING transitions are ignored because
+    // they are internal states, not meaningful for external platforms.
+    if (statusChanged) {
+      const eventByStatus: Partial<Record<string, WebhookEvent>> = {
+        CONFIRMED: 'booking.confirmed',
+        CANCELLED: 'booking.cancelled',
+        COMPLETED: 'booking.completed',
+      };
+      const webhookEvent = eventByStatus[nextStatus];
+      const webhookOwner = updatedBooking.eventType?.bookingPage?.user;
+      if (webhookEvent && webhookOwner) {
+        await dispatchWebhookEvent(webhookOwner.id, webhookEvent, buildBookingPayload(webhookEvent, updatedBooking));
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: updatedBooking,
@@ -495,6 +512,23 @@ export async function DELETE(
         startTime: cancelledBooking.startTime,
         timezone: cancelledBooking.timezone,
       });
+    } catch {
+      // Best-effort; never fail the cancellation.
+    }
+
+    // Outgoing webhook for external integrations (best-effort, persisted first).
+    try {
+      const et = await prisma.eventType.findUnique({
+        where: { id: cancelledBooking.eventTypeId },
+        include: { bookingPage: { select: { id: true, title: true, slug: true, userId: true } } },
+      });
+      if (et) {
+        await dispatchWebhookEvent(
+          et.bookingPage.userId,
+          'booking.cancelled',
+          buildBookingPayload('booking.cancelled', { ...cancelledBooking, eventType: et }),
+        );
+      }
     } catch {
       // Best-effort; never fail the cancellation.
     }

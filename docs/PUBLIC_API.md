@@ -194,3 +194,99 @@ plataforma externa marque qué tipos de evento quiere sincronizar; luego consult
 | 401    | Clave ausente, inválida o revocada   |
 | 400    | Fecha o parámetro inválido           |
 | 404    | Recurso no encontrado                |
+
+## Webhooks de salida
+
+Además del sondeo con `GET /bookings`, Anytimebot puede **notificarte en tiempo
+real** cuando una reserva se crea o cambia de estado. Configura los endpoints en
+**Dashboard → API → Webhooks de salida** (máx. 5 por cuenta).
+
+### Eventos
+
+| Evento                | Se dispara cuando...                              |
+| --------------------- | -------------------------------------------------- |
+| `booking.created`     | Se crea una reserva (público o vía API)             |
+| `booking.confirmed`   | El anfitrión confirma una reserva pendiente         |
+| `booking.cancelled`   | La reserva se cancela (invitado o anfitrión)        |
+| `booking.completed`   | El anfitrión marca la cita como finalizada          |
+| `booking.rescheduled` | La reserva se mueve a otra franja horaria           |
+
+### Formato de la petición
+
+Cada evento llega como `POST` JSON a tu URL con estas cabeceras:
+
+| Cabecera                     | Valor                                              |
+| ---------------------------- | -------------------------------------------------- |
+| `X-Anytimebot-Event`         | Tipo de evento, p. ej. `booking.confirmed`          |
+| `X-Anytimebot-Signature`     | `sha256=<hmac-sha256 del cuerpo con tu secreto>`    |
+| `X-Anytimebot-Delivery-Id`   | Identificador único de la entrega (para idempotencia) |
+| `User-Agent`                 | `Anytimebot-Webhooks/1.0`                           |
+
+```json
+{
+  "event": "booking.cancelled",
+  "created_at": "2026-09-04T12:00:00.000Z",
+  "data": {
+    "id": "cuid",
+    "event_type": { "id": "cuid", "name": "Consulta 30 min", "duration_minutes": 30, "location": "video", "video_link": null },
+    "booking_page": { "id": "cuid", "title": "Mi página", "slug": "juanperez" },
+    "guest": { "name": "Ana García", "email": "ana@ejemplo.com", "phone": "+34600000000" },
+    "start_time": "2026-09-10T09:00:00.000Z",
+    "end_time": "2026-09-10T09:30:00.000Z",
+    "timezone": "Europe/Madrid",
+    "status": "CANCELLED",
+    "payment": null
+  }
+}
+```
+
+`status` en `data` refleja el estado **después** del cambio. `payment` sigue el
+mismo formato que en `GET /bookings` (`null` si el evento es gratuito).
+
+### Verificación de firma (obligatoria)
+
+El secreto se muestra **una sola vez** al crear el webhook. Verifica siempre la
+firma antes de procesar el evento:
+
+**Node.js**
+
+```javascript
+import crypto from 'crypto';
+
+export function verifyWebhook(req, rawBody) {
+  const header = req.headers['x-anytimebot-signature'];
+  const expected =
+    'sha256=' + crypto.createHmac('sha256', process.env.ANYTIMEBOT_WEBHOOK_SECRET).update(rawBody).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+}
+```
+
+**Python**
+
+```python
+import hmac, hashlib
+
+def verify_webhook(raw_body: bytes, signature: str, secret: str) -> bool:
+    expected = "sha256=" + hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+> El HMAC se calcula sobre el **cuerpo crudo** (raw bytes), no sobre el JSON
+> reparseado. Cualquier endpoint que reciba el webhook debe exponer el cuerpo
+> sin transformar (p. ej. `req.text()` / `request.body` sin parsear).
+
+### Reintentos
+
+- Tu endpoint debe responder **2xx** en menos de 10 segundos. Cualquier otra
+  respuesta (o timeout) cuenta como fallo.
+- Reintentamos con backoff exponencial: **1, 2, 4, 8 minutos** (máx. 5 intentos).
+- Si 2 entregas llegan por reintento, usa `X-Anytimebot-Delivery-Id` como clave
+  de idempotencia.
+- Si un endpoint acumula fallos, puedes pausarlo desde el dashboard y las
+  entregas dejarán de intentarse.
+
+### Responder rápido
+
+Procesa el evento **después** de responder: encola el payload y devuelve `200`
+inmediatamente. Si tu procesamiento tarda más de 10s, marcaremos la entrega
+como fallida y la reintentaremos (recibirás el evento duplicado).

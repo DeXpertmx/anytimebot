@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVideoSession, updateVideoSessionAfterMeeting } from '@/lib/video-session';
 import { prisma } from '@/lib/db';
+import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,10 +33,26 @@ export async function POST(
     });
 
     // Update booking status
-    await prisma.booking.update({
+    const updatedBooking = await prisma.booking.update({
       where: { id: bookingId },
       data: { status: 'COMPLETED' },
+      include: {
+        eventType: {
+          include: {
+            bookingPage: {
+              select: { id: true, title: true, slug: true, userId: true },
+            },
+          },
+        },
+      },
     });
+
+    // Outgoing webhook for external integrations (best-effort, persisted first).
+    await dispatchWebhookEvent(
+      updatedBooking.eventType.bookingPage.userId,
+      'booking.completed',
+      buildBookingPayload('booking.completed', updatedBooking),
+    );
 
     return NextResponse.json({ videoSession: updated });
   } catch (error: any) {

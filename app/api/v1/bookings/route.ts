@@ -13,6 +13,7 @@ import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
 import { notifyBookingCreated } from '@/lib/push-notifications';
+import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -472,6 +473,13 @@ export async function POST(request: NextRequest) {
   } catch (pushError) {
     console.error('Failed to send web push:', pushError);
   }
+
+  // Outgoing webhook for external integrations (best-effort, persisted first).
+  await dispatchWebhookEvent(
+    eventType.bookingPage.userId,
+    'booking.created',
+    buildBookingPayload('booking.created', { ...booking, eventType }),
+  );
 
   return NextResponse.json(
     {

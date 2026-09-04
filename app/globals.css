@@ -74,3 +74,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Slim scrollbar for inner scroll containers (sidebar nav, etc.) */
+.scrollbar-slim {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-gutter: stable;
+}
+.scrollbar-slim::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background-color: rgb(203 213 225); /* slate-300 */
+  border-radius: 9999px;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(148 163 184); /* slate-400 */
+}

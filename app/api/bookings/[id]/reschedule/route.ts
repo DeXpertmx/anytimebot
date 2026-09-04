@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { addMinutes } from '@/lib/utils';
 import { sendBookingReschedule } from '@/lib/email';
 import { verifyBookingToken, generateBookingToken } from '@/lib/booking-tokens';
+import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,6 +146,13 @@ export async function POST(
       console.error('Failed to send reschedule email:', emailError);
       // Don't fail the reschedule if email fails
     }
+
+    // Outgoing webhook for external integrations (best-effort, persisted first).
+    await dispatchWebhookEvent(
+      updatedBooking.eventType.bookingPage.userId,
+      'booking.rescheduled',
+      buildBookingPayload('booking.rescheduled', updatedBooking),
+    );
 
     return NextResponse.json({
       success: true,

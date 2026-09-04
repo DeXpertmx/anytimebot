@@ -173,8 +173,9 @@ export function DashboardSidebar() {
           </Link>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-4 py-6">
+        {/* Navigation — scrolls on its own when the viewport is shorter than
+            the list (tablets in landscape, laptops with small screens). */}
+        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-slim space-y-1 px-4 py-4">
           {navigation.map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== '/dashboard' && pathname?.startsWith(item.href));

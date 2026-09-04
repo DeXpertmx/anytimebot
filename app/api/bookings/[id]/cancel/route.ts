@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { sendBookingCancellation } from '@/lib/email';
 import { verifyBookingToken } from '@/lib/booking-tokens';
 import { notifyAdminBookingCancelled } from '@/lib/system-whatsapp';
+import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +90,13 @@ export async function POST(
       startTime: booking.startTime,
       timezone: booking.timezone,
     });
+
+    // Outgoing webhook for external integrations (best-effort, persisted first).
+    await dispatchWebhookEvent(
+      booking.eventType.bookingPage.userId,
+      'booking.cancelled',
+      buildBookingPayload('booking.cancelled', { ...booking, status: updatedBooking.status }),
+    );
 
     return NextResponse.json({
       success: true,

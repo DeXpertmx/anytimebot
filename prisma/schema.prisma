@@ -128,6 +128,7 @@ model User {
   supportTickets SupportTicket[]
   memberSubscriptions MemberSubscription[]
   apiKeys      ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
 
   @@map("users")
 }
@@ -169,6 +170,42 @@ model ApiKey {
 
   @@index([userId])
   @@map("api_keys")
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  url       String // HTTPS URL that receives POST notifications
+  secret    String // HMAC-SHA256 secret used to sign payloads
+  events    String   @default("*") // Comma-separated event types, "*" = all
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id             String    @id @default(cuid())
+  endpointId     String    @map("endpoint_id")
+  eventType      String    @map("event_type") // booking.created, booking.cancelled, ...
+  payload        Json
+  status         String    @default("PENDING") // PENDING | DELIVERED | FAILED
+  attempts       Int       @default(0)
+  responseStatus Int?      @map("response_status")
+  lastError      String?   @map("last_error")
+  nextRetryAt    DateTime? @map("next_retry_at")
+  deliveredAt    DateTime? @map("delivered_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
 }
 
 // Time off / vacation blocks: whole-day ranges where the owner is unavailable

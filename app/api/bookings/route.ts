@@ -15,6 +15,7 @@ import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
 import { notifyBookingCreated } from '@/lib/push-notifications';
+import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -518,6 +519,13 @@ export async function POST(request: NextRequest) {
       guestName,
       eventType.name,
       booking.id,
+    );
+
+    // Outgoing webhook for external integrations (best-effort, persisted first).
+    await dispatchWebhookEvent(
+      booking.eventType.bookingPage.userId,
+      'booking.created',
+      buildBookingPayload('booking.created', booking),
     );
 
     return NextResponse.json({
