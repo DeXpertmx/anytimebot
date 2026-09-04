@@ -14,6 +14,20 @@ Authorization: Bearer atb_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Las claves se muestran **una sola vez** al crearlas (solo se guarda el hash SHA-256)
 y pueden revocarse en cualquier momento desde el dashboard.
 
+## Rate limiting
+
+Cada clave tiene un límite de **100 peticiones por minuto** (ventana deslizante,
+configurable con la variable `API_RATE_LIMIT_PER_MIN`). Todas las respuestas
+incluyen cabeceras estándar:
+
+| Cabecera               | Significado                                    |
+| ---------------------- | ---------------------------------------------- |
+| `X-RateLimit-Limit`    | Límite por minuto de la clave                  |
+| `X-RateLimit-Remaining`| Peticiones restantes en la ventana actual      |
+| `Retry-After`          | Segundos hasta reintentar (solo en error 429)  |
+
+Al superar el límite la API responde `429 rate_limited` sin consumir la petición.
+
 ## Endpoints
 
 ### `GET /api/v1/me`
@@ -67,6 +81,67 @@ sincronizar.
 ```
 
 `payment` es `null` si el evento es gratuito.
+
+### `POST /api/v1/bookings`
+
+Crea una reserva en la cuenta dueña de la clave — equivalente a lo que ocurre
+con el formulario público: valida el campo obligatorio del formulario, bloquea
+ausencias y huecos ocupados (409), sincroniza Google Calendar, envía email y
+WhatsApp al invitado si queda confirmada, o avisa al anfitrión si requiere
+confirmación manual.
+
+```json
+{
+  "event_type_id": "cuid",
+  "guest": {
+    "name": "Ana García",
+    "email": "ana@ejemplo.com",
+    "phone": "+34600000000"
+  },
+  "start_time": "2026-09-10T09:00:00Z",
+  "timezone": "Europe/Madrid",
+  "form_data": { "motivo": "Primera consulta" }
+}
+```
+
+| Campo          | Obligatorio | Notas                                             |
+| -------------- | ----------- | ------------------------------------------------- |
+| `event_type_id`| Sí          | Debe pertenecer a la cuenta de la clave (404 si no) |
+| `guest.name`   | Sí          |                                                   |
+| `guest.email`  | Sí          | Formato válido (400 si no)                         |
+| `guest.phone`  | No          | Habilita la confirmación por WhatsApp              |
+| `start_time`   | Sí          | ISO 8601; el fin se calcula con la duración del evento |
+| `timezone`     | No          | Por defecto `UTC`                                  |
+| `form_data`    | No          | Respuestas a campos personalizados obligatorios    |
+
+Respuesta **201** con la reserva creada:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cuid",
+    "event_type_id": "cuid",
+    "guest": { "name": "Ana García", "email": "ana@ejemplo.com", "phone": "+34600000000" },
+    "start_time": "2026-09-10T09:00:00.000Z",
+    "end_time": "2026-09-10T09:30:00.000Z",
+    "timezone": "Europe/Madrid",
+    "status": "CONFIRMED",
+    "created_at": "2026-09-04T10:00:00.000Z"
+  }
+}
+```
+
+`status` es `PENDING` cuando el tipo de evento requiere confirmación del
+anfitrión — la plataforma externa debe tratarlo como "pendiente de aprobación".
+
+Errores específicos de este endpoint:
+
+| Código | Causa                                                    |
+| ------ | -------------------------------------------------------- |
+| 400    | Campos ausentes/inválidos o formulario incompleto         |
+| 404    | El tipo de evento no pertenece a la cuenta de la clave    |
+| 409    | Hueco ocupado, anfitrión ausente o sin miembro de equipo  |
 
 ### `GET /api/v1/bookings`
 

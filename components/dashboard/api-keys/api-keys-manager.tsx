@@ -287,19 +287,25 @@ export function ApiKeysManager() {
             <div>
               <p className="mb-1 font-medium">{t('apiKeys.docsEndpointsTitle')}</p>
               <pre className="overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-200">
-{`GET  /api/v1/me
-GET  /api/v1/event-types
-GET  /api/v1/bookings?event_type_id=...
-GET  /api/v1/bookings?status=CONFIRMED
-GET  /api/v1/bookings?from=2026-09-01&to=2026-09-30
-GET  /api/v1/bookings?updated_since=2026-09-01T00:00:00Z`}
+{`GET   /api/v1/me
+GET   /api/v1/event-types
+GET   /api/v1/bookings?event_type_id=...
+GET   /api/v1/bookings?status=CONFIRMED
+GET   /api/v1/bookings?from=2026-09-01&to=2026-09-30
+GET   /api/v1/bookings?updated_since=2026-09-01T00:00:00Z
+POST  /api/v1/bookings  { event_type_id, guest, start_time }`}
               </pre>
             </div>
             <div>
               <p className="mb-1 font-medium">{t('apiKeys.docsExampleTitle')}</p>
               <pre className="overflow-x-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-200">
 {`curl https://anytimebot.app/api/v1/bookings \\
-  -H "Authorization: Bearer atb_tu_clave_aqui"`}
+  -H "Authorization: Bearer atb_tu_clave_aqui"
+
+curl -X POST https://anytimebot.app/api/v1/bookings \\
+  -H "Authorization: Bearer atb_tu_clave_aqui" \\
+  -H "Content-Type: application/json" \\
+  -d '{"event_type_id":"...","guest":{"name":"Ana","email":"ana@mail.com"},"start_time":"2026-09-10T09:00:00Z"}'`}
               </pre>
             </div>
           </div>

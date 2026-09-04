@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes } from 'crypto';
 import { prisma } from '@/lib/db';
+import { checkRateLimit, rateLimitHeaders, type RateLimitResult } from '@/lib/rate-limit';
 
 /**
  * Public API authentication for external integrations.
@@ -28,22 +29,25 @@ export function hashApiKey(key: string): string {
 export interface AuthenticatedUser {
   userId: string;
   apiKeyId: string;
+  rateLimit: RateLimitResult;
 }
 
 /**
  * Validate a request's `Authorization: Bearer atb_...` header.
- * Returns the owning user + key record, or null when missing/invalid/revoked.
- * Updates lastUsedAt / requestCount (fire-and-forget, non-blocking).
+ * Returns the owning user + key record plus the rate-limit verdict, or a
+ * typed rejection (401 invalid key / 429 over limit) for direct returning.
  */
 export async function authenticateApiKey(
   request: NextRequest
-): Promise<AuthenticatedUser | null> {
+): Promise<AuthenticatedUser | NextResponse> {
   const authHeader = request.headers.get('authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) return null;
+  if (!authHeader.startsWith('Bearer ')) {
+    return apiErrorResponse(401, 'unauthorized', 'Missing Authorization header');
+  }
 
   const key = authHeader.slice(7).trim();
   if (!key.startsWith(API_KEY_PREFIX) || key.length < API_KEY_PREFIX.length + 32) {
-    return null;
+    return apiErrorResponse(401, 'unauthorized', 'Invalid API key format');
   }
 
   const hash = hashApiKey(key);
@@ -52,7 +56,22 @@ export async function authenticateApiKey(
     select: { id: true, userId: true, revokedAt: true },
   });
 
-  if (!apiKey || apiKey.revokedAt) return null;
+  if (!apiKey || apiKey.revokedAt) {
+    return apiErrorResponse(401, 'unauthorized', 'Invalid or revoked API key');
+  }
+
+  // Sliding-window limit per key. 429 carries standard headers + Retry-After.
+  const rateLimit = checkRateLimit(apiKey.id);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'rate_limited',
+        message: `Rate limit exceeded (${rateLimit.limit} requests per minute). Retry later.`,
+      },
+      { status: 429, headers: rateLimitHeaders(rateLimit) }
+    );
+  }
 
   // Usage tracking — never block the request on this.
   prisma.apiKey
@@ -62,12 +81,12 @@ export async function authenticateApiKey(
     })
     .catch(() => {});
 
-  return { userId: apiKey.userId, apiKeyId: apiKey.id };
+  return { userId: apiKey.userId, apiKeyId: apiKey.id, rateLimit };
 }
 
 /** Standard JSON error responses for the public API. */
 export function apiErrorResponse(
-  status: 401 | 403 | 404 | 400 | 429 | 500,
+  status: 401 | 403 | 404 | 400 | 409 | 429 | 500,
   error: string,
   message?: string
 ) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { authenticateApiKey } from '@/lib/api-auth';
+import { rateLimitHeaders } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,12 +9,7 @@ export const dynamic = 'force-dynamic';
 // pick which ones they want to sync with)
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request);
-  if (!auth) {
-    return NextResponse.json(
-      { success: false, error: 'unauthorized', message: 'Invalid or missing API key' },
-      { status: 401 }
-    );
-  }
+  if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(request.url);
   const bookingPageId = searchParams.get('booking_page_id');
@@ -42,32 +38,35 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return NextResponse.json({
-    success: true,
-    data: eventTypes.map((et) => ({
-      id: et.id,
-      name: et.name,
-      description: null,
-      duration_minutes: et.duration,
-      buffer_minutes: et.bufferTime,
-      location: et.location,
-      video_link: et.videoLink,
-      color: et.color,
-      requires_confirmation: et.requiresConfirmation,
-      active: et.bookingPage.isActive,
-      payment: et.collectPayment
-        ? {
-            amount_cents: et.price,
-            currency: et.currency,
-            interval: et.paymentInterval,
-          }
-        : null,
-      booking_page: {
-        id: et.bookingPage.id,
-        title: et.bookingPage.title,
-        slug: et.bookingPage.slug,
-        public_url: `/${et.bookingPage.slug}`,
-      },
-    })),
-  });
+  return NextResponse.json(
+    {
+      success: true,
+      data: eventTypes.map((et) => ({
+        id: et.id,
+        name: et.name,
+        description: null,
+        duration_minutes: et.duration,
+        buffer_minutes: et.bufferTime,
+        location: et.location,
+        video_link: et.videoLink,
+        color: et.color,
+        requires_confirmation: et.requiresConfirmation,
+        active: et.bookingPage.isActive,
+        payment: et.collectPayment
+          ? {
+              amount_cents: et.price,
+              currency: et.currency,
+              interval: et.paymentInterval,
+            }
+          : null,
+        booking_page: {
+          id: et.bookingPage.id,
+          title: et.bookingPage.title,
+          slug: et.bookingPage.slug,
+          public_url: `/${et.bookingPage.slug}`,
+        },
+      })),
+    },
+    { headers: rateLimitHeaders(auth.rateLimit) }
+  );
 }

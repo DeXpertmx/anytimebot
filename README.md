@@ -69,6 +69,33 @@ Consulta [`VERCEL_DEPLOYMENT.md`](./VERCEL_DEPLOYMENT.md) para la configuración
 
 See `README-DEPLOYMENT.md` for detailed deployment instructions.
 
+## 🔌 External Integrations (Public API)
+
+Anytimebot exposes a public REST API so external platforms (CRMs, Zapier-like
+automations, partner apps) can sync booking data and even **create bookings**
+on behalf of an account.
+
+- **Authentication**: per-user API keys (`atb_...`) created in
+  **Dashboard → API**. Only a SHA-256 hash is stored; keys are shown once and
+  can be revoked at any time.
+- **Endpoints**:
+  - `GET /api/v1/me` — account info (plan, timezone, currency)
+  - `GET /api/v1/event-types` — bookable event types to pick for syncing
+  - `GET /api/v1/bookings` — paginated bookings with filters
+    (`event_type_id`, `status`, `from`/`to`, `updated_since` for incremental sync)
+  - `POST /api/v1/bookings` — create a booking (availability checked,
+    calendar + email + WhatsApp side effects included)
+- **Rate limiting**: 100 requests/minute per key with standard
+  `X-RateLimit-*` headers and `429` + `Retry-After` when exceeded.
+
+Full reference with request/response examples:
+**[`docs/PUBLIC_API.md`](./docs/PUBLIC_API.md)**
+
+```bash
+curl https://anytimebot.app/api/v1/bookings \
+  -H "Authorization: Bearer atb_your_key_here"
+```
+
 ## 🛠️ Tech Stack
 
 - **Framework:** Next.js 14

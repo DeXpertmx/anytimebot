@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { authenticateApiKey } from '@/lib/api-auth';
+import { rateLimitHeaders } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/v1/me - account info for the authenticated API key
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiKey(request);
-  if (!auth) {
-    return NextResponse.json(
-      { success: false, error: 'unauthorized', message: 'Invalid or missing API key' },
-      { status: 401 }
-    );
-  }
+  if (auth instanceof NextResponse) return auth;
 
   const user = await prisma.user.findUnique({
     where: { id: auth.userId },
@@ -32,17 +28,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'not_found' }, { status: 404 });
   }
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      username: user.username,
-      plan: user.plan,
-      timezone: user.timezone,
-      currency: user.currency,
-      country: user.country,
+  return NextResponse.json(
+    {
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        plan: user.plan,
+        timezone: user.timezone,
+        currency: user.currency,
+        country: user.country,
+      },
     },
-  });
+    { headers: rateLimitHeaders(auth.rateLimit) }
+  );
 }
