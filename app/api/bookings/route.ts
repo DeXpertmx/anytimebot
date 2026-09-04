@@ -177,6 +177,7 @@ export async function POST(request: NextRequest) {
             },
           },
         },
+        defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
       },
     });
 
@@ -403,7 +404,9 @@ export async function POST(request: NextRequest) {
       status: (eventType.requiresConfirmation ? 'PENDING' : 'CONFIRMED') as 'PENDING' | 'CONFIRMED',
       formData,
       assignedMemberId,
-      // Resource/location snapshot (only when the event type uses resources).
+      // Resource/location snapshot. Resource-mode events store the assigned
+      // room/chair (+ its sede); in-person events without resources store the
+      // default sede of the event type (its address is the "where").
       ...(pickedResource
         ? {
             resourceId: pickedResource.resource.id,
@@ -412,7 +415,13 @@ export async function POST(request: NextRequest) {
             locationName: pickedResource.resource.location?.name ?? null,
             locationAddress: pickedResource.resource.location?.address ?? null,
           }
-        : {}),
+        : eventType.defaultLocation
+          ? {
+              locationId: eventType.defaultLocation.id,
+              locationName: eventType.defaultLocation.name,
+              locationAddress: eventType.defaultLocation.address,
+            }
+          : {}),
     };
 
     const booking = await prisma.booking.create({

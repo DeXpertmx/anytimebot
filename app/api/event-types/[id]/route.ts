@@ -30,6 +30,7 @@ export async function GET(
       include: {
         formFields: true,
         bookingPage: true,
+        defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
         allowedResources: {
           include: {
             resource: {
@@ -110,6 +111,7 @@ export async function PUT(
       enableRecording,
       enableTranscription,
       allowedResourceIds,
+      locationId,
     } = body;
 
     // Check if event type belongs to user
@@ -153,6 +155,24 @@ export async function PUT(
     if (enableLiveAI !== undefined) updateData.enableLiveAI = enableLiveAI;
     if (enableRecording !== undefined) updateData.enableRecording = enableRecording;
     if (enableTranscription !== undefined) updateData.enableTranscription = enableTranscription;
+    // Default sede (Phase B): ''/null clears it; otherwise must be owned+active.
+    if ('locationId' in body) {
+      let resolvedLocationId: string | null = null;
+      if (body.locationId) {
+        const ownedLocation = await prisma.location.findFirst({
+          where: { id: String(body.locationId), userId: (session.user as any).id, isActive: true },
+          select: { id: true },
+        });
+        if (!ownedLocation) {
+          return NextResponse.json(
+            { success: false, error: 'Sede no encontrada o inactiva' },
+            { status: 400 }
+          );
+        }
+        resolvedLocationId = ownedLocation.id;
+      }
+      updateData.locationId = resolvedLocationId;
+    }
 
     const eventType = await prisma.eventType.update({
       where: { id: params.id },
@@ -212,6 +232,7 @@ export async function PUT(
       include: {
         formFields: true,
         bookingPage: true,
+        defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
         allowedResources: {
           include: {
             resource: {

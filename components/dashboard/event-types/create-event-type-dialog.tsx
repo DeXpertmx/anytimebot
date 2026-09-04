@@ -29,6 +29,7 @@ import { getEventTypeColors } from '@/lib/utils';
 import { Loader2, Palette } from 'lucide-react';
 import { TeamAssignmentSelector } from './team-assignment-selector';
 import { ResourceMultiSelect } from './resource-multi-select';
+import { SedeSelect } from './sede-select';
 
 interface CreateEventTypeDialogProps {
   children: React.ReactNode;
@@ -50,6 +51,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
     duration: '30',
     bufferTime: '5',
     location: 'video',
+    locationId: '',
     videoLink: '',
     videoProvider: 'GOOGLE_MEET',
     color: '#6366f1',
@@ -133,6 +135,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           duration: '30',
           bufferTime: '5',
           location: 'video',
+          locationId: '',
           videoLink: '',
           videoProvider: 'GOOGLE_MEET',
           color: '#6366f1',
@@ -312,6 +315,13 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
               </SelectContent>
             </Select>
           </div>
+
+          {formData.location === 'in-person' && (
+            <SedeSelect
+              value={formData.locationId || ''}
+              onChange={(locationId) => setFormData(prev => ({ ...prev, locationId }))}
+            />
+          )}
 
           {formData.location === 'video' && (
             <>

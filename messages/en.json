@@ -292,7 +292,10 @@
     "resourcesSelected": "{{count}} resources assigned",
     "resourcesSelectedOne": "{{count}} resource assigned",
     "resourcesAssignHint": "one free is assigned per booking",
-    "resourcesEmpty": "No resources yet. Create one from Settings → Locations & resources."
+    "resourcesEmpty": "No resources yet. Create one from Settings → Locations & resources.",
+    "sedeLabel": "Location (optional)",
+    "noSede": "No location — no fixed address",
+    "sedeHint": "For in-person events: its address is shown on the confirmation and its timezone drives availability."
   },
   "apiKeys": {
     "title": "API",

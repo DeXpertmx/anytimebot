@@ -390,6 +390,12 @@ model EventType {
   collectPayment  Boolean @default(false) @map("collect_payment") // Require payment to book
   paymentInterval String  @default("ONE_TIME") @map("payment_interval") // "ONE_TIME", "MONTH", "YEAR" — recurring billing (memberships)
 
+  // Default sede for in-person events without a bookable resource (Phase B).
+  // Its address is the "where" shown to guests and its timezone anchors the
+  // availability schedule. Events with resources use the sede of the assigned
+  // resource instead.
+  locationId String? @map("location_id")
+
   // Team Scheduling
   teamId         String? @map("team_id")
   assignmentMode String  @default("individual") @map("assignment_mode") // "individual", "collective", "round_robin", "smart"
@@ -412,12 +418,14 @@ model EventType {
   // Relations
   bookingPage         BookingPage           @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
   team                Team?                 @relation(fields: [teamId], references: [id])
+  defaultLocation     Location?             @relation("EventTypeDefaultLocation", fields: [locationId], references: [id], onDelete: SetNull)
   bookings            Booking[]
   allowedResources    EventTypeResource[]
   formFields          BookingFormField[]
   routingResponses    RoutingFormResponse[]
   memberSubscriptions MemberSubscription[]
 
+  @@index([locationId])
   @@map("event_types")
 }
 
@@ -456,9 +464,10 @@ model Location {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resources Resource[]
-  bookings  Booking[]
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resources         Resource[]
+  bookings          Booking[]
+  defaultEventTypes EventType[] @relation("EventTypeDefaultLocation")
 
   @@index([userId, isActive])
   @@map("locations")

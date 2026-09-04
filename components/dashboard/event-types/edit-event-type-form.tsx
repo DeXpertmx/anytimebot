@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import { ResourceMultiSelect } from './resource-multi-select';
+import { SedeSelect } from './sede-select';
 
 interface FormField {
   id?: string;
@@ -52,6 +53,7 @@ interface EditEventTypeFormProps {
     price?: number;
     currency?: string;
     allowedResources?: Array<{ resource: { id: string } }>;
+    defaultLocation?: { id: string } | null;
   };
   bookingPages: Array<{
     id: string;
@@ -83,6 +85,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     duration: eventType.duration,
     bufferTime: eventType.bufferTime,
     location: eventType.location,
+    locationId: eventType.defaultLocation?.id || '',
     videoLink: eventType.videoLink || '',
     color: eventType.color,
     requiresConfirmation: eventType.requiresConfirmation,
@@ -306,6 +309,13 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               </SelectContent>
             </Select>
           </div>
+
+          {formData.location === 'in-person' && (
+            <SedeSelect
+              value={formData.locationId || ''}
+              onChange={(locationId) => setFormData({ ...formData, locationId })}
+            />
+          )}
 
           {formData.location === 'video' && (
             <div className="space-y-2">

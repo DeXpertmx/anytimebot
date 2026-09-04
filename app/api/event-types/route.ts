@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       include: {
         formFields: true,
         bookingPage: true,
+        defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
         allowedResources: {
           include: {
             resource: {
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
       routingRules = null,
       enableRouting = false,
       allowedResourceIds = [],
+      locationId = null,
     } = body;
 
     // Validation
@@ -161,6 +163,22 @@ export async function POST(request: NextRequest) {
       allowedResources = owned.map((r) => ({ resourceId: r.id }));
     }
 
+    // Default sede (Phase B): must belong to the user and be active.
+    let defaultLocationId: string | null = null;
+    if (locationId) {
+      const ownedLocation = await prisma.location.findFirst({
+        where: { id: String(locationId), userId: (session.user as any).id, isActive: true },
+        select: { id: true },
+      });
+      if (!ownedLocation) {
+        return NextResponse.json(
+          { success: false, error: 'Sede no encontrada o inactiva' },
+          { status: 400 }
+        );
+      }
+      defaultLocationId = ownedLocation.id;
+    }
+
     // Create event type (with its allowed resources when any are given)
     const eventType = await prisma.eventType.create({
       data: {
@@ -182,6 +200,7 @@ export async function POST(request: NextRequest) {
         formSchema,
         routingRules,
         enableRouting,
+        locationId: defaultLocationId,
         ...(allowedResources.length > 0
           ? {
               allowedResources: {
@@ -212,6 +231,7 @@ export async function POST(request: NextRequest) {
       include: {
         formFields: true,
         bookingPage: true,
+        defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
         allowedResources: {
           include: {
             resource: {

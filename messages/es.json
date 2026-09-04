@@ -292,7 +292,10 @@
     "resourcesSelected": "{{count}} recursos asignados",
     "resourcesSelectedOne": "{{count}} recurso asignado",
     "resourcesAssignHint": "se asigna uno libre al reservar",
-    "resourcesEmpty": "Aún no hay recursos. Crea uno desde Configuración → Ubicaciones y recursos."
+    "resourcesEmpty": "Aún no hay recursos. Crea uno desde Configuración → Ubicaciones y recursos.",
+    "sedeLabel": "Sede (opcional)",
+    "noSede": "Sin sede — sin dirección fija",
+    "sedeHint": "Para eventos presenciales: se usará su dirección en la confirmación y su zona horaria para la disponibilidad."
   },
   "apiKeys": {
     "title": "API",
