@@ -267,7 +267,16 @@ export async function dispatchWebhookEvent(
 export async function processDueDeliveries(deps?: WebhookDeps): Promise<{ processed: number; delivered: number }> {
   const { prisma: db } = resolveDeps(deps);
   const due = await db.webhookDelivery.findMany({
-    where: { status: 'PENDING', nextRetryAt: { lte: new Date() } },
+    where: {
+      status: 'PENDING',
+      OR: [
+        { nextRetryAt: { lte: new Date() } },
+        // Persisted but never attempted: on serverless the initial
+        // fire-and-forget can be frozen before any fetch runs, leaving the
+        // delivery at attempts=0 / nextRetryAt=null. Sweep those too.
+        { attempts: 0, nextRetryAt: null },
+      ],
+    },
     orderBy: { createdAt: 'asc' },
     take: CRON_BATCH_SIZE,
     select: { id: true },

@@ -107,8 +107,22 @@ function makeFakeDb() {
       findMany: async (args: any = {}) =>
         deliveries.filter((d) => {
           if (args.where?.status && d.status !== args.where.status) return false;
-          const lte = args.where?.nextRetryAt?.lte;
-          if (lte && (!d.nextRetryAt || d.nextRetryAt > lte)) return false;
+          const or = args.where?.OR;
+          if (or) {
+            const match = or.some((cond: any) => {
+              if (cond.nextRetryAt?.lte) {
+                return d.nextRetryAt !== null && d.nextRetryAt <= cond.nextRetryAt.lte;
+              }
+              if ('attempts' in cond) {
+                return d.attempts === cond.attempts && d.nextRetryAt === null;
+              }
+              return false;
+            });
+            if (!match) return false;
+          } else {
+            const lte = args.where?.nextRetryAt?.lte;
+            if (lte && (!d.nextRetryAt || d.nextRetryAt > lte)) return false;
+          }
           return true;
         }),
     },
