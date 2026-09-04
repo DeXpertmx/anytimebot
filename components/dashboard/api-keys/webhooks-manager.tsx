@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
-import { Webhook, Loader2, Plus, Trash2, Copy, Check } from 'lucide-react';
+import { Webhook, Loader2, Plus, Trash2, Copy, Check, Send, History } from 'lucide-react';
 
 interface WebhookEndpointRecord {
   id: string;
@@ -28,6 +28,17 @@ interface WebhookEndpointRecord {
   totalDeliveries: number;
   delivered: number;
   failed: number;
+}
+
+interface DeliveryRecord {
+  id: string;
+  eventType: string;
+  status: string;
+  attempts: number;
+  responseStatus: number | null;
+  lastError: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
 }
 
 const EVENT_KEYS = [
@@ -43,6 +54,13 @@ export function WebhooksManager() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [historyOf, setHistoryOf] = useState<WebhookEndpointRecord | null>(null);
+  const [history, setHistory] = useState<DeliveryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPages, setHistoryPages] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [deleting, setDeleting] = useState<WebhookEndpointRecord | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [url, setUrl] = useState('');
@@ -140,6 +158,55 @@ export function WebhooksManager() {
     }
   };
 
+  const fetchHistory = useCallback(async (endpointId: string, page: number) => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/webhooks/manage/${endpointId}/deliveries?page=${page}&limit=20`);
+      const data = await res.json();
+      if (data.success) {
+        setHistory(data.data);
+        setHistoryPage(data.pagination.page);
+        setHistoryPages(data.pagination.pages);
+        setHistoryTotal(data.pagination.total);
+      }
+    } catch {
+      // silent
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  const openHistory = (endpoint: WebhookEndpointRecord) => {
+    setHistoryOf(endpoint);
+    setHistory([]);
+    setHistoryPage(1);
+    fetchHistory(endpoint.id, 1);
+  };
+
+  const handleTest = async (endpoint: WebhookEndpointRecord) => {
+    setTesting(endpoint.id);
+    try {
+      const res = await fetch(`/api/webhooks/manage/${endpoint.id}/test`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: t('webhooks.testOk', { status: data.status, ms: data.durationMs }),
+          description: t('webhooks.testOkDesc'),
+        });
+      } else {
+        toast({
+          title: t('webhooks.testFail'),
+          description: data.error || t('webhooks.testFailDesc', { status: data.status }),
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({ title: t('common.error'), description: t('webhooks.testFail'), variant: 'destructive' });
+    } finally {
+      setTesting(null);
+    }
+  };
+
   const copySecret = async () => {
     if (!createdSecret) return;
     try {
@@ -205,6 +272,28 @@ export function WebhooksManager() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openHistory(endpoint)}
+                    aria-label={t('webhooks.history')}
+                  >
+                    <History className="h-4 w-4 mr-1" />
+                    {t('webhooks.history')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTest(endpoint)}
+                    disabled={testing === endpoint.id}
+                  >
+                    {testing === endpoint.id ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-1" />
+                    )}
+                    {t('webhooks.test')}
+                  </Button>
                   <Switch
                     checked={endpoint.active}
                     onCheckedChange={(active) => handleToggle(endpoint, active)}
@@ -291,6 +380,89 @@ export function WebhooksManager() {
             <DialogFooter>
               <Button onClick={() => setCreatedSecret(null)}>{t('common.done')}</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delivery history dialog */}
+        <Dialog open={!!historyOf} onOpenChange={(open) => !open && setHistoryOf(null)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{t('webhooks.historyTitle')}</DialogTitle>
+              <p className="text-sm text-muted-foreground break-all">{historyOf?.url}</p>
+            </DialogHeader>
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                {t('common.loading')}
+              </div>
+            ) : history.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">{t('webhooks.historyEmpty')}</p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {history.map((d) => (
+                    <div key={d.id} className="rounded-lg border p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">{d.eventType}</code>
+                          <Badge
+                            variant={d.status === 'DELIVERED' ? 'default' : d.status === 'FAILED' ? 'destructive' : 'secondary'}
+                          >
+                            {d.status === 'DELIVERED'
+                              ? t('webhooks.statusDelivered')
+                              : d.status === 'FAILED'
+                                ? t('webhooks.statusFailed')
+                                : t('webhooks.statusPending')}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(d.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          {t('webhooks.attempts', { count: d.attempts })}
+                          {d.responseStatus !== null && ` · HTTP ${d.responseStatus}`}
+                        </span>
+                        {d.deliveredAt && (
+                          <span>
+                            {t('webhooks.deliveredAtLabel')} {new Date(d.deliveredAt).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      {d.lastError && (
+                        <p className="mt-1.5 rounded bg-destructive/10 px-2 py-1 font-mono text-xs text-destructive break-all">
+                          {d.lastError}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {historyPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => historyOf && fetchHistory(historyOf.id, historyPage - 1)}
+                      disabled={historyPage <= 1 || historyLoading}
+                    >
+                      {t('webhooks.historyPrev')}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {t('webhooks.historyPageOf', { page: historyPage, pages: historyPages, total: historyTotal })}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => historyOf && fetchHistory(historyOf.id, historyPage + 1)}
+                      disabled={historyPage >= historyPages || historyLoading}
+                    >
+                      {t('webhooks.historyNext')}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </DialogContent>
         </Dialog>
 
