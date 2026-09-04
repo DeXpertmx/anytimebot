@@ -285,7 +285,14 @@
     "fieldOptionsPlaceholder": "Opción 1, Opción 2, Opción 3",
     "requiredField": "Campo obligatorio",
     "saving": "Guardando...",
-    "saveChanges": "Guardar cambios"
+    "saveChanges": "Guardar cambios",
+    "resourcesTitle": "Recursos reservables (opcional)",
+    "resourcesDescription": "Selecciona los recursos (salas, sillones, equipos…) en los que se puede reservar este tipo de evento. Al reservar se asignará automáticamente uno libre.",
+    "resourcesNone": "Sin recursos asignados: los clientes podrán reservar sin ocupar un recurso concreto.",
+    "resourcesSelected": "{{count}} recursos asignados",
+    "resourcesSelectedOne": "{{count}} recurso asignado",
+    "resourcesAssignHint": "se asigna uno libre al reservar",
+    "resourcesEmpty": "Aún no hay recursos. Crea uno desde Configuración → Ubicaciones y recursos."
   },
   "apiKeys": {
     "title": "API",

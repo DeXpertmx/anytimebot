@@ -28,6 +28,7 @@ import { useTranslation } from '@/lib/i18n/hooks';
 import { getEventTypeColors } from '@/lib/utils';
 import { Loader2, Palette } from 'lucide-react';
 import { TeamAssignmentSelector } from './team-assignment-selector';
+import { ResourceMultiSelect } from './resource-multi-select';
 
 interface CreateEventTypeDialogProps {
   children: React.ReactNode;
@@ -60,6 +61,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
     teamId: null as string | null,
     assignmentMode: 'individual',
   });
+  const [allowedResourceIds, setAllowedResourceIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -113,6 +115,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           duration: parseInt(formData.duration),
           bufferTime: parseInt(formData.bufferTime),
           price: Math.round((parseFloat(formData.price) || 0) * 100),
+          allowedResourceIds,
         }),
       });
 
@@ -141,6 +144,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           teamId: null,
           assignmentMode: 'individual',
         });
+        setAllowedResourceIds([]);
         router.refresh();
       } else {
         toast({
@@ -372,6 +376,8 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
             onTeamChange={(teamId) => setFormData(prev => ({ ...prev, teamId }))}
             onAssignmentModeChange={(assignmentMode) => setFormData(prev => ({ ...prev, assignmentMode }))}
           />
+
+          <ResourceMultiSelect value={allowedResourceIds} onChange={setAllowedResourceIds} />
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div className="space-y-0.5">

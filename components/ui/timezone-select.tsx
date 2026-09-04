@@ -64,6 +64,7 @@ export function TimezoneSelect({ value, onValueChange, className }: TimezoneSele
   }, []);
 
   const displayValue = value || userTimezone;
+  const hasExact = COMMON_TIMEZONES.some((tz) => tz.value === displayValue);
 
   return (
     <Select value={displayValue} onValueChange={onValueChange}>
@@ -76,6 +77,11 @@ export function TimezoneSelect({ value, onValueChange, className }: TimezoneSele
           <SelectItem value={userTimezone}>
             {COMMON_TIMEZONES.find(tz => tz.value === userTimezone)?.label || userTimezone}
           </SelectItem>
+          {!hasExact && displayValue !== userTimezone && (
+            <SelectItem value={displayValue}>
+              {COMMON_TIMEZONES.find(tz => tz.value === displayValue)?.label || displayValue}
+            </SelectItem>
+          )}
         </SelectGroup>
         <SelectGroup>
           <SelectLabel>Zonas horarias comunes</SelectLabel>

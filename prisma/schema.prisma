@@ -1,15 +1,14 @@
-
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Account {
@@ -53,82 +52,84 @@ model User {
   country       String    @default("ES")
   currency      String    @default("EUR")
   emailVerified DateTime? @map("email_verified")
-  
+
   // Role-based access control
-  role          UserRole  @default(USER)
-  isActive      Boolean   @default(true) @map("is_active")
-  suspendedAt   DateTime? @map("suspended_at")
-  suspendedReason String? @map("suspended_reason") @db.Text
-  
+  role            UserRole  @default(USER)
+  isActive        Boolean   @default(true) @map("is_active")
+  suspendedAt     DateTime? @map("suspended_at")
+  suspendedReason String?   @map("suspended_reason") @db.Text
+
   // Subscription fields
-  plan          SubscriptionPlan @default(FREE)
-  stripeCustomerId String?      @unique @map("stripe_customer_id")
-  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
-  
+  plan                 SubscriptionPlan @default(FREE)
+  stripeCustomerId     String?          @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?          @unique @map("stripe_subscription_id")
+
   // Stripe Connect (tenant receive booking payments directly)
-  stripeAccountId     String?  @unique @map("stripe_account_id") // Connected account (Express)
-  stripeAccountStatus String   @default("never") @map("stripe_account_status") // "never" | "pending" | "connected" | "rejected"
-  foundersBasicCheckoutSessionId String? @unique @map("founders_basic_checkout_session_id")
-  foundersBasicPaymentIntentId String? @unique @map("founders_basic_payment_intent_id")
-  subscriptionStatus SubscriptionStatus? @map("subscription_status")
-  subscriptionEndsAt DateTime?  @map("subscription_ends_at")
-  bookingsThisMonth Int        @default(0) @map("bookings_this_month")
-  lastBookingReset  DateTime?  @map("last_booking_reset")
-  
+  stripeAccountId                String?             @unique @map("stripe_account_id") // Connected account (Express)
+  stripeAccountStatus            String              @default("never") @map("stripe_account_status") // "never" | "pending" | "connected" | "rejected"
+  foundersBasicCheckoutSessionId String?             @unique @map("founders_basic_checkout_session_id")
+  foundersBasicPaymentIntentId   String?             @unique @map("founders_basic_payment_intent_id")
+  subscriptionStatus             SubscriptionStatus? @map("subscription_status")
+  subscriptionEndsAt             DateTime?           @map("subscription_ends_at")
+  bookingsThisMonth              Int                 @default(0) @map("bookings_this_month")
+  lastBookingReset               DateTime?           @map("last_booking_reset")
+
   // WhatsApp Integration
-  whatsappPhone String?   @map("whatsapp_phone")
-  whatsappEnabled Boolean @default(false) @map("whatsapp_enabled")
-  whatsappProvider String @default("evolution") @map("whatsapp_provider") // "evolution" or "twilio"
-  
+  whatsappPhone    String? @map("whatsapp_phone")
+  whatsappEnabled  Boolean @default(false) @map("whatsapp_enabled")
+  whatsappProvider String  @default("evolution") @map("whatsapp_provider") // "evolution" or "twilio"
+
   // WhatsApp connection service
-  evolutionApiUrl String?  @map("evolution_api_url")
-  evolutionApiKey String?  @map("evolution_api_key")
+  evolutionApiUrl       String? @map("evolution_api_url")
+  evolutionApiKey       String? @map("evolution_api_key")
   evolutionInstanceName String? @map("evolution_instance_name")
-  
+
   // Twilio
-  twilioAccountSid String? @map("twilio_account_sid")
-  twilioAuthToken String?  @map("twilio_auth_token")
+  twilioAccountSid  String? @map("twilio_account_sid")
+  twilioAuthToken   String? @map("twilio_auth_token")
   twilioPhoneNumber String? @map("twilio_phone_number")
-  
+
   // Google Calendar Integration
   calendarSyncEnabled Boolean @default(true) @map("calendar_sync_enabled")
-  
+
   // Public Profile
-  bio          String?  @db.Text // Public bio/description
-  company      String?  @map("company") // Company name
-  website      String?  @map("website") // Personal website
-  linkedin     String?  @map("linkedin") // LinkedIn URL
-  twitter      String?  @map("twitter") // Twitter/X URL
-  phone        String?  @map("phone") // Public phone number
-  address      String?  @map("address") // Public address
-  
+  bio      String? @db.Text // Public bio/description
+  company  String? @map("company") // Company name
+  website  String? @map("website") // Personal website
+  linkedin String? @map("linkedin") // LinkedIn URL
+  twitter  String? @map("twitter") // Twitter/X URL
+  phone    String? @map("phone") // Public phone number
+  address  String? @map("address") // Public address
+
   // Email Templates
   emailTemplates EmailTemplate[]
-  
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  accounts     Account[]
-  sessions     Session[]
-  bookingPages BookingPage[]
-  bots         Bot[]
-  subscriptions Subscription[]
-  whatsappMessages WhatsAppMessage[]
-  ownedTeams   Team[]       @relation("TeamOwner")
-  teamMemberships TeamMember[]
-  bookings     Booking[]
-  pushSubscriptions PushSubscription[]
-  quotas       Quotas?
-  usage        Usage?
-  adminNotes   AdminNote[]
-  auditLogs    AdminAuditLog[]
-  timeOffs     TimeOff[]
-  customers    Customer[]
-  supportTickets SupportTicket[]
+  accounts            Account[]
+  sessions            Session[]
+  bookingPages        BookingPage[]
+  bots                Bot[]
+  subscriptions       Subscription[]
+  whatsappMessages    WhatsAppMessage[]
+  ownedTeams          Team[]               @relation("TeamOwner")
+  teamMemberships     TeamMember[]
+  bookings            Booking[]
+  pushSubscriptions   PushSubscription[]
+  quotas              Quotas?
+  usage               Usage?
+  adminNotes          AdminNote[]
+  auditLogs           AdminAuditLog[]
+  timeOffs            TimeOff[]
+  customers           Customer[]
+  supportTickets      SupportTicket[]
   memberSubscriptions MemberSubscription[]
-  apiKeys      ApiKey[]
-  webhookEndpoints WebhookEndpoint[]
+  apiKeys             ApiKey[]
+  webhookEndpoints    WebhookEndpoint[]
+  locations           Location[]
+  resources           Resource[]
 
   @@map("users")
 }
@@ -156,15 +157,15 @@ model Customer {
 // Public API keys for external integrations (webhooks, sync platforms).
 // Only a SHA-256 hash of the key is stored; the raw key is shown once at creation.
 model ApiKey {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  name        String // Label given by the user, e.g. "Zapier"
-  keyHash     String   @unique @map("key_hash") // SHA-256 hex of the full key
-  prefix      String // First 8 chars shown in UI, e.g. "atb_live"
-  lastUsedAt  DateTime? @map("last_used_at")
-  requestCount Int     @default(0) @map("request_count")
-  revokedAt   DateTime? @map("revoked_at")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  name         String // Label given by the user, e.g. "Zapier"
+  keyHash      String    @unique @map("key_hash") // SHA-256 hex of the full key
+  prefix       String // First 8 chars shown in UI, e.g. "atb_live"
+  lastUsedAt   DateTime? @map("last_used_at")
+  requestCount Int       @default(0) @map("request_count")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -210,11 +211,11 @@ model WebhookDelivery {
 
 // Time off / vacation blocks: whole-day ranges where the owner is unavailable
 model Feedback {
-  id          String   @id @default(cuid())
-  bookingId   String   @unique @map("booking_id")
-  rating      Int // 1-5 stars
-  comment     String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String   @id @default(cuid())
+  bookingId String   @unique @map("booking_id")
+  rating    Int // 1-5 stars
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
@@ -240,27 +241,27 @@ model TimeOff {
 // clients (e.g. 50 €/month for coaching). Each subscription belongs to one
 // tenant (the booking page owner) and is paid on the tenant's Stripe account.
 model MemberSubscription {
-  id                 String   @id @default(cuid())
-  userId             String   @map("user_id") // Tenant owner
-  eventTypeId        String   @map("event_type_id")
-  customerName       String   @map("customer_name")
-  customerEmail      String   @map("customer_email")
-  stripeSubscriptionId String @unique @map("stripe_subscription_id")
-  stripeAccountId    String?  @map("stripe_account_id") // Connected account that owns the subscription
-  stripeCustomerId   String?  @map("stripe_customer_id") // Stripe customer for the client portal
-  price              Int      @map("price") // cents per billing cycle
-  currency           String   @default("eur")
-  interval           String   @default("month") // "month" | "year"
-  status             String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELLED | TRIALING
-  currentPeriodStart DateTime? @map("current_period_start")
-  currentPeriodEnd   DateTime? @map("current_period_end")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  id                   String    @id @default(cuid())
+  userId               String    @map("user_id") // Tenant owner
+  eventTypeId          String    @map("event_type_id")
+  customerName         String    @map("customer_name")
+  customerEmail        String    @map("customer_email")
+  stripeSubscriptionId String    @unique @map("stripe_subscription_id")
+  stripeAccountId      String?   @map("stripe_account_id") // Connected account that owns the subscription
+  stripeCustomerId     String?   @map("stripe_customer_id") // Stripe customer for the client portal
+  price                Int       @map("price") // cents per billing cycle
+  currency             String    @default("eur")
+  interval             String    @default("month") // "month" | "year"
+  status               String    @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELLED | TRIALING
+  currentPeriodStart   DateTime? @map("current_period_start")
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-  payments SubscriptionPayment[]
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType EventType             @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  payments  SubscriptionPayment[]
 
   @@map("member_subscriptions")
 }
@@ -268,12 +269,12 @@ model MemberSubscription {
 // Each successful renewal (invoice paid) creates a payment record so the
 // revenue report can count recurring revenue.
 model SubscriptionPayment {
-  id            String   @id @default(cuid())
-  subscriptionId String  @map("subscription_id")
-  stripeInvoiceId String @unique @map("stripe_invoice_id")
-  amount        Int      @map("amount") // cents
-  currency      String   @default("eur")
-  paidAt        DateTime @default(now()) @map("paid_at")
+  id              String   @id @default(cuid())
+  subscriptionId  String   @map("subscription_id")
+  stripeInvoiceId String   @unique @map("stripe_invoice_id")
+  amount          Int      @map("amount") // cents
+  currency        String   @default("eur")
+  paidAt          DateTime @default(now()) @map("paid_at")
 
   subscription MemberSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
@@ -282,58 +283,58 @@ model SubscriptionPayment {
 
 // Usage Quotas per Plan
 model Quotas {
-  id                 String   @id @default(cuid())
-  userId             String   @unique @map("user_id")
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Booking limits
-  bookingPages       Int      @default(1) @map("booking_pages") // Max booking pages
-  maxCustomers       Int      @default(1000) @map("max_customers") // Max CRM customers (-1 = unlimited)
-  
+  bookingPages Int @default(1) @map("booking_pages") // Max booking pages
+  maxCustomers Int @default(1000) @map("max_customers") // Max CRM customers (-1 = unlimited)
+
   // AI Assistant limits
-  aiInteractions     Int      @default(0) @map("ai_interactions") // AI chat messages per month
-  botDocuments       Int      @default(0) @map("bot_documents") // Max documents to train bot
-  
+  aiInteractions Int @default(0) @map("ai_interactions") // AI chat messages per month
+  botDocuments   Int @default(0) @map("bot_documents") // Max documents to train bot
+
   // Video limits
-  videoMinutes       Int      @default(0) @map("video_minutes") // Video minutes per month
-  videoRecording     Boolean  @default(false) @map("video_recording") // Can record meetings
-  videoTranscription Boolean  @default(false) @map("video_transcription") // Can transcribe meetings
-  
+  videoMinutes       Int     @default(0) @map("video_minutes") // Video minutes per month
+  videoRecording     Boolean @default(false) @map("video_recording") // Can record meetings
+  videoTranscription Boolean @default(false) @map("video_transcription") // Can transcribe meetings
+
   // Communication limits
-  whatsappMessages   Int      @default(0) @map("whatsapp_messages") // WhatsApp messages per month
-  telegramMessages   Int      @default(0) @map("telegram_messages") // Telegram messages per month
-  
+  whatsappMessages Int @default(0) @map("whatsapp_messages") // WhatsApp messages per month
+  telegramMessages Int @default(0) @map("telegram_messages") // Telegram messages per month
+
   // Team features
-  teamMembers        Int      @default(0) @map("team_members") // Max team members
-  teamScheduling     Boolean  @default(false) @map("team_scheduling") // Enable team scheduling
-  
+  teamMembers    Int     @default(0) @map("team_members") // Max team members
+  teamScheduling Boolean @default(false) @map("team_scheduling") // Enable team scheduling
+
   // Channel access
-  canUseWhatsApp     Boolean  @default(false) @map("can_use_whatsapp") // WhatsApp access
-  canUseTelegram     Boolean  @default(false) @map("can_use_telegram") // Telegram access
-  canUseEvolution    Boolean  @default(false) @map("can_use_evolution") // Evolution API (Pro)
-  canUseTwilio       Boolean  @default(false) @map("can_use_twilio") // Twilio (Team+)
-  
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  canUseWhatsApp  Boolean @default(false) @map("can_use_whatsapp") // WhatsApp access
+  canUseTelegram  Boolean @default(false) @map("can_use_telegram") // Telegram access
+  canUseEvolution Boolean @default(false) @map("can_use_evolution") // Evolution API (Pro)
+  canUseTwilio    Boolean @default(false) @map("can_use_twilio") // Twilio (Team+)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("quotas")
 }
 
 // Current Usage Tracking
 model Usage {
-  id                 String   @id @default(cuid())
-  userId             String   @unique @map("user_id")
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  aiInteractions     Int      @default(0) @map("ai_interactions")
-  videoMinutes       Int      @default(0) @map("video_minutes")
-  whatsappMessages   Int      @default(0) @map("whatsapp_messages")
-  telegramMessages   Int      @default(0) @map("telegram_messages")
-  
-  lastResetAt        DateTime @default(now()) @map("last_reset_at") // Last monthly reset
-  
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  aiInteractions   Int @default(0) @map("ai_interactions")
+  videoMinutes     Int @default(0) @map("video_minutes")
+  whatsappMessages Int @default(0) @map("whatsapp_messages")
+  telegramMessages Int @default(0) @map("telegram_messages")
+
+  lastResetAt DateTime @default(now()) @map("last_reset_at") // Last monthly reset
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("usage")
 }
@@ -348,72 +349,73 @@ model VerificationToken {
 }
 
 model BookingPage {
-  id           String   @id @default(cuid())
-  userId       String   @map("user_id")
+  id           String  @id @default(cuid())
+  userId       String  @map("user_id")
   slug         String
   title        String
-  description  String?  @db.Text
-  isActive     Boolean  @default(true) @map("is_active")
-  slotInterval Int      @default(15) @map("slot_interval") // Time slot interval in minutes (15, 30, 60)
+  description  String? @db.Text
+  isActive     Boolean @default(true) @map("is_active")
+  slotInterval Int     @default(15) @map("slot_interval") // Time slot interval in minutes (15, 30, 60)
 
   // Public branding (customizable from the booking-page editor)
-  brandColor   String   @default("#6366f1") @map("brand_color") // Accent color for the public page
-  logoUrl      String?  @map("logo_url") // Custom logo image URL; falls back to the Anytimebot logo
+  brandColor String  @default("#6366f1") @map("brand_color") // Accent color for the public page
+  logoUrl    String? @map("logo_url") // Custom logo image URL; falls back to the Anytimebot logo
 
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventTypes    EventType[]
-  availability  Availability[]
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventTypes   EventType[]
+  availability Availability[]
 
   @@unique([userId, slug])
   @@map("booking_pages")
 }
 
 model EventType {
-  id                   String   @id @default(cuid())
-  bookingPageId        String   @map("booking_page_id")
+  id                   String  @id @default(cuid())
+  bookingPageId        String  @map("booking_page_id")
   name                 String
-  duration             Int      // Duration in minutes
-  bufferTime           Int      @default(0) @map("buffer_time") // Buffer time in minutes
-  location             String   @default("video") // "in-person", "phone", "video"
-  videoLink            String?  @map("video_link") // Zoom, Meet, Teams link
-  color                String   @default("#6366f1") // Hex color
-  requiresConfirmation Boolean  @default(false) @map("requires_confirmation")
-  
+  duration             Int // Duration in minutes
+  bufferTime           Int     @default(0) @map("buffer_time") // Buffer time in minutes
+  location             String  @default("video") // "in-person", "phone", "video"
+  videoLink            String? @map("video_link") // Zoom, Meet, Teams link
+  color                String  @default("#6366f1") // Hex color
+  requiresConfirmation Boolean @default(false) @map("requires_confirmation")
+
   // Payment settings
-  price                Int      @default(0) // Price in cents (0 = free)
-  currency             String   @default("usd") // ISO 4217 currency code
-  collectPayment        Boolean  @default(false) @map("collect_payment") // Require payment to book
-  paymentInterval      String   @default("ONE_TIME") @map("payment_interval") // "ONE_TIME", "MONTH", "YEAR" — recurring billing (memberships)
-  
+  price           Int     @default(0) // Price in cents (0 = free)
+  currency        String  @default("usd") // ISO 4217 currency code
+  collectPayment  Boolean @default(false) @map("collect_payment") // Require payment to book
+  paymentInterval String  @default("ONE_TIME") @map("payment_interval") // "ONE_TIME", "MONTH", "YEAR" — recurring billing (memberships)
+
   // Team Scheduling
-  teamId               String?  @map("team_id")
-  assignmentMode       String   @default("individual") @map("assignment_mode") // "individual", "collective", "round_robin", "smart"
-  
+  teamId         String? @map("team_id")
+  assignmentMode String  @default("individual") @map("assignment_mode") // "individual", "collective", "round_robin", "smart"
+
   // Intelligent Routing Forms
-  formSchema           Json?    @map("form_schema") // { questions: [{ id, text, type, options?, required }] }
-  routingRules         Json?    @map("routing_rules") // { rules: [{ questionId, value, assignTo: memberId }] }
-  enableRouting        Boolean  @default(false) @map("enable_routing")
-  
+  formSchema    Json?   @map("form_schema") // { questions: [{ id, text, type, options?, required }] }
+  routingRules  Json?   @map("routing_rules") // { rules: [{ questionId, value, assignTo: memberId }] }
+  enableRouting Boolean @default(false) @map("enable_routing")
+
   // Smart Video Rooms
-  videoProvider        VideoProvider @default(DAILY) @map("video_provider") // google_meet, zoom, daily, custom
-  enableEmbeddedVideo  Boolean  @default(false) @map("enable_embedded_video") // Embed video in MeetMind
-  enableLiveAI         Boolean  @default(false) @map("enable_live_ai") // Live AI assistant during call
-  enableRecording      Boolean  @default(false) @map("enable_recording") // Auto-record meetings
-  enableTranscription  Boolean  @default(false) @map("enable_transcription") // Auto-transcribe meetings
-  
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  videoProvider       VideoProvider @default(DAILY) @map("video_provider") // google_meet, zoom, daily, custom
+  enableEmbeddedVideo Boolean       @default(false) @map("enable_embedded_video") // Embed video in MeetMind
+  enableLiveAI        Boolean       @default(false) @map("enable_live_ai") // Live AI assistant during call
+  enableRecording     Boolean       @default(false) @map("enable_recording") // Auto-record meetings
+  enableTranscription Boolean       @default(false) @map("enable_transcription") // Auto-transcribe meetings
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  bookingPage      BookingPage        @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
-  team             Team?              @relation(fields: [teamId], references: [id])
-  bookings         Booking[]
-  formFields       BookingFormField[]
-  routingResponses RoutingFormResponse[]
+  bookingPage         BookingPage           @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+  team                Team?                 @relation(fields: [teamId], references: [id])
+  bookings            Booking[]
+  allowedResources    EventTypeResource[]
+  formFields          BookingFormField[]
+  routingResponses    RoutingFormResponse[]
   memberSubscriptions MemberSubscription[]
 
   @@map("event_types")
@@ -421,45 +423,124 @@ model EventType {
 
 model Availability {
   id            String   @id @default(cuid())
-  bookingPageId String   @map("booking_page_id")
+  // Scope: exactly one of the two must be set (XOR, enforced in the app).
+  bookingPageId String?  @map("booking_page_id") // rule for a booking page
+  resourceId    String?  @map("resource_id") // rule for a physical resource (room/chair/equipment)
   dayOfWeek     Int      @map("day_of_week") // 0 = Sunday, 1 = Monday, etc.
   startTime     String   @map("start_time") // Format: "09:00"
-  endTime       String   @map("end_time")   // Format: "17:00"
+  endTime       String   @map("end_time") // Format: "17:00"
   isAvailable   Boolean  @default(true) @map("is_available")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
-  bookingPage BookingPage @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+  bookingPage BookingPage? @relation(fields: [bookingPageId], references: [id], onDelete: Cascade)
+  resource    Resource?    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
+  @@index([resourceId])
   @@map("availability")
 }
 
+// A physical site of the business (multi-site). Each site has its own address
+// and timezone, so availability windows are resolved in the site's timezone.
+model Location {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String // "Sucursal Centro", "Clínica Norte"…
+  address   String?  @map("address") // Full formatted address
+  city      String?
+  country   String? // ISO-3166 alpha-2 code, e.g. "ES"
+  timezone  String   @default("UTC") // Site's own timezone
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resources Resource[]
+  bookings  Booking[]
+
+  @@index([userId, isActive])
+  @@map("locations")
+}
+
+// A bookable physical unit: room, chair, machine, station. A resource belongs
+// to one user and optionally to a Location (null = floating resource).
+// capacity = 1 means exclusive (no two overlapping bookings); capacity > 1
+// allows group events with a seat count.
+model Resource {
+  id         String       @id @default(cuid())
+  userId     String       @map("user_id")
+  locationId String?      @map("location_id") // null = floating resource
+  name       String // "Sillón 2", "Sala de rayos X", "Consultorio A"
+  type       ResourceType @default(ROOM)
+  capacity   Int          @default(1) // simultaneous bookings allowed (1 = exclusive)
+  isActive   Boolean      @default(true) @map("is_active")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location       Location?           @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  eventTypes     EventTypeResource[]
+  bookings       Booking[]
+  availabilities Availability[] // own schedule rules (empty = inherit page schedule)
+
+  @@index([userId, isActive])
+  @@index([locationId])
+  @@map("resources")
+}
+
+// Which physical resources an event type may be booked on (many-to-many).
+// Empty = the event type does not use resources (today's behaviour: only the
+// global owner overlap check applies). With rows, one free allowed resource is
+// assigned per booking and double-booking is checked per resource.
+model EventTypeResource {
+  eventTypeId String
+  resourceId  String
+
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  resource  Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([eventTypeId, resourceId])
+  @@map("event_type_resources")
+}
+
 model Booking {
-  id         String      @id @default(cuid())
-  seriesId String? @map("series_id") // recurring appointment series this booking belongs to
-  eventTypeId String     @map("event_type_id")
-  guestName  String      @map("guest_name")
-  guestEmail String      @map("guest_email")
-  guestPhone String?     @map("guest_phone")
-  startTime  DateTime    @map("start_time")
-  endTime    DateTime    @map("end_time")
-  timezone   String      @default("UTC")
-  status     BookingStatus @default(PENDING)
-  formData   Json?       @map("form_data") // Custom form fields data
-  googleCalendarEventId String? @map("google_calendar_event_id") // Google Calendar Event ID
+  id                    String        @id @default(cuid())
+  seriesId              String?       @map("series_id")
+  eventTypeId           String        @map("event_type_id")
+  guestName             String        @map("guest_name")
+  guestEmail            String        @map("guest_email")
+  guestPhone            String?       @map("guest_phone")
+  startTime             DateTime      @map("start_time")
+  endTime               DateTime      @map("end_time")
+  timezone              String        @default("UTC")
+  status                BookingStatus @default(PENDING)
+  formData              Json?         @map("form_data") // Custom form fields data
+  googleCalendarEventId String?       @map("google_calendar_event_id") // Google Calendar Event ID
 
   // Host notes / post-meeting summary (internal)
   notes       String?   @db.Text
   completedAt DateTime? @map("completed_at") // When the host marked the appointment as finished
-  
+
   // Team Assignment
   assignedMemberId String? @map("assigned_member_id") // Which team member is assigned
-  
+
   // Reminder tracking
-  reminder24hSent Boolean  @default(false) @map("reminder_24h_sent")
-  reminder1hSent  Boolean  @default(false) @map("reminder_1h_sent")
-  
+  reminder24hSent Boolean @default(false) @map("reminder_24h_sent")
+  reminder1hSent  Boolean @default(false) @map("reminder_1h_sent")
+
+  // Physical resource / location assigned at booking time (rooms, chairs,
+  // equipment, multi-site). The *_name columns are a historical snapshot so
+  // past bookings stay readable even if the resource/location is renamed or
+  // deleted afterwards (same pattern as guestName/guestEmail).
+  locationId      String? @map("location_id")
+  resourceId      String? @map("resource_id")
+  resourceName    String? @map("resource_name")
+  locationName    String? @map("location_name")
+  locationAddress String? @map("location_address")
+
   // Payment tracking
   paymentStatus       PaymentStatus? @map("payment_status")
   stripeSessionId     String?        @map("stripe_session_id")
@@ -468,27 +549,29 @@ model Booking {
   paymentAmount       Int?           @map("payment_amount") // Amount in cents
   paymentCurrency     String?        @map("payment_currency")
   paidAt              DateTime?      @map("paid_at")
-  
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-  assignedMember User? @relation(fields: [assignedMemberId], references: [id])
-  routingResponse RoutingFormResponse?
-  videoSession VideoSession?
+  series           BookingSeries?       @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  eventType        EventType            @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  assignedMember   User?                @relation(fields: [assignedMemberId], references: [id])
+  location         Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  resource         Resource?            @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  routingResponse  RoutingFormResponse?
+  videoSession     VideoSession?
   meetingBriefings MeetingBriefing[]
-  feedback Feedback?
-
-  // Relations
-  series BookingSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  feedback         Feedback?
 
   @@index([seriesId])
+  @@index([resourceId])
+  @@index([locationId])
   @@map("bookings")
 }
 
 // A recurring appointment series. The first occurrence's Booking holds the
-// recurrence rule; each later booking of the run points at it via seriesId.
+// series' recurrence rule; each subsequent booking points at it via seriesId.
 // Cancelling the series only touches future occurrences.
 model BookingSeries {
   id         String   @id @default(cuid())
@@ -501,15 +584,15 @@ model BookingSeries {
 }
 
 model BookingFormField {
-  id          String            @id @default(cuid())
-  eventTypeId String            @map("event_type_id")
+  id          String        @id @default(cuid())
+  eventTypeId String        @map("event_type_id")
   label       String
   type        FormFieldType
-  required    Boolean           @default(false)
-  options     String[]          @default([]) // For select fields
+  required    Boolean       @default(false)
+  options     String[]      @default([]) // For select fields
   placeholder String?
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
 
   // Relations
   eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
@@ -519,39 +602,39 @@ model BookingFormField {
 
 // Team Scheduling Models
 model Team {
-  id          String       @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  description String?      @db.Text
-  ownerId     String       @map("owner_id")
-  isActive    Boolean      @default(true) @map("is_active")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  description String?  @db.Text
+  ownerId     String   @map("owner_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  owner       User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members     TeamMember[]
-  eventTypes  EventType[]
+  owner      User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members    TeamMember[]
+  eventTypes EventType[]
 
   @@map("teams")
 }
 
 model TeamMember {
-  id        String    @id @default(cuid())
-  email     String
-  userId    String?   @map("user_id") // null if external member (email only)
-  teamId    String    @map("team_id")
-  timezone  String    @default("UTC")
-  skills    String[]  @default([]) // e.g., ["billing", "support", "german"]
-  languages String[]  @default([]) // e.g., ["english", "spanish", "german"]
-  isActive  Boolean   @default(true) @map("is_active")
-  role      TeamMemberRole @default(MEMBER)
-  lastAssignedAt DateTime? @map("last_assigned_at") // For round_robin tracking
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id             String         @id @default(cuid())
+  email          String
+  userId         String?        @map("user_id") // null if external member (email only)
+  teamId         String         @map("team_id")
+  timezone       String         @default("UTC")
+  skills         String[]       @default([]) // e.g., ["billing", "support", "german"]
+  languages      String[]       @default([]) // e.g., ["english", "spanish", "german"]
+  isActive       Boolean        @default(true) @map("is_active")
+  role           TeamMemberRole @default(MEMBER)
+  lastAssignedAt DateTime?      @map("last_assigned_at") // For round_robin tracking
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, email])
   @@map("team_members")
@@ -571,23 +654,23 @@ model Bot {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents BotDocument[]
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents     BotDocument[]
   conversations BotConversation[]
 
   @@map("bots")
 }
 
 model BotDocument {
-  id          String   @id @default(cuid())
-  botId       String   @map("bot_id")
-  fileName    String   @map("file_name")
-  fileType    String   @map("file_type") // pdf, txt, url
-  url         String?  @db.Text // For URL documents
-  content     String   @db.Text
-  embedding   Json?    // OpenAI embeddings stored as JSON array
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  botId     String   @map("bot_id")
+  fileName  String   @map("file_name")
+  fileType  String   @map("file_type") // pdf, txt, url
+  url       String?  @db.Text // For URL documents
+  content   String   @db.Text
+  embedding Json? // OpenAI embeddings stored as JSON array
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
@@ -597,13 +680,13 @@ model BotDocument {
 
 // Bot Conversation Memory
 model BotConversation {
-  id          String   @id @default(cuid())
-  botId       String   @map("bot_id")
-  phone       String   // Phone number of the user
-  messages    Json     // Array of conversation messages [{role, content, timestamp}]
+  id            String   @id @default(cuid())
+  botId         String   @map("bot_id")
+  phone         String // Phone number of the user
+  messages      Json // Array of conversation messages [{role, content, timestamp}]
   lastMessageAt DateTime @default(now()) @map("last_message_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
   bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
@@ -631,15 +714,15 @@ model PushSubscription {
 
 // Subscription Management
 model Subscription {
-  id                   String             @id @default(cuid())
-  userId               String             @map("user_id")
-  plan                 SubscriptionPlan
-  status               SubscriptionStatus
-  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
-  stripePriceId        String?            @map("stripe_price_id")
-  stripeCurrentPeriodEnd DateTime?        @map("stripe_current_period_end")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
+  id                     String             @id @default(cuid())
+  userId                 String             @map("user_id")
+  plan                   SubscriptionPlan
+  status                 SubscriptionStatus
+  stripeSubscriptionId   String?            @unique @map("stripe_subscription_id")
+  stripePriceId          String?            @map("stripe_price_id")
+  stripeCurrentPeriodEnd DateTime?          @map("stripe_current_period_end")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -649,18 +732,18 @@ model Subscription {
 
 // WhatsApp Messages
 model WhatsAppMessage {
-  id          String             @id @default(cuid())
-  userId      String?            @map("user_id") // null for platform-level (system) messages
-  bookingId   String?            @map("booking_id")
+  id          String            @id @default(cuid())
+  userId      String?           @map("user_id") // null for platform-level (system) messages
+  bookingId   String?           @map("booking_id")
   phone       String
-  message     String             @db.Text
-  direction   WhatsAppDirection  // OUTGOING or INCOMING
-  status      WhatsAppStatus     @default(PENDING)
-  provider    String             @default("evolution") // "evolution" or "twilio"
-  evolutionId String?            @map("evolution_id") // ID from Evolution API
-  twilioSid   String?            @map("twilio_sid") // Message SID from Twilio
-  createdAt   DateTime           @default(now()) @map("created_at")
-  updatedAt   DateTime           @updatedAt @map("updated_at")
+  message     String            @db.Text
+  direction   WhatsAppDirection // OUTGOING or INCOMING
+  status      WhatsAppStatus    @default(PENDING)
+  provider    String            @default("evolution") // "evolution" or "twilio"
+  evolutionId String?           @map("evolution_id") // ID from Evolution API
+  twilioSid   String?           @map("twilio_sid") // Message SID from Twilio
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
 
   // Relations
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -683,15 +766,15 @@ model SystemSetting {
 
 // Consent records (GDPR Art. 7) - proof of explicit, informed consent
 model ConsentLog {
-  id           String   @id @default(cuid())
-  subjectEmail String   @map("subject_email") // data subject
-  tenantId     String?  @map("tenant_id")     // user/tenant whose service is used
-  purpose      String   // e.g. "booking", "recording", "messaging", "terms"
-  version      String   // policy version the subject accepted
-  granted      Boolean  @default(true) @map("granted")
-  ipAddress    String?  @map("ip_address")
-  userAgent    String?  @map("user_agent") @db.Text
-  createdAt    DateTime @default(now()) @map("created_at")
+  id           String    @id @default(cuid())
+  subjectEmail String    @map("subject_email") // data subject
+  tenantId     String?   @map("tenant_id") // user/tenant whose service is used
+  purpose      String // e.g. "booking", "recording", "messaging", "terms"
+  version      String // policy version the subject accepted
+  granted      Boolean   @default(true) @map("granted")
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent") @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
   withdrawnAt  DateTime? @map("withdrawn_at")
 
   @@index([subjectEmail])
@@ -705,7 +788,7 @@ model RoutingFormResponse {
   id          String   @id @default(cuid())
   eventTypeId String   @map("event_type_id")
   bookingId   String   @unique @map("booking_id")
-  responses   Json     // { questionId: answer }
+  responses   Json // { questionId: answer }
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -718,27 +801,27 @@ model RoutingFormResponse {
 
 // Smart Video Rooms
 model VideoSession {
-  id            String        @id @default(cuid())
-  bookingId     String        @unique @map("booking_id")
-  provider      VideoProvider // google_meet, zoom, daily, custom
-  roomUrl       String        @map("room_url") @db.Text // Join URL for the meeting
-  roomName      String?       @map("room_name") // Daily room name
-  hostRoomUrl   String?       @map("host_room_url") @db.Text // Host-specific URL with elevated permissions
-  dailyRoomId   String?       @map("daily_room_id") // Daily.co room ID
-  recordingUrl  String?       @map("recording_url") @db.Text // URL to recording after meeting
-  transcriptUrl String?       @map("transcript_url") @db.Text // URL to transcript
-  transcript    String?       @db.Text // Full transcript text
-  summary       String?       @db.Text // AI-generated meeting summary
-  actionItems   Json?         @map("action_items") // Extracted action items [{text, assignee?, dueDate?}]
-  keyPoints     Json?         @map("key_points") // Key discussion points
-  sentiment     String?       // Overall meeting sentiment (positive, neutral, negative)
-  duration      Int?          // Actual meeting duration in minutes
-  startedAt     DateTime?     @map("started_at")
-  endedAt       DateTime?     @map("ended_at")
-  recordingConsent Boolean    @default(false) @map("recording_consent") // Guest consent for recording
-  liveNotesEnabled Boolean    @default(false) @map("live_notes_enabled") // Real-time AI notes enabled
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id               String        @id @default(cuid())
+  bookingId        String        @unique @map("booking_id")
+  provider         VideoProvider // google_meet, zoom, daily, custom
+  roomUrl          String        @map("room_url") @db.Text // Join URL for the meeting
+  roomName         String?       @map("room_name") // Daily room name
+  hostRoomUrl      String?       @map("host_room_url") @db.Text // Host-specific URL with elevated permissions
+  dailyRoomId      String?       @map("daily_room_id") // Daily.co room ID
+  recordingUrl     String?       @map("recording_url") @db.Text // URL to recording after meeting
+  transcriptUrl    String?       @map("transcript_url") @db.Text // URL to transcript
+  transcript       String?       @db.Text // Full transcript text
+  summary          String?       @db.Text // AI-generated meeting summary
+  actionItems      Json?         @map("action_items") // Extracted action items [{text, assignee?, dueDate?}]
+  keyPoints        Json?         @map("key_points") // Key discussion points
+  sentiment        String? // Overall meeting sentiment (positive, neutral, negative)
+  duration         Int? // Actual meeting duration in minutes
+  startedAt        DateTime?     @map("started_at")
+  endedAt          DateTime?     @map("ended_at")
+  recordingConsent Boolean       @default(false) @map("recording_consent") // Guest consent for recording
+  liveNotesEnabled Boolean       @default(false) @map("live_notes_enabled") // Real-time AI notes enabled
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
   // Relations
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
@@ -749,17 +832,17 @@ model VideoSession {
 
 // Pre-Meeting Intelligence Briefings
 model MeetingBriefing {
-  id            String   @id @default(cuid())
-  bookingId     String   @map("booking_id")
-  hostBriefing  String   @db.Text @map("host_briefing") // Personalized briefing for host
-  guestBriefing String   @db.Text @map("guest_briefing") // Personalized briefing for guest
-  talkingPoints Json     @map("talking_points") // Array of suggested talking points
-  context       Json     // Context data used for generation
-  emailSent     Boolean  @default(false) @map("email_sent")
-  whatsappSent  Boolean  @default(false) @map("whatsapp_sent")
+  id            String    @id @default(cuid())
+  bookingId     String    @map("booking_id")
+  hostBriefing  String    @map("host_briefing") @db.Text // Personalized briefing for host
+  guestBriefing String    @map("guest_briefing") @db.Text // Personalized briefing for guest
+  talkingPoints Json      @map("talking_points") // Array of suggested talking points
+  context       Json // Context data used for generation
+  emailSent     Boolean   @default(false) @map("email_sent")
+  whatsappSent  Boolean   @default(false) @map("whatsapp_sent")
   sentAt        DateTime? @map("sent_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   // Relations
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
@@ -770,16 +853,16 @@ model MeetingBriefing {
 
 // Customer support tickets
 model SupportTicket {
-  id        String              @id @default(cuid())
-  userId    String              @map("user_id")
+  id        String                @id @default(cuid())
+  userId    String                @map("user_id")
   subject   String
-  status    SupportTicketStatus @default(OPEN)
+  status    SupportTicketStatus   @default(OPEN)
   priority  SupportTicketPriority @default(NORMAL)
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
-  closedAt  DateTime?           @map("closed_at")
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+  closedAt  DateTime?             @map("closed_at")
 
-  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages SupportTicketMessage[]
 
   @@index([userId, status, createdAt])
@@ -788,14 +871,14 @@ model SupportTicket {
 }
 
 model SupportTicketMessage {
-  id             String        @id @default(cuid())
-  ticketId       String        @map("ticket_id")
-  body           String        @db.Text
-  authorUserId   String?       @map("author_user_id")
-  authorAdminEmail String?     @map("author_admin_email")
-  createdAt      DateTime      @default(now()) @map("created_at")
+  id               String   @id @default(cuid())
+  ticketId         String   @map("ticket_id")
+  body             String   @db.Text
+  authorUserId     String?  @map("author_user_id")
+  authorAdminEmail String?  @map("author_admin_email")
+  createdAt        DateTime @default(now()) @map("created_at")
 
-  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])
   @@map("support_ticket_messages")
@@ -803,15 +886,15 @@ model SupportTicketMessage {
 
 // Admin Support Models
 model AdminNote {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  adminEmail String  @map("admin_email") // Store admin email instead of relation
-  note      String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  adminEmail String   @map("admin_email") // Store admin email instead of relation
+  note       String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("admin_notes")
@@ -821,9 +904,9 @@ model AdminNote {
 model AdminAuditLog {
   id        String   @id @default(cuid())
   adminId   String   @map("admin_id")
-  action    String   // e.g., "CHANGE_PLAN", "SUSPEND_USER", "RESET_USAGE"
+  action    String // e.g., "CHANGE_PLAN", "SUSPEND_USER", "RESET_USAGE"
   targetId  String?  @map("target_id") // User ID or resource ID affected
-  details   Json     // Additional details about the action
+  details   Json // Additional details about the action
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent") @db.Text
   createdAt DateTime @default(now()) @map("created_at")
@@ -922,16 +1005,24 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum ResourceType {
+  ROOM
+  CHAIR
+  EQUIPMENT
+  STATION
+  OTHER
+}
+
 model EmailTemplate {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  type        String   // "confirmation", "reminder_24h", "reminder_1h", "cancellation", "reschedule"
-  name        String   // Display name
-  subject     String   // Email subject line
-  htmlBody    String   @db.Text @map("html_body") // HTML template body
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String // "confirmation", "reminder_24h", "reminder_1h", "cancellation", "reschedule"
+  name      String // Display name
+  subject   String // Email subject line
+  htmlBody  String   @map("html_body") @db.Text // HTML template body
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

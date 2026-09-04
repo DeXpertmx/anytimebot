@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Sofa, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,9 @@ interface Booking {
   endTime: Date;
   timezone: string;
   status: BookingStatus;
+  resourceName?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
   eventType: {
     name: string;
     duration: number;
@@ -231,6 +234,20 @@ export function BookingsList({ bookings }: BookingsListProps) {
                             </a>
                           )}
                         </div>
+                        {(booking.resourceName || booking.locationName) && (
+                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2">
+                            <p className="flex items-center text-sm font-medium text-indigo-900">
+                              <Sofa className="h-4 w-4 mr-2 text-indigo-500" />
+                              {booking.resourceName || 'Recurso asignado'}
+                            </p>
+                            {(booking.locationName || booking.locationAddress) && (
+                              <p className="mt-0.5 flex items-center text-xs text-indigo-700/80">
+                                <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                                {[booking.locationName, booking.locationAddress].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 

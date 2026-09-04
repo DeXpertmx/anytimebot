@@ -30,6 +30,20 @@ export async function GET(
       include: {
         formFields: true,
         bookingPage: true,
+        allowedResources: {
+          include: {
+            resource: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                capacity: true,
+                isActive: true,
+                location: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
         bookings: {
           orderBy: { createdAt: 'desc' },
           take: 10,
@@ -95,6 +109,7 @@ export async function PUT(
       enableLiveAI,
       enableRecording,
       enableTranscription,
+      allowedResourceIds,
     } = body;
 
     // Check if event type belongs to user
@@ -164,12 +179,53 @@ export async function PUT(
       }
     }
 
-    // Return updated event type with form fields
+    // Replace the allowed-resources set when the payload carries it.
+    if (allowedResourceIds !== undefined) {
+      const resourceIds = Array.isArray(allowedResourceIds) ? allowedResourceIds.filter(Boolean) : [];
+      if (resourceIds.length > 0) {
+        const owned = await prisma.resource.findMany({
+          where: { id: { in: resourceIds }, userId: (session.user as any).id, isActive: true },
+          select: { id: true },
+        });
+        if (owned.length !== resourceIds.length) {
+          return NextResponse.json(
+            { success: false, error: 'Uno o más recursos no existen o no están activos' },
+            { status: 400 }
+          );
+        }
+      }
+      await prisma.$transaction([
+        prisma.eventTypeResource.deleteMany({ where: { eventTypeId: params.id } }),
+        ...(resourceIds.length > 0
+          ? [
+              prisma.eventTypeResource.createMany({
+                data: resourceIds.map((resourceId: string) => ({ eventTypeId: params.id, resourceId })),
+              }),
+            ]
+          : []),
+      ]);
+    }
+
+    // Return updated event type with form fields + allowed resources
     const updatedEventType = await prisma.eventType.findUnique({
       where: { id: params.id },
       include: {
         formFields: true,
         bookingPage: true,
+        allowedResources: {
+          include: {
+            resource: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                capacity: true,
+                isActive: true,
+                location: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
       },
     });
 

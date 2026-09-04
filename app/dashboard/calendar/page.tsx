@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2, Flag, Save } from 'lucide-react';
+import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2, Flag, Save, Sofa, MapPin } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Booking {
@@ -19,6 +19,9 @@ interface Booking {
   paymentStatus?: string | null;
   paymentAmount?: number | null;
   paymentCurrency?: string | null;
+  resourceName?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
   eventType: { name: string; color?: string };
 }
 interface Team { id: string; name: string; members: { id: string; email: string; user?: { name?: string | null; image?: string | null } | null }[]; }
@@ -464,6 +467,20 @@ export default function CalendarPage() {
                 <Mail className="h-4 w-4 text-indigo-500" />
                 <p className="text-sm text-slate-600">{selectedBooking.guestEmail}</p>
               </div>
+              {(selectedBooking.resourceName || selectedBooking.locationName) && (
+                <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-3">
+                  <p className="flex items-center text-sm font-semibold text-indigo-900">
+                    <Sofa className="h-4 w-4 mr-2 text-indigo-500" />
+                    {selectedBooking.resourceName || 'Recurso asignado'}
+                  </p>
+                  {(selectedBooking.locationName || selectedBooking.locationAddress) && (
+                    <p className="mt-1 flex items-center text-xs text-indigo-700/80">
+                      <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                      {[selectedBooking.locationName, selectedBooking.locationAddress].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm">
                 <span>
                   <span className="font-medium">Estado: </span>

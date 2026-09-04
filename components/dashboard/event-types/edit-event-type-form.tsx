@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ResourceMultiSelect } from './resource-multi-select';
 
 interface FormField {
   id?: string;
@@ -50,6 +51,7 @@ interface EditEventTypeFormProps {
     paymentInterval?: string;
     price?: number;
     currency?: string;
+    allowedResources?: Array<{ resource: { id: string } }>;
   };
   bookingPages: Array<{
     id: string;
@@ -96,6 +98,9 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     currency: eventType.currency || 'eur',
   });
   const [formFields, setFormFields] = useState<FormField[]>(eventType.formFields);
+  const [allowedResourceIds, setAllowedResourceIds] = useState<string[]>(
+    eventType.allowedResources?.map((ar) => ar.resource.id) || []
+  );
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -174,6 +179,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           ...formData,
           price: Math.round((parseFloat(formData.price as any) || 0) * 100),
           formFields,
+          allowedResourceIds,
         }),
       });
 
@@ -431,6 +437,10 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               </div>
             </div>
           )}
+
+          <div className="border-t border-slate-100 pt-4">
+            <ResourceMultiSelect value={allowedResourceIds} onChange={setAllowedResourceIds} />
+          </div>
         </CardContent>
       </Card>
 

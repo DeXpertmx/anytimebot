@@ -285,7 +285,14 @@
     "fieldOptionsPlaceholder": "Option 1, Option 2, Option 3",
     "requiredField": "Required field",
     "saving": "Saving...",
-    "saveChanges": "Save Changes"
+    "saveChanges": "Save Changes",
+    "resourcesTitle": "Bookable resources (optional)",
+    "resourcesDescription": "Choose the resources (rooms, chairs, equipment…) this event type can be booked on. A free one is assigned automatically at booking time.",
+    "resourcesNone": "No resources assigned: guests can book without occupying a concrete resource.",
+    "resourcesSelected": "{{count}} resources assigned",
+    "resourcesSelectedOne": "{{count}} resource assigned",
+    "resourcesAssignHint": "one free is assigned per booking",
+    "resourcesEmpty": "No resources yet. Create one from Settings → Locations & resources."
   },
   "apiKeys": {
     "title": "API",

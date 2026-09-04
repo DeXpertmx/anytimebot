@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LocationsResources } from './locations-resources';
 import { signOut } from 'next-auth/react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -654,6 +655,9 @@ export function SettingsForm({ user }: SettingsFormProps) {
           </Button>
         </div>
       </Card>
+
+      {/* Locations & Resources (sedes + recursos reservables) */}
+      <LocationsResources />
 
       {/* Danger Zone — intentionally kept as the final section of this form */}
       <Card className="order-last border-red-200 p-6">

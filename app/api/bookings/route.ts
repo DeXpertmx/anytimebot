@@ -17,6 +17,7 @@ import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
 import { notifyBookingCreated } from '@/lib/push-notifications';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
+import { pickResourceForSlot } from '@/lib/resource-assignment';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,6 +167,16 @@ export async function POST(request: NextRequest) {
             },
           },
         },
+        allowedResources: {
+          include: {
+            resource: {
+              include: {
+                availabilities: true,
+                location: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -210,6 +221,16 @@ export async function POST(request: NextRequest) {
     if (rule && isPaidOneTime) {
       return NextResponse.json(
         { success: false, error: 'Recurring bookings are not available for paid event types' },
+        { status: 400 }
+      );
+    }
+
+    // Resources (rooms/chairs) + recurring series: not supported yet — a
+    // series would need per-occurrence resource picking. Phase C of the design.
+    const resourceMode = eventType.allowedResources.length > 0;
+    if (rule && resourceMode) {
+      return NextResponse.json(
+        { success: false, error: 'Recurring bookings are not available for events with resources yet' },
         { status: 400 }
       );
     }
@@ -261,31 +282,60 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Resource-mode events (rooms/chairs) check capacity per resource instead
+    // of the owner-wide overlap check: two event types can run concurrently as
+    // long as they use different physical resources. The pick below also
+    // re-validates against bookings made between check-availability and now.
+    let pickedResource: { resource: { id: string; name: string; location?: { id: string; name: string | null; address: string | null } | null } } | null = null;
+    if (resourceMode) {
+      const bookingStartTime0 = new Date(startTime);
+      const occEnd = addMinutes(bookingStartTime0, eventType.duration);
+      const pick = await pickResourceForSlot({
+        eventTypeId,
+        bookingPageId: eventType.bookingPageId,
+        slotStart: bookingStartTime0,
+        slotEnd: occEnd,
+        bufferMinutes: eventType.bufferTime,
+        allowedResources: eventType.allowedResources.map((er) => er.resource),
+        preferredId: (body as any).resourceId ?? null,
+      });
+      if (!pick) {
+        return NextResponse.json(
+          { success: false, error: 'No resource (room/chair) available for the selected time slot' },
+          { status: 409 }
+        );
+      }
+      pickedResource = pick;
+    }
+
     // Check for conflicts for every occurrence. NOTE: deliberately NOT filtered
     // by eventTypeId — a conflict is any active booking of this owner that
-    // overlaps, whatever event type it came from.
+    // overlaps, whatever event type it came from. Skipped in resource mode
+    // (capacity per resource above is the binding constraint).
     for (const occ of occurrences) {
       const occEnd = addMinutes(occ, eventType.duration);
-      const conflictingBooking = await prisma.booking.findFirst({
-        where: {
-          status: { in: ['CONFIRMED', 'PENDING'] },
-          eventType: { bookingPage: { userId: eventType.bookingPage.userId } },
-          OR: [
-            {
-              startTime: { lte: occ },
-              endTime: { gt: occ },
+      const conflictingBooking = resourceMode
+        ? null
+        : await prisma.booking.findFirst({
+            where: {
+              status: { in: ['CONFIRMED', 'PENDING'] },
+              eventType: { bookingPage: { userId: eventType.bookingPage.userId } },
+              OR: [
+                {
+                  startTime: { lte: occ },
+                  endTime: { gt: occ },
+                },
+                {
+                  startTime: { lt: occEnd },
+                  endTime: { gte: occEnd },
+                },
+                {
+                  startTime: { gte: occ },
+                  endTime: { lte: occEnd },
+                },
+              ],
             },
-            {
-              startTime: { lt: occEnd },
-              endTime: { gte: occEnd },
-            },
-            {
-              startTime: { gte: occ },
-              endTime: { lte: occEnd },
-            },
-          ],
-        },
-      });
+          });
 
       if (conflictingBooking) {
         return NextResponse.json(
@@ -353,6 +403,16 @@ export async function POST(request: NextRequest) {
       status: (eventType.requiresConfirmation ? 'PENDING' : 'CONFIRMED') as 'PENDING' | 'CONFIRMED',
       formData,
       assignedMemberId,
+      // Resource/location snapshot (only when the event type uses resources).
+      ...(pickedResource
+        ? {
+            resourceId: pickedResource.resource.id,
+            resourceName: pickedResource.resource.name,
+            locationId: pickedResource.resource.location?.id ?? null,
+            locationName: pickedResource.resource.location?.name ?? null,
+            locationAddress: pickedResource.resource.location?.address ?? null,
+          }
+        : {}),
     };
 
     const booking = await prisma.booking.create({

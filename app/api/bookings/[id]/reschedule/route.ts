@@ -5,6 +5,7 @@ import { addMinutes } from '@/lib/utils';
 import { sendBookingReschedule } from '@/lib/email';
 import { verifyBookingToken, generateBookingToken } from '@/lib/booking-tokens';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
+import { pickResourceForSlot } from '@/lib/resource-assignment';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,16 @@ export async function POST(
                 user: true,
               },
             },
+            allowedResources: {
+              include: {
+                resource: {
+                  include: {
+                    availabilities: true,
+                    location: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -69,46 +80,78 @@ export async function POST(
     const newBookingStartTime = new Date(newStartTime);
     const newBookingEndTime = addMinutes(newBookingStartTime, booking.eventType.duration);
 
-    // Check for conflicts
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        id: { not: bookingId }, // Exclude current booking
+    // Resource-mode events: pick a free resource for the new slot (excluding
+    // this booking) instead of the owner/same-event overlap check.
+    const resourceMode = booking.eventType.allowedResources.length > 0;
+    let pickedResource: { id: string; name: string; location?: { id: string; name: string | null; address: string | null } | null } | null = null;
+    if (resourceMode) {
+      const pick = await pickResourceForSlot({
         eventTypeId: booking.eventTypeId,
-        status: { in: ['CONFIRMED', 'PENDING'] },
-        OR: [
-          {
-            startTime: { lte: newBookingStartTime },
-            endTime: { gt: newBookingStartTime },
-          },
-          {
-            startTime: { lt: newBookingEndTime },
-            endTime: { gte: newBookingEndTime },
-          },
-          {
-            startTime: { gte: newBookingStartTime },
-            endTime: { lte: newBookingEndTime },
-          },
-        ],
-      },
-    });
+        bookingPageId: booking.eventType.bookingPageId,
+        slotStart: newBookingStartTime,
+        slotEnd: newBookingEndTime,
+        bufferMinutes: booking.eventType.bufferTime,
+        allowedResources: booking.eventType.allowedResources.map((er) => er.resource),
+        excludeBookingId: bookingId,
+      });
+      if (!pick) {
+        return NextResponse.json(
+          { success: false, error: 'No resource (room/chair) available for the new time slot' },
+          { status: 409 }
+        );
+      }
+      pickedResource = pick.resource;
+    } else {
+      // Check for conflicts
+      const conflictingBooking = await prisma.booking.findFirst({
+        where: {
+          id: { not: bookingId }, // Exclude current booking
+          eventTypeId: booking.eventTypeId,
+          status: { in: ['CONFIRMED', 'PENDING'] },
+          OR: [
+            {
+              startTime: { lte: newBookingStartTime },
+              endTime: { gt: newBookingStartTime },
+            },
+            {
+              startTime: { lt: newBookingEndTime },
+              endTime: { gte: newBookingEndTime },
+            },
+            {
+              startTime: { gte: newBookingStartTime },
+              endTime: { lte: newBookingEndTime },
+            },
+          ],
+        },
+      });
 
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { success: false, error: 'New time slot is already booked' },
-        { status: 409 }
-      );
+      if (conflictingBooking) {
+        return NextResponse.json(
+          { success: false, error: 'New time slot is already booked' },
+          { status: 409 }
+        );
+      }
     }
 
     // Store old start time for email
     const oldStartTime = booking.startTime;
 
-    // Update booking
+    // Update booking (and refresh the resource/location snapshot on reschedule)
     const updatedBooking = await prisma.booking.update({
       where: { id: bookingId },
       data: {
         startTime: newBookingStartTime,
         endTime: newBookingEndTime,
         status: 'CONFIRMED',
+        ...(pickedResource
+          ? {
+              resourceId: pickedResource.id,
+              resourceName: pickedResource.name,
+              locationId: pickedResource.location?.id ?? null,
+              locationName: pickedResource.location?.name ?? null,
+              locationAddress: pickedResource.location?.address ?? null,
+            }
+          : {}),
       },
       include: {
         eventType: {

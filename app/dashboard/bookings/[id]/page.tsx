@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Clock, MapPin, User, Mail, Phone, Video, Loader2, CheckCircle2, XCircle, Flag, NotebookPen, Save } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Sofa, User, Mail, Phone, Video, Loader2, CheckCircle2, XCircle, Flag, NotebookPen, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,9 @@ interface Booking {
   completedAt?: string | null;
   updatedAt?: string;
   formData?: any;
+  resourceName?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
   eventType: {
     name: string;
     duration: number;
@@ -361,6 +364,22 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                     {booking.eventType.location}
                   </p>
                 </div>
+                {(booking.resourceName || booking.locationName || booking.locationAddress) && (
+                  <div className="md:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/60 p-3">
+                    <div className="flex items-center gap-2">
+                      <Sofa className="h-4 w-4 text-indigo-600" />
+                      <span className="font-medium text-indigo-900">
+                        {booking.resourceName || 'Recurso asignado'}
+                      </span>
+                    </div>
+                    {(booking.locationName || booking.locationAddress) && (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-indigo-800/80">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {[booking.locationName, booking.locationAddress].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {booking.eventType.videoLink && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Enlace de video</label>

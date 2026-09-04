@@ -35,6 +35,20 @@ export async function GET(request: NextRequest) {
       include: {
         formFields: true,
         bookingPage: true,
+        allowedResources: {
+          include: {
+            resource: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                capacity: true,
+                isActive: true,
+                location: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
         team: {
           include: {
             members: {
@@ -104,6 +118,7 @@ export async function POST(request: NextRequest) {
       formSchema = null,
       routingRules = null,
       enableRouting = false,
+      allowedResourceIds = [],
     } = body;
 
     // Validation
@@ -129,7 +144,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create event type
+    // Validate allowed resources belong to the user and are active.
+    const resourceIds = Array.isArray(allowedResourceIds) ? allowedResourceIds.filter(Boolean) : [];
+    let allowedResources: { resourceId: string }[] = [];
+    if (resourceIds.length > 0) {
+      const owned = await prisma.resource.findMany({
+        where: { id: { in: resourceIds }, userId: (session.user as any).id, isActive: true },
+        select: { id: true },
+      });
+      if (owned.length !== resourceIds.length) {
+        return NextResponse.json(
+          { success: false, error: 'Uno o más recursos no existen o no están activos' },
+          { status: 400 }
+        );
+      }
+      allowedResources = owned.map((r) => ({ resourceId: r.id }));
+    }
+
+    // Create event type (with its allowed resources when any are given)
     const eventType = await prisma.eventType.create({
       data: {
         bookingPageId,
@@ -150,6 +182,13 @@ export async function POST(request: NextRequest) {
         formSchema,
         routingRules,
         enableRouting,
+        ...(allowedResources.length > 0
+          ? {
+              allowedResources: {
+                create: allowedResources,
+              },
+            }
+          : {}),
       },
     });
 
@@ -173,6 +212,20 @@ export async function POST(request: NextRequest) {
       include: {
         formFields: true,
         bookingPage: true,
+        allowedResources: {
+          include: {
+            resource: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                capacity: true,
+                isActive: true,
+                location: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
       },
     });
 
