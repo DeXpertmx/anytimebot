@@ -58,25 +58,29 @@ export async function POST(request: NextRequest) {
 
     if (body.clear === true) {
       await clearEmailCredentials();
-      await logAdminAction(admin.id, 'CLEAR_EMAIL_CREDENTIALS', null, {}, request);
+      await logAdminAction(admin.id, 'CLEAR_EMAIL_CREDENTIALS', null, { provider: 'email' }, request);
       return NextResponse.json({ ok: true });
     }
 
-    // Send a test email through the active provider to the admin's own address.
+    // Send a test email through the active provider. Uses the provided recipient
+    // when given, otherwise falls back to the admin's own registered email.
     if (body.test === true) {
-      if (!admin.email) {
-        return NextResponse.json({ error: 'Admin user has no email' }, { status: 400 });
+      const requestedTo = typeof body.to === 'string' ? body.to.trim() : '';
+      const to = requestedTo || admin.email || '';
+      if (!to) {
+        return NextResponse.json({ error: 'Admin user has no email — specify a recipient' }, { status: 400 });
       }
       const result = await sendMail({
-        to: admin.email,
+        to,
         subject: '🧪 Anytimebot test email',
         html: '<div style="font-family: Arial, sans-serif; padding: 24px;"><h2>✅ Test email OK</h2><p>This email was sent from the Anytimebot admin panel through the active email provider.</p></div>',
       });
       if (!result.ok) {
+        await logAdminAction(admin.id, 'TEST_EMAIL', null, { provider: result.provider, ok: false, error: result.error || 'Email send failed', to }, request);
         return NextResponse.json({ error: result.error || 'Email send failed' }, { status: 500 });
       }
-      await logAdminAction(admin.id, 'TEST_EMAIL', null, { provider: result.provider, id: result.id }, request);
-      return NextResponse.json({ ok: true, provider: result.provider, id: result.id });
+      await logAdminAction(admin.id, 'TEST_EMAIL', null, { provider: result.provider, ok: true, id: result.id, to }, request);
+      return NextResponse.json({ ok: true, provider: result.provider, id: result.id, to });
     }
 
     // Resend API key (backward compatible with the previous admin panel)
@@ -86,7 +90,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid API key' }, { status: 400 });
       }
       await saveEmailCredentials({ apiKey });
-      await logAdminAction(admin.id, 'SET_EMAIL_CREDENTIALS', null, {}, request);
+      await logAdminAction(admin.id, 'SET_EMAIL_CREDENTIALS', null, { provider: 'resend' }, request);
       return NextResponse.json({ ok: true });
     }
 
@@ -98,17 +102,37 @@ export async function POST(request: NextRequest) {
 
     const provider = ['smtp', 'auto', 'resend'].includes(body.provider) ? body.provider : 'auto';
 
+    const smtpUser = typeof body.smtpUser === 'string' ? body.smtpUser.trim() : '';
+    const smtpPass = typeof body.smtpPass === 'string' ? body.smtpPass.trim() : '';
+
     await saveEmailCredentials({
       provider,
       smtpHost,
       smtpPort: typeof body.smtpPort === 'string' ? body.smtpPort.trim() : '',
       smtpSecure: body.smtpSecure === true || body.smtpSecure === 'true' ? 'true' : 'false',
-      smtpUser: typeof body.smtpUser === 'string' ? body.smtpUser.trim() : '',
-      smtpPass: typeof body.smtpPass === 'string' ? body.smtpPass.trim() : '',
+      smtpUser,
+      smtpPass,
       smtpFromName: typeof body.smtpFromName === 'string' ? body.smtpFromName.trim() : '',
       smtpFromEmail: typeof body.smtpFromEmail === 'string' ? body.smtpFromEmail.trim() : '',
     });
-    await logAdminAction(admin.id, 'SET_EMAIL_SMTP', null, {}, request);
+
+    // Audit log: never store the password — only its presence.
+    await logAdminAction(
+      admin.id,
+      'SET_EMAIL_SMTP',
+      null,
+      {
+        provider,
+        smtpHost,
+        smtpPort: typeof body.smtpPort === 'string' ? body.smtpPort.trim() : '',
+        smtpSecure: body.smtpSecure === true || body.smtpSecure === 'true',
+        hasUser: Boolean(smtpUser),
+        hasPass: Boolean(smtpPass),
+        smtpFromName: typeof body.smtpFromName === 'string' ? body.smtpFromName.trim() : '',
+        smtpFromEmail: typeof body.smtpFromEmail === 'string' ? body.smtpFromEmail.trim() : '',
+      },
+      request,
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {

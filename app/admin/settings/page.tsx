@@ -103,6 +103,7 @@ export default function SettingsPage() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [clearingEmail, setClearingEmail] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailTo, setTestEmailTo] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -257,16 +258,21 @@ export default function SettingsPage() {
   };
 
   const handleTestEmail = async () => {
+    if (testEmailTo.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmailTo.trim())) {
+      toast.error('Enter a valid recipient email');
+      return;
+    }
     setTestingEmail(true);
     try {
       const response = await fetch('/api/admin/email-credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test: true }),
+        body: JSON.stringify({ test: true, to: testEmailTo.trim() || undefined }),
       });
       if (response.ok) {
         const data = await response.json();
-        toast.success(`Test email sent via ${data.provider === 'smtp' ? 'SMTP' : 'Resend'} — check your inbox`);
+        const recipient = data.to || 'the registered account email';
+        toast.success(`Test email sent to ${recipient} via ${data.provider === 'smtp' ? 'SMTP' : 'Resend'}`);
       } else {
         const data = await response.json().catch(() => ({}));
         toast.error(data.error || 'Test email failed');
@@ -638,10 +644,22 @@ export default function SettingsPage() {
               </Button>
             )}
             {emailStatus?.configured && (
-              <Button size="sm" variant="secondary" disabled={testingEmail} onClick={handleTestEmail}>
-                <Mail className="h-4 w-4 mr-1" />
-                {testingEmail ? 'Sending...' : 'Send test email'}
-              </Button>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Test recipient (optional)</Label>
+                  <Input
+                    type="email"
+                    placeholder="your@email.com — defaults to admin email"
+                    value={testEmailTo}
+                    onChange={(e) => setTestEmailTo(e.target.value)}
+                    className="w-72"
+                  />
+                </div>
+                <Button size="sm" variant="secondary" disabled={testingEmail} onClick={handleTestEmail}>
+                  <Mail className="h-4 w-4 mr-1" />
+                  {testingEmail ? 'Sending...' : 'Send test email'}
+                </Button>
+              </div>
             )}
           </div>
 

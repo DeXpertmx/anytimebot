@@ -16,7 +16,8 @@ import {
   Shield,
   Menu,
   X,
-  Smartphone
+  Smartphone,
+  ScrollText
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Channels', href: '/admin/channels', icon: MessageSquare },
   { name: 'WhatsApp', href: '/admin/whatsapp', icon: Smartphone },
   { name: 'Support', href: '/admin/support', icon: LifeBuoy },
+  { name: 'Audit Logs', href: '/admin/logs', icon: ScrollText },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
