@@ -225,6 +225,9 @@ model Feedback {
 model TimeOff {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
+  // Optional resource scope: null = owner-wide absence (whole day), set =
+  // blocks only that physical resource (room/chair) for the day(s).
+  resourceId String?  @map("resource_id")
   name      String?
   start     DateTime
   end       DateTime // inclusive: last blocked day at 23:59:59.999
@@ -232,8 +235,10 @@ model TimeOff {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
+  @@index([resourceId])
   @@map("time_offs")
 }
 
@@ -494,6 +499,7 @@ model Resource {
   eventTypes     EventTypeResource[]
   bookings       Booking[]
   availabilities Availability[] // own schedule rules (empty = inherit page schedule)
+  timeOffs       TimeOff[] // per-resource closures (days when this unit is out of service)
 
   @@index([userId, isActive])
   @@index([locationId])
@@ -505,8 +511,8 @@ model Resource {
 // global owner overlap check applies). With rows, one free allowed resource is
 // assigned per booking and double-booking is checked per resource.
 model EventTypeResource {
-  eventTypeId String
-  resourceId  String
+  eventTypeId String @map("event_type_id")
+  resourceId  String @map("resource_id")
 
   eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
   resource  Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)

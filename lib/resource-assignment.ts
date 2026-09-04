@@ -1,25 +1,42 @@
 /**
  * DB-backed resource assignment for a concrete slot (booking POST, reschedule).
  *
- * Reuses the pure helpers from lib/resources.ts: the schedule verdict combines
- * the booking page's open windows with the resource's own schedule, and
- * capacity is enforced by counting active bookings already assigned to that
- * resource (plus legacy resource-less bookings of the same event type, which
- * conservatively block every resource).
+ * Phase B semantics (consistent with lib/availability-engine.ts):
+ *
+ *   • The booking page schedule is expressed in the OWNER's timezone
+ *     (`user.timezone`, fallback UTC — the legacy clock).
+ *   • A resource WITHOUT own schedule rules inherits the page schedule
+ *     (evaluated in the page timezone).
+ *   • A resource WITH own rules substitutes the page schedule; its windows
+ *     live in the timezone of its sede (`resource.location.timezone`).
+ *   • Per-resource time off (TimeOff.resourceId) blocks that resource only;
+ *     an owner-wide absence (resourceId null) blocks the whole slot.
+ *   • Capacity is enforced by counting active bookings already assigned to
+ *     that resource (plus legacy resource-less bookings of the same event
+ *     type, which conservatively block every resource).
  */
 import { prisma } from '@/lib/db';
 import { addMinutes } from '@/lib/utils';
 import {
-  effectiveVerdict,
+  localSlotParts,
+  resourceVerdict,
   countOverlaps,
-  naiveSlotParts,
   type OverlappingBooking,
-  type OpenWindow,
-  type ResourceWithLocation,
+  type AvailabilityRule,
 } from '@/lib/resources';
+import { isInsideDayWindows, type DayWindow } from '@/lib/availability-engine';
+
+export interface PickResourceLike {
+  id: string;
+  name: string;
+  capacity: number;
+  isActive: boolean;
+  availabilities: AvailabilityRule[];
+  location?: { id: string; name: string | null; address: string | null; timezone: string | null } | null;
+}
 
 export interface PickResult {
-  resource: ResourceWithLocation;
+  resource: PickResourceLike;
 }
 
 /**
@@ -34,15 +51,18 @@ export interface PickResult {
 export async function pickResourceForSlot(opts: {
   eventTypeId: string;
   bookingPageId: string;
+  userId: string; // owner (for timezone anchor + time-off lookup)
   slotStart: Date;
   slotEnd: Date; // includes duration; buffer handled by caller via bufferMinutes
   bufferMinutes?: number;
-  allowedResources: ResourceWithLocation[];
+  allowedResources: PickResourceLike[];
   preferredId?: string | null;
   excludeBookingId?: string | null; // booking being rescheduled (ignore its own overlap)
 }): Promise<PickResult | null> {
   const {
     eventTypeId,
+    bookingPageId,
+    userId,
     slotStart,
     slotEnd,
     bufferMinutes = 0,
@@ -55,23 +75,40 @@ export async function pickResourceForSlot(opts: {
   if (active.length === 0) return null;
 
   const excludeFilter = excludeBookingId ? { id: { not: excludeBookingId } } : {};
-
-  // Page open windows for the slot's weekday (used only by resources with no
-  // own rules — they inherit the page schedule).
-  const pageAvailabilities = await prisma.availability.findMany({
-    where: {
-      OR: [{ bookingPageId: opts.bookingPageId }, { resourceId: { in: active.map((r) => r.id) } }],
-    },
-    select: { dayOfWeek: true, startTime: true, endTime: true, isAvailable: true, resourceId: true },
-  });
-  const { dayOfWeek } = naiveSlotParts(slotStart);
-  const pageWindows: OpenWindow[] = pageAvailabilities
-    .filter((a) => !a.resourceId && a.dayOfWeek === dayOfWeek && a.isAvailable)
-    .map((a) => ({ startTime: a.startTime, endTime: a.endTime }));
-
-  // Buffered span used for capacity checks (mirrors the availability check).
   const spanStart = slotStart;
   const spanEnd = addMinutes(slotEnd, bufferMinutes);
+
+  const [owner, pageAvailabilities, timeOffs] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true },
+    }),
+    prisma.availability.findMany({
+      where: { bookingPageId },
+      select: { dayOfWeek: true, startTime: true, endTime: true, isAvailable: true },
+    }),
+    prisma.timeOff.findMany({
+      where: {
+        userId,
+        start: { lte: spanEnd },
+        end: { gte: spanStart },
+      },
+      select: { resourceId: true },
+    }),
+  ]);
+
+  const anchorTz = owner?.timezone || 'UTC';
+
+  // Owner-wide absence covering the slot → nothing can be assigned.
+  if (timeOffs.some((t) => !t.resourceId)) return null;
+  const blockedResourceIds = new Set(
+    timeOffs.filter((t) => t.resourceId).map((t) => t.resourceId as string)
+  );
+
+  // Page open windows (day/weekday rules in the owner's timezone).
+  const pageWindows: DayWindow[] = pageAvailabilities
+    .filter((a) => a.isAvailable)
+    .map((a) => ({ dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
 
   const resourceIds = active.map((r) => r.id);
   const [resourceBookings, legacyBookings] = await Promise.all([
@@ -110,14 +147,26 @@ export async function pickResourceForSlot(opts: {
     endTime: new Date(b.endTime),
   }));
 
-  const { minutes: startMin } = naiveSlotParts(spanStart);
-  const { minutes: endMin } = naiveSlotParts(spanEnd);
+  const pageStart = localSlotParts(spanStart, anchorTz);
+  const pageEnd = localSlotParts(spanEnd, anchorTz);
 
-  const free: { r: ResourceWithLocation; load: number }[] = [];
+  const free: { r: (typeof active)[number]; load: number }[] = [];
   for (const r of active) {
-    if (!r.isActive) continue;
-    const verdict = effectiveVerdict(r, pageWindows, dayOfWeek, startMin, endMin);
-    if (verdict === 'closed') continue;
+    if (blockedResourceIds.has(r.id)) continue;
+
+    let open: boolean;
+    if (r.availabilities.length === 0) {
+      // Inherit the page schedule (page timezone).
+      open = isInsideDayWindows(pageWindows, pageStart.dayOfWeek, pageStart.minutes, pageEnd.minutes);
+    } else {
+      // Own rules substitute the page schedule, in the sede timezone.
+      const tz = r.location?.timezone || anchorTz;
+      const sp = localSlotParts(spanStart, tz);
+      const ep = localSlotParts(spanEnd, tz);
+      open = resourceVerdict({ availabilities: r.availabilities }, sp.dayOfWeek, sp.minutes, ep.minutes) === 'open';
+    }
+    if (!open) continue;
+
     const overlaps = [...(byResource.get(r.id) ?? []), ...legacy];
     if (countOverlaps(overlaps, spanStart, spanEnd) >= Math.max(1, r.capacity)) continue;
     free.push({ r, load: countOverlaps(byResource.get(r.id) ?? [], spanStart, spanEnd) });

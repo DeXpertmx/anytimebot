@@ -449,7 +449,11 @@
     "empty": "Sin ausencias programadas",
     "emptyDesc": "Tus clientes podrán reservar todos los días disponibles",
     "deleted": "Ausencia eliminada correctamente",
-    "deleteFailed": "Error al eliminar la ausencia"
+    "deleteFailed": "Error al eliminar la ausencia",
+    "resourceLabel": "Recurso (opcional)",
+    "scopeAll": "Toda la agenda (todas las salas y sillones)",
+    "scopeHint": "Si eliges un recurso, la ausencia solo bloqueará esa sala o sillón; el resto de tu agenda sigue activa.",
+    "onlyFor": "Solo {{resource}}"
   },
   "bookingPages": {
     "subtitle": "Crea y gestiona tus páginas de reserva públicas",
@@ -542,7 +546,9 @@
     "errorTitle": "Error",
     "genericError": "Se produjo un error inesperado",
     "paymentSessionFailed": "No se pudo iniciar la sesión de pago",
-    "bookingCreateFailed": "No se pudo crear la reserva"
+    "bookingCreateFailed": "No se pudo crear la reserva",
+    "assignedSpace": "Tu espacio asignado",
+    "bookAnother": "Agendar otra reunión"
   },
   "pricing": {
     "eyebrow": "Planes para cada etapa",

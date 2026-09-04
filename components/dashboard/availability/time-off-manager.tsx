@@ -16,13 +16,29 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
-import { CalendarOff, Loader2, Plus, Trash } from 'lucide-react';
+import { CalendarOff, Loader2, Plus, Sofa, Trash } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface TimeOff {
   id: string;
   name?: string | null;
   start: string;
   end: string;
+  resourceId?: string | null;
+  resource?: { id: string; name: string } | null;
+}
+
+interface ResourceOption {
+  id: string;
+  name: string;
+  isActive: boolean;
+  location?: { id: string; name: string | null } | null;
 }
 
 function formatDay(iso: string) {
@@ -38,13 +54,27 @@ export function TimeOffManager() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', start: '', end: '' });
+  const [form, setForm] = useState({ name: '', start: '', end: '', resourceId: '' });
+  const [resources, setResources] = useState<ResourceOption[]>([]);
   const { toast } = useToast();
   const { t } = useTranslation();
 
   useEffect(() => {
     fetchTimeOffs();
+    fetchResources();
   }, []);
+
+  const fetchResources = async () => {
+    try {
+      const response = await fetch('/api/resources');
+      const data = await response.json();
+      if (data.success) {
+        setResources(data.data || []);
+      }
+    } catch {
+      // Non-critical: the selector simply stays hidden.
+    }
+  };
 
   const fetchTimeOffs = async () => {
     try {
@@ -96,7 +126,12 @@ export function TimeOffManager() {
       const response = await fetch('/api/time-off', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          start: form.start,
+          end: form.end,
+          resourceId: form.resourceId || undefined,
+        }),
       });
       const data = await response.json();
 
@@ -106,7 +141,7 @@ export function TimeOffManager() {
           description: t('timeOff.created'),
         });
         setOpen(false);
-        setForm({ name: '', start: '', end: '' });
+        setForm({ name: '', start: '', end: '', resourceId: '' });
         fetchTimeOffs();
       } else {
         toast({
@@ -183,6 +218,30 @@ export function TimeOffManager() {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                   />
                 </div>
+                {resources.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>{t('timeOff.resourceLabel')}</Label>
+                    <Select
+                      value={form.resourceId}
+                      onValueChange={(value) => setForm({ ...form, resourceId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('timeOff.scopeAll')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">{t('timeOff.scopeAll')}</SelectItem>
+                        {resources
+                          .filter((r) => r.isActive)
+                          .map((r) => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.location?.name ? `${r.name} · ${r.location.name}` : r.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">{t('timeOff.scopeHint')}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="timeoff-start">{t('timeOff.start')}</Label>
@@ -254,6 +313,12 @@ export function TimeOffManager() {
                   <p className="text-sm text-gray-600">
                     {formatDay(item.start)} – {formatDay(item.end)}
                   </p>
+                  {item.resource && (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
+                      <Sofa className="h-3.5 w-3.5" />
+                      {t('timeOff.onlyFor', { resource: item.resource.name })}
+                    </p>
+                  )}
                 </div>
                 <Button
                   variant="ghost"

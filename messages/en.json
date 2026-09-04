@@ -449,7 +449,11 @@
     "empty": "No time off scheduled",
     "emptyDesc": "Your guests will be able to book every available day",
     "deleted": "Time off deleted successfully",
-    "deleteFailed": "Failed to delete time off"
+    "deleteFailed": "Failed to delete time off",
+    "resourceLabel": "Resource (optional)",
+    "scopeAll": "Entire schedule (all rooms and chairs)",
+    "scopeHint": "Pick a resource to close just that room or chair for the day(s); the rest of your schedule stays open.",
+    "onlyFor": "Only {{resource}}"
   },
   "bookingPages": {
     "subtitle": "Create and manage your public booking pages",
@@ -542,7 +546,9 @@
     "errorTitle": "Error",
     "genericError": "An unexpected error occurred",
     "paymentSessionFailed": "Failed to create payment session",
-    "bookingCreateFailed": "Failed to create booking"
+    "bookingCreateFailed": "Failed to create booking",
+    "assignedSpace": "Your assigned space",
+    "bookAnother": "Book another meeting"
   },
   "pricing": {
     "eyebrow": "Plans for every stage",

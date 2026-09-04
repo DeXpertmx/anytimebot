@@ -249,10 +249,12 @@ export async function POST(request: NextRequest) {
   const bookingStartTime = startTime;
   const bookingEndTime = addMinutes(bookingStartTime, eventType.duration);
 
-  // Host absences block the slot.
+  // Host absences block the slot (only owner-wide ones — per-resource
+  // absences are enforced by the resource assignment layer).
   const blockingTimeOff = await prisma.timeOff.findFirst({
     where: {
       userId: eventType.bookingPage.userId,
+      resourceId: null,
       start: { lte: bookingEndTime },
       end: { gte: bookingStartTime },
     },

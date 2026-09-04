@@ -26,7 +26,14 @@ interface Booking {
 }
 interface Team { id: string; name: string; members: { id: string; email: string; user?: { name?: string | null; image?: string | null } | null }[]; }
 interface EventType { id: string; name: string; duration: number; color?: string; bookingPage: { id: string; name: string } }
-interface TimeOff { id: string; name?: string | null; start: string; end: string }
+interface TimeOff {
+  id: string;
+  name?: string | null;
+  start: string;
+  end: string;
+  resourceId?: string | null;
+  resource?: { id: string; name: string } | null;
+}
 
 const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const palette = ['#63b3ed', '#a78bfa', '#86efac', '#f9a8d4', '#fcd34d'];
@@ -127,13 +134,26 @@ export default function CalendarPage() {
   const monthDays = useMemo(() => { const first = new Date(month.getFullYear(), month.getMonth(), 1); const start = new Date(first); start.setDate(first.getDate() - first.getDay()); return Array.from({ length: 42 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; }); }, [month]);
   const weekDays = useMemo(() => { const day = new Date(selectedDay); day.setDate(day.getDate() - day.getDay()); return Array.from({ length: 7 }, (_, index) => { const value = new Date(day); value.setDate(day.getDate() + index); return value; }); }, [selectedDay]);
   const dayBookings = (day: Date) => visibleBookings.filter(b => { const date = new Date(b.startTime); return date.toDateString() === day.toDateString(); });
-  const dayTimeOff = (day: Date) => timeOffs.find(t => {
-    const start = new Date(t.start);
-    const end = new Date(t.end);
-    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
-    return start <= dayEnd && end >= dayStart;
-  });
+  // Owner-wide absences block the whole day. Per-resource absences only close
+  // that resource (shown as a small note, never as a full-day block).
+  const dayTimeOff = (day: Date) =>
+    timeOffs.find(t => {
+      if (t.resourceId) return false;
+      const start = new Date(t.start);
+      const end = new Date(t.end);
+      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+      return start <= dayEnd && end >= dayStart;
+    });
+  const dayScopedTimeOffs = (day: Date) =>
+    timeOffs.filter(t => {
+      if (!t.resourceId) return false;
+      const start = new Date(t.start);
+      const end = new Date(t.end);
+      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+      const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+      return start <= dayEnd && end >= dayStart;
+    });
   const offStripe = 'repeating-linear-gradient(135deg, rgba(244,63,94,0.10) 0px, rgba(244,63,94,0.10) 8px, transparent 8px, transparent 16px)';
   const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const title = view === 'day' ? selectedDay.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : view === 'week' ? `Semana del ${weekDays[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : month.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
@@ -357,6 +377,14 @@ export default function CalendarPage() {
                           🚫 {off.name || 'Ausencia'}
                         </span>
                       )}
+                      {!off && dayScopedTimeOffs(day).length > 0 && (
+                        <span
+                          className="ml-auto inline-flex max-w-[calc(100%-2rem)] items-center gap-1 truncate rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
+                          title={dayScopedTimeOffs(day).map(s => s.resource?.name || s.name || 'Recurso').join(', ')}
+                        >
+                          {dayScopedTimeOffs(day)[0].resource?.name || 'Recurso'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-0.5">
                       {dayItems.slice(0, 4).map((booking, index) => (
@@ -408,10 +436,23 @@ export default function CalendarPage() {
                         style={dayTimeOff(day) ? { backgroundImage: offStripe } : undefined}
                         onClick={(e) => { e.stopPropagation(); openNewBooking(day, hour); }}
                       >
-                        {hour === 7 && dayTimeOff(day) && (
-                          <span className="absolute left-1 right-1 top-1 z-10 truncate rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700" title={dayTimeOff(day)!.name || 'Ausencia'}>
-                            🚫 {dayTimeOff(day)!.name || 'Ausencia'}
-                          </span>
+                        {hour === 7 && (dayTimeOff(day) || dayScopedTimeOffs(day).length > 0) && (
+                          <div className="absolute left-1 right-1 top-1 z-10 flex flex-col gap-0.5">
+                            {dayTimeOff(day) && (
+                              <span className="truncate rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700" title={dayTimeOff(day)!.name || 'Ausencia'}>
+                                🚫 {dayTimeOff(day)!.name || 'Ausencia'}
+                              </span>
+                            )}
+                            {dayScopedTimeOffs(day).map(s => (
+                              <span
+                                key={s.id}
+                                className="truncate rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700"
+                                title={`Ausencia de recurso: ${s.resource?.name || s.name || ''}`}
+                              >
+                                {s.resource?.name || s.name || 'Recurso'}
+                              </span>
+                            ))}
+                          </div>
                         )}
                         {dayBookings(day).filter(b => new Date(b.startTime).getHours() === hour).map(booking => (
                           <button

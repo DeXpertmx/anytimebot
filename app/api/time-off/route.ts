@@ -28,6 +28,9 @@ export async function GET() {
     const timeOffs = await prisma.timeOff.findMany({
       where: { userId: (session.user as any).id },
       orderBy: { start: 'desc' },
+      include: {
+        resource: { select: { id: true, name: true } },
+      },
     });
 
     return NextResponse.json({ success: true, data: timeOffs });
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, start, end } = body;
+    const { name, start, end, resourceId } = body;
 
     const startDate = parseDayStart(start);
     const endDate = parseDayEnd(end);
@@ -68,12 +71,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Optional per-resource scope (Phase B): only that room/chair is blocked.
+    let ownedResourceId: string | null = null;
+    if (resourceId) {
+      const resource = await prisma.resource.findFirst({
+        where: { id: String(resourceId), userId: (session.user as any).id, isActive: true },
+        select: { id: true },
+      });
+      if (!resource) {
+        return NextResponse.json(
+          { success: false, error: 'Resource not found' },
+          { status: 404 }
+        );
+      }
+      ownedResourceId = resource.id;
+    }
+
     const timeOff = await prisma.timeOff.create({
       data: {
         userId: (session.user as any).id,
         name: typeof name === 'string' && name.trim() ? name.trim() : null,
         start: startDate,
         end: endDate,
+        resourceId: ownedResourceId,
+      },
+      include: {
+        resource: { select: { id: true, name: true } },
       },
     });
 

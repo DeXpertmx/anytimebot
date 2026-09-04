@@ -294,6 +294,7 @@ export async function POST(request: NextRequest) {
       const pick = await pickResourceForSlot({
         eventTypeId,
         bookingPageId: eventType.bookingPageId,
+        userId: eventType.bookingPage.userId,
         slotStart: bookingStartTime0,
         slotEnd: occEnd,
         bufferMinutes: eventType.bufferTime,

@@ -1,8 +1,7 @@
 # Modelo de datos: Recursos y Ubicaciones (salas, sillones, multi-sede)
 
-> Diseño de datos — no implementado aún. Estado del árbol: `schema.prisma` lleva
-> edits sin commitear de *series recurrentes* (feature independiente); este diseño
-> es aditivo y no entra en conflicto con ellos.
+> Diseño de datos. **Fase A y Fase B implementadas** — ver §5 para el estado de
+> cada fase; las fases C y los puntos de §7 siguen abiertos.
 
 ## 1. Problema y objetivos
 
@@ -298,13 +297,24 @@ la particularidad de no usar un recurso que esté ocupado en alguna ocurrencia
 4. CRUD de Ubicaciones y Recursos + selector de recursos en el editor de evento.
 5. Página pública y detalle de reserva muestran la foto.
 
-**Fase B — multi-sede real:**
-- Un `BookingPage` puede pertenecer a una sede (columna `locationId` en
-  `BookingPage`), o el mismo tipo de evento ofrecerse en varias sedes:
-  `EventType.locationId` como "sede por defecto" y, si hace falta que el cliente
-  elija sucursal, un paso "elige sede" en la página pública que filtra los slots
-  por el huso de cada sede.
-- `TimeOff` por recurso (cierre puntual de una sala).
+**Fase B — multi-sede real (implementada):**
+- **Huso propio en la disponibilidad**: el motor de slots (`lib/availability-engine.ts`)
+  genera los horarios como *instantes reales* (UTC) a partir de las ventanas de
+  cada fuente (página en el huso del propietario; horarios propios de cada
+  recurso en el huso de su sede, `Location.timezone`), y devuelve las horas ya
+  convertidas al huso del invitado (`check-availability` recibe `timezone`).
+  Sin sede ni huso configurado degrada a `UTC` = comportamiento antiguo.
+- **`TimeOff` por recurso** (`time_offs.resource_id`): una ausencia puede cerrar
+  solo una sala/sillón; el resto de recursos y la página siguen ofertando.
+  Bloquea ese recurso en disponibilidad, al reservar (`pickResourceForSlot`) y
+  al reprogramar. En el calendario del dashboard no se pinta el día completo.
+- **Sede por defecto por tipo de evento** (`EventType.locationId`, migración
+  `20260904140000_add_eventtype_location`): para eventos en persona sin recurso
+  reservable, el editor permite elegir una sede; su dirección queda como
+  snapshot en cada reserva (confirmación pública, detalle, emails) y su huso
+  ancla la disponibilidad (mismo motor que los recursos).
+- Pendiente (opcional): `BookingPage.locationId` y el paso "elige sede" en la
+  página pública para ofrecer el mismo evento en varias sedes.
 
 **Fase C — recursos del equipo:**
 - `TeamMember.resourceId` opcional ("Carlos trabaja en el Sillón 2") para que la

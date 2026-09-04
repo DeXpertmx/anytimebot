@@ -4,7 +4,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { format, addDays, isSameDay } from 'date-fns';
 import { es as esLocale, enUS } from 'date-fns/locale';
-import { Calendar, Clock, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight, Check, CheckCircle2, MapPin, Sofa } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,6 +61,17 @@ interface BookingFormProps {
   preselectedEventId?: string;
 }
 
+interface ConfirmedBooking {
+  id: string;
+  eventName: string;
+  startDate: Date;
+  seriesCount?: number | null;
+  seriesSummary?: string | null;
+  resourceName?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+}
+
 export function BookingForm({
   bookingPage,
   eventTypes,
@@ -88,6 +99,25 @@ export function BookingForm({
   const [repeatCount, setRepeatCount] = useState(4);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const formRef = useRef<HTMLFormElement>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBooking | null>(null);
+
+  const startNewBooking = () => {
+    setConfirmedBooking(null);
+    setSelectedDate(null);
+    setSelectedTime('');
+    setStep(1);
+    setRepeatFreq('');
+    setRepeatCount(4);
+    setFormData({
+      guestName: '',
+      guestEmail: '',
+      guestPhone: '',
+      guestCountry: 'ES',
+    });
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const changeStep = (next: 1 | 2 | 3) => {
     setStep(next);
@@ -182,6 +212,8 @@ export function BookingForm({
           body: JSON.stringify({
             eventTypeId: selectedEventType.id,
             date: format(selectedDate, 'yyyy-MM-dd'),
+            // The guest's own timezone: slots come back already shifted to it.
+            timezone: userTimezone,
           }),
         });
 
@@ -201,7 +233,7 @@ export function BookingForm({
     };
 
     fetchAvailableSlots();
-  }, [selectedDate, selectedEventType]);
+  }, [selectedDate, selectedEventType, userTimezone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,32 +334,18 @@ export function BookingForm({
       if (response.ok) {
         const result = await response.json();
         const seriesInfo = result?.series;
-        toast({
-          title: seriesInfo
-            ? t('bookingForm.seriesConfirmedTitle', { count: seriesInfo.occurrences })
-            : 'Booking Confirmed! 🎉',
-          description: seriesInfo
-            ? t('bookingForm.seriesConfirmedDesc', {
-                count: seriesInfo.occurrences,
-                summary: seriesInfo.summary,
-              })
-            : `Your meeting has been scheduled for ${format(
-              startTime,
-              'PPP p'
-            )}. A confirmation email has been sent.`,
+        setConfirmedBooking({
+          id: result.data?.id ?? '',
+          eventName: selectedEventType.name,
+          startDate: startTime,
+          seriesCount: seriesInfo?.occurrences ?? null,
+          seriesSummary: seriesInfo?.summary ?? null,
+          resourceName: result.data?.resourceName ?? null,
+          locationName: result.data?.locationName ?? null,
+          locationAddress: result.data?.locationAddress ?? null,
         });
-
-        // Reset form
-        setSelectedDate(null);
-        setSelectedTime('');
-        setStep(1);
-        setRepeatFreq('');
-        setRepeatCount(4);
-        setFormData({
-          guestName: '',
-          guestEmail: '',
-          guestPhone: '',
-          guestCountry: 'ES',
+        requestAnimationFrame(() => {
+          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       } else {
         const error = await response.json();
@@ -351,6 +369,71 @@ export function BookingForm({
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+      {confirmedBooking ? (
+        /* -------- Public confirmation: assigned room/chair + location -------- */
+        <div className="space-y-5">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-6 text-center">
+            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
+            <h4 className="mt-3 text-xl font-bold text-gray-900">
+              {confirmedBooking.seriesCount
+                ? t('bookingForm.seriesConfirmedTitle', {
+                    count: confirmedBooking.seriesCount,
+                  })
+                : t('bookingForm.bookingConfirmed')}
+            </h4>
+            <p className="mt-0.5 text-sm font-semibold text-emerald-700">
+              {confirmedBooking.eventName}
+            </p>
+            <p className="mt-1.5 text-sm text-gray-600">
+              {confirmedBooking.seriesCount
+                ? t('bookingForm.seriesConfirmedDesc', {
+                    count: confirmedBooking.seriesCount,
+                    summary: confirmedBooking.seriesSummary ?? '',
+                  })
+                : t('bookingForm.bookingConfirmedDesc', {
+                    date: format(confirmedBooking.startDate, 'PPP p', {
+                      locale: dateLocale,
+                    }),
+                  })}
+            </p>
+          </div>
+
+          {(confirmedBooking.resourceName ||
+            confirmedBooking.locationName ||
+            confirmedBooking.locationAddress) && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+                {t('bookingForm.assignedSpace')}
+              </p>
+              {confirmedBooking.resourceName && (
+                <p className="mt-2 flex items-center text-base font-semibold text-indigo-900">
+                  <Sofa className="mr-2 h-5 w-5 shrink-0 text-indigo-500" />
+                  {confirmedBooking.resourceName}
+                </p>
+              )}
+              {(confirmedBooking.locationName ||
+                confirmedBooking.locationAddress) && (
+                <p className="mt-1.5 flex items-center text-sm text-gray-600">
+                  <MapPin className="mr-1.5 h-4 w-4 shrink-0 text-gray-400" />
+                  {[confirmedBooking.locationName, confirmedBooking.locationAddress]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
+            </div>
+          )}
+
+          <Button
+            type="button"
+            onClick={startNewBooking}
+            className="w-full"
+            style={{ backgroundColor: brandColor }}
+          >
+            {t('bookingForm.bookAnother')}
+          </Button>
+        </div>
+      ) : (
+        <>
       {/* Stepper: Fecha → Hora → Detalles */}
       <nav
         aria-label={t('bookingForm.stepsAria')}
@@ -919,6 +1002,8 @@ export function BookingForm({
                 : t('bookingForm.confirmBooking')}
           </Button>
         </div>
+        </>
+      )}
         </>
       )}
     </form>
