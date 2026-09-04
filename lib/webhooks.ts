@@ -248,8 +248,11 @@ export async function dispatchWebhookEvent(
       ),
     );
 
-    // Fire-and-forget: each delivery retries via cron if it fails here.
+    // Fire-and-forget: each delivery retries via cron if it fails here. Also
+    // sweep due retries opportunistically — booking activity is frequent, so
+    // failed deliveries get re-attempted within minutes without a paid cron.
     void Promise.allSettled(deliveries.map((d) => deliverWebhook(d.id, deps)));
+    void processDueDeliveries(deps).catch(() => undefined);
   } catch (error) {
     // Never break the booking flow because of webhook plumbing.
     console.error('Failed to dispatch webhook event:', error);
@@ -257,17 +260,12 @@ export async function dispatchWebhookEvent(
 }
 
 /**
- * Cron entry: retries PENDING deliveries whose nextRetryAt has passed.
- * Authenticated with CRON_SECRET like every other cron endpoint.
+ * Sweeps PENDING deliveries whose nextRetryAt has passed. Called by the daily
+ * cron AND lazily (fire-and-forget) on every booking status change, so retries
+ * effectively run within minutes of real activity without a paid cron plan.
  */
-export async function processWebhookRetries(request: NextRequest, deps?: WebhookDeps): Promise<NextResponse> {
+export async function processDueDeliveries(deps?: WebhookDeps): Promise<{ processed: number; delivered: number }> {
   const { prisma: db } = resolveDeps(deps);
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET || 'dev-secret';
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
   const due = await db.webhookDelivery.findMany({
     where: { status: 'PENDING', nextRetryAt: { lte: new Date() } },
     orderBy: { createdAt: 'asc' },
@@ -277,11 +275,20 @@ export async function processWebhookRetries(request: NextRequest, deps?: Webhook
 
   const results = await Promise.allSettled(due.map((d) => deliverWebhook(d.id, deps)));
   const delivered = results.filter((r) => r.status === 'fulfilled' && r.value === 'DELIVERED').length;
+  return { processed: due.length, delivered };
+}
 
-  return NextResponse.json({
-    success: true,
-    processed: due.length,
-    delivered,
-    failed: due.length - delivered,
-  });
+/**
+ * Cron entry: retries PENDING deliveries whose nextRetryAt has passed.
+ * Authenticated with CRON_SECRET like every other cron endpoint.
+ */
+export async function processWebhookRetries(request: NextRequest, deps?: WebhookDeps): Promise<NextResponse> {
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET || 'dev-secret';
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { processed, delivered } = await processDueDeliveries(deps);
+  return NextResponse.json({ success: true, processed, delivered, failed: processed - delivered });
 }
