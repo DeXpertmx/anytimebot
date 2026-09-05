@@ -89,6 +89,7 @@ describe('activateSystemWhatsApp', () => {
     const upserted: any[] = [];
     const db = fakeDb({ upsert: async (args: any) => { upserted.push(args); return {}; } });
     const deps = makeDeps(db, (url) => {
+      if (url.includes('/instance/connectionState/')) return Promise.resolve(jsonResponse({ error: 'Not Found' }, 404));
       if (url.includes('/instance/create')) return Promise.resolve(jsonResponse({ instance: { instanceName: SYSTEM_WHATSAPP_INSTANCE } }));
       if (url.includes('/webhook/set/')) return Promise.resolve(jsonResponse({ enabled: true }));
       return Promise.resolve(jsonResponse({}, 500));
@@ -102,6 +103,24 @@ describe('activateSystemWhatsApp', () => {
     assert.equal(upserted.length, 1);
     assert.equal(upserted[0].where.key, 'system_whatsapp');
     assert.equal(upserted[0].create.value.enabled, true);
+    assert.equal(upserted[0].create.value.instanceName, SYSTEM_WHATSAPP_INSTANCE);
+  });
+
+  it('reuses the existing instance without creating a duplicate', async () => {
+    const upserted: any[] = [];
+    const db = fakeDb({ upsert: async (args: any) => { upserted.push(args); return {}; } });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/instance/connectionState/')) return Promise.resolve(jsonResponse({ instance: { instanceName: SYSTEM_WHATSAPP_INSTANCE, state: 'open' } }));
+      if (url.includes('/webhook/set/')) return Promise.resolve(jsonResponse({ enabled: true }));
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const { instanceName } = await activateSystemWhatsApp('https://app.example.test', 'admin@example.test', deps);
+
+    assert.equal(instanceName, SYSTEM_WHATSAPP_INSTANCE);
+    assert.ok(!deps.calls.some((u) => u.includes('/instance/create')));
+    assert.ok(deps.calls.some((u) => u.includes('/webhook/set/')));
+    assert.equal(upserted.length, 1);
     assert.equal(upserted[0].create.value.instanceName, SYSTEM_WHATSAPP_INSTANCE);
   });
 

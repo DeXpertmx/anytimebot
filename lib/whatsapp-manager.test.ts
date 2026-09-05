@@ -99,6 +99,9 @@ describe('createWhatsAppConnection', () => {
     });
 
     const deps = makeDeps(db, (url, init) => {
+      if (url.includes('/instance/connectionState/')) {
+        return Promise.resolve(jsonResponse({ error: 'Not Found' }, 404));
+      }
       if (url.includes('/instance/create')) {
         return Promise.resolve(jsonResponse({ instance: { instanceName: 'wa_test' } }));
       }
@@ -127,8 +130,57 @@ describe('createWhatsAppConnection', () => {
 
   it('throws when the create call fails', async () => {
     const db = fakeDb({ update: async () => ({}) });
-    const deps = makeDeps(db, () => Promise.resolve(jsonResponse({ error: 'nope' }, 400)));
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/instance/connectionState/')) {
+        return Promise.resolve(jsonResponse({ error: 'Not Found' }, 404));
+      }
+      return Promise.resolve(jsonResponse({ error: 'boom' }, 500));
+    });
     await assert.rejects(() => createWhatsAppConnection('u1', undefined, deps), /Failed to create WhatsApp instance/);
+  });
+
+  it('reuses an existing instance without creating a duplicate', async () => {
+    const created: any[] = [];
+    const db = fakeDb({
+      update: async (args: any) => { created.push(args); return {}; },
+    });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/instance/connectionState/')) {
+        return Promise.resolve(jsonResponse({ instance: { instanceName: 'wa_test', state: 'open' } }));
+      }
+      if (url.includes('/webhook/set/')) {
+        return Promise.resolve(jsonResponse({ enabled: true }));
+      }
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const { instanceName } = await createWhatsAppConnection('u1', 'https://app.example.test', deps);
+
+    assert.ok(instanceName);
+    assert.ok(!deps.calls.some((u) => u.includes('/instance/create')));
+    assert.ok(deps.calls.some((u) => u.includes('/webhook/set/')));
+    assert.equal(created.length, 1);
+    assert.equal(created[0].data.whatsappEnabled, true);
+  });
+
+  it('reuses the instance when creation answers 403 name-in-use', async () => {
+    const db = fakeDb({ update: async () => ({}) });
+    const deps = makeDeps(db, (url) => {
+      if (url.includes('/instance/connectionState/')) {
+        return Promise.resolve(jsonResponse({ error: 'Not Found' }, 404));
+      }
+      if (url.includes('/instance/create')) {
+        return Promise.resolve(jsonResponse({ error: 'name in use' }, 403));
+      }
+      if (url.includes('/webhook/set/')) {
+        return Promise.resolve(jsonResponse({ enabled: true }));
+      }
+      return Promise.resolve(jsonResponse({}, 500));
+    });
+
+    const { instanceName } = await createWhatsAppConnection('u1', 'https://app.example.test', deps);
+    assert.ok(instanceName);
+    assert.ok(deps.calls.some((u) => u.includes('/webhook/set/')));
   });
 });
 

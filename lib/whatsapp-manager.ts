@@ -85,22 +85,38 @@ export async function createWhatsAppConnection(
   const { baseUrl, apiKey } = options();
   const instanceName = buildInstanceName(userId);
 
-  const createRes = await fetchImpl(`${baseUrl}/instance/create`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: apiKey,
-    },
-    body: JSON.stringify({
-      instanceName,
-      integration: 'WHATSAPP-BAILEYS',
-      qrcode: true,
-    }),
+  // Reuse an existing instance instead of failing: the messaging server
+  // answers 403 "name already in use" when creating a duplicate.
+  const existing = await fetchImpl(`${baseUrl}/instance/connectionState/${instanceName}`, {
+    method: 'GET',
+    headers: { apikey: apiKey },
   });
+  if (!existing.ok && existing.status !== 404) {
+    throw new Error(`Failed to check WhatsApp instance (${existing.status})`);
+  }
+  const instanceExists = existing.ok;
 
-  if (!createRes.ok) {
-    const text = await createRes.text();
-    throw new Error(`Failed to create WhatsApp instance (${createRes.status}): ${text}`);
+  if (!instanceExists) {
+    const createRes = await fetchImpl(`${baseUrl}/instance/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: apiKey,
+      },
+      body: JSON.stringify({
+        instanceName,
+        integration: 'WHATSAPP-BAILEYS',
+        qrcode: true,
+      }),
+    });
+
+    if (!createRes.ok) {
+      const text = await createRes.text();
+      // 403/409/400 typically mean the name is already taken — reuse it.
+      if (createRes.status !== 403 && createRes.status !== 409 && createRes.status !== 400) {
+        throw new Error(`Failed to create WhatsApp instance (${createRes.status}): ${text}`);
+      }
+    }
   }
 
   // Configure inbound webhook so messages and QR updates reach the app.
