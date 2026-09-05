@@ -113,6 +113,9 @@ model User {
   // Reseller account owned by this user (accesses the reseller panel)
   ownedReseller   Reseller?  @relation("ResellerOwner")
 
+  // UI preferences
+  hideBotAI Boolean @default(false) @map("hide_bot_ai") // hides the "Bot IA" item from the dashboard sidebar
+
   // Relations
   accounts            Account[]
   sessions            Session[]

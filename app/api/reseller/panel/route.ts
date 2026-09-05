@@ -11,6 +11,7 @@ interface ResellerPanelData {
   wholesale: Record<string, number>; // plan -> cents (what the reseller pays Anytimebot)
   prices: Record<string, number>; // plan -> public cents currently configured
   customersCount: number;
+  customers: Array<{ id: string; name: string | null; email: string; plan: string; hideBotAI: boolean }>;
 }
 
 // GET /api/reseller/panel
@@ -39,6 +40,12 @@ export async function GET() {
     select: { plan: true, priceCents: true },
   });
   const customersCount = await prisma.user.count({ where: { resellerId: reseller.id } });
+  const customerRows = await prisma.user.findMany({
+    where: { resellerId: reseller.id },
+    select: { id: true, name: true, email: true, plan: true, hideBotAI: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
 
   const wholesale: Record<string, number> = {};
   const prices: Record<string, number> = {};
@@ -55,9 +62,60 @@ export async function GET() {
     wholesale,
     prices,
     customersCount,
+    customers: customerRows.map((c) => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      plan: c.plan,
+      hideBotAI: c.hideBotAI,
+    })),
   };
 
   return NextResponse.json(data);
+}
+
+// PATCH /api/reseller/panel - toggle UI preferences for a customer attributed
+// to this reseller (e.g. hide the "Bot IA" item so it cannot be changed
+// accidentally). The reseller can only touch its own customers.
+export async function PATCH(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { ownedReseller: { select: { id: true, isActive: true } } },
+  });
+
+  if (!user?.ownedReseller?.isActive) {
+    return NextResponse.json({ error: 'Panel no disponible' }, { status: 403 });
+  }
+
+  const reseller = user.ownedReseller;
+  const body = await request.json().catch(() => ({}));
+  const customerId = body.customerId as string | undefined;
+  const hideBotAI = body.hideBotAI as boolean | undefined;
+
+  if (!customerId || typeof hideBotAI !== 'boolean') {
+    return NextResponse.json({ error: 'Faltan customerId u hideBotAI' }, { status: 400 });
+  }
+
+  // The customer must be attributed to this reseller
+  const customer = await prisma.user.findFirst({
+    where: { id: customerId, resellerId: reseller.id },
+    select: { id: true },
+  });
+  if (!customer) {
+    return NextResponse.json({ error: 'El cliente no pertenece a tu panel' }, { status: 404 });
+  }
+
+  await prisma.user.update({
+    where: { id: customerId },
+    data: { hideBotAI },
+  });
+
+  return NextResponse.json({ ok: true, customerId, hideBotAI });
 }
 
 // PUT /api/reseller/panel - update public prices per plan.

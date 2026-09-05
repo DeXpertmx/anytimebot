@@ -17,8 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Globe, Bell, Lock, X, Download } from 'lucide-react';
+import { User, Globe, Bell, Lock, X, Download, Bot } from 'lucide-react';
 import { PhoneCountryInput, getDialCode } from '@/components/ui/phone-country-input';
+import { Switch } from '@/components/ui/switch';
 
 interface User {
   id: string;
@@ -29,6 +30,7 @@ interface User {
   timezone: string;
   country: string;
   currency: string;
+  hideBotAI?: boolean;
 }
 
 interface SettingsFormProps {
@@ -62,6 +64,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [hideBotAI, setHideBotAI] = useState(!!(user as any).hideBotAI);
+  const [savingHideBot, setSavingHideBot] = useState(false);
   const [formData, setFormData] = useState({
     name: user.name || '',
     username: user.username || '',
@@ -234,6 +238,44 @@ export function SettingsForm({ user }: SettingsFormProps) {
     }
   };
 
+  const toggleHideBotAI = async (checked: boolean) => {
+    setHideBotAI(checked);
+    setSavingHideBot(true);
+    try {
+      const res = await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hideBotAI: checked }),
+      });
+      if (!res.ok) {
+        setHideBotAI(!checked);
+        toast({
+          title: 'No se pudo actualizar',
+          description: 'Ocurrió un error al cambiar la preferencia',
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({
+        title: 'Preferencia actualizada',
+        description: checked
+          ? 'El Bot IA quedó oculto del menú lateral.'
+          : 'El Bot IA vuelve a estar visible en el menú lateral.',
+      });
+      // Refresh the session so the sidebar updates immediately
+      window.location.reload();
+    } catch {
+      setHideBotAI(!checked);
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al cambiar la preferencia',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingHideBot(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Profile Settings */}
@@ -298,6 +340,23 @@ export function SettingsForm({ user }: SettingsFormProps) {
             {isLoading ? 'Guardando...' : 'Guardar perfil'}
           </Button>
         </form>
+      </Card>
+
+      {/* Menu preferences */}
+      <Card className="p-6">
+        <div className="flex items-center mb-4">
+          <Bot className="h-5 w-5 text-indigo-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Menú</h2>
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Ocultar Bot IA del menú</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Oculta la opción Bot IA del menú lateral para evitar cambios accidentales. Puedes volver a mostrarlo aquí cuando quieras.
+            </p>
+          </div>
+          <Switch checked={hideBotAI} onCheckedChange={toggleHideBotAI} disabled={savingHideBot} />
+        </div>
       </Card>
 
       {/* Public Profile Settings */}

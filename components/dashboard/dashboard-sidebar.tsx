@@ -108,6 +108,15 @@ export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: session } = useSession();
   const isReseller = !!(session?.user as any)?.isReseller;
+  // Hide the "Bot IA" entry when the account (or its reseller) opted out,
+  // so the bot cannot be disconnected accidentally from the sidebar.
+  const hideBotAI = !!(session?.user as any)?.hideBotAI;
+  const visibleGroups = hideBotAI
+    ? NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.nameKey !== 'bot'),
+      }))
+    : NAV_GROUPS;
 
   useEffect(() => {
     const openMenu = () => setMobileOpen(true);
@@ -149,7 +158,7 @@ export function DashboardSidebar() {
         {/* Grouped navigation — scrolls on its own when the viewport is
             shorter than the list (tablets in landscape, small laptops). */}
         <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-slim px-4 py-4">
-          {NAV_GROUPS.map((group, groupIndex) => (
+          {visibleGroups.map((group, groupIndex) => (
             <div
               key={group.labelKey}
               className={cn('space-y-1', groupIndex > 0 && 'mt-5 border-t border-gray-100 pt-4')}

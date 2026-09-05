@@ -104,7 +104,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, username, timezone, country, currency, bio, company, website, linkedin, twitter, phone, address } = body;
+    const { name, username, timezone, country, currency, bio, company, website, linkedin, twitter, phone, address, hideBotAI } = body;
 
     // Check if username is taken (if it's being changed)
     if (username && username !== user.username) {
@@ -136,6 +136,7 @@ export async function PATCH(request: NextRequest) {
         ...(twitter !== undefined && { twitter }),
         ...(phone !== undefined && { phone }),
         ...(address !== undefined && { address }),
+        ...(hideBotAI !== undefined && { hideBotAI }),
       },
     });
 

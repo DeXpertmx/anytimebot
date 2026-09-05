@@ -5,13 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, Users, Percent } from 'lucide-react';
+import { Loader2, Save, Users, Percent, Bot } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface PanelData {
   reseller: { id: string; slug: string; name: string; discountPercent: number };
   wholesale: Record<string, number>;
   prices: Record<string, number>;
   customersCount: number;
+  customers: Array<{ id: string; name: string | null; email: string; plan: string; hideBotAI: boolean }>;
 }
 
 const PLANS: Array<{ key: 'BASIC' | 'PRO' | 'TEAM'; label: string; billing: string }> = [
@@ -29,6 +31,8 @@ export default function ResellerPanelPage() {
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [customers, setCustomers] = useState<PanelData['customers']>([]);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,6 +42,7 @@ export default function ResellerPanelPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Error al cargar el panel');
       setData(json);
+      setCustomers(json.customers || []);
       const next: Record<string, string> = {};
       for (const [k, v] of Object.entries(json.prices)) next[k] = currency(v as number);
       setPrices(next);
@@ -49,6 +54,25 @@ export default function ResellerPanelPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const toggleHideBotAI = async (customerId: string, checked: boolean) => {
+    setTogglingId(customerId);
+    setError('');
+    try {
+      const res = await fetch('/api/reseller/panel', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId, hideBotAI: checked }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Error al actualizar el cliente');
+      setCustomers((prev) => prev.map((c) => (c.id === customerId ? { ...c, hideBotAI: checked } : c)));
+    } catch (e: any) {
+      setError(e.message || 'Error al actualizar el cliente');
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -130,6 +154,39 @@ export default function ResellerPanelPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base"><Users className="h-4 w-4 text-indigo-600" /> Lista de clientes</CardTitle>
+          <CardDescription>Oculta el Bot IA del menú de un cliente para evitar que lo desconfigure por error.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {customers.length === 0 ? (
+            <p className="text-sm text-slate-500">Aún no tienes clientes atribuidos.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {customers.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">{c.name || c.email}</p>
+                    <p className="truncate text-xs text-slate-500">{c.email} · Plan {c.plan}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Bot className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs text-slate-500">Ocultar Bot IA</span>
+                    <Switch
+                      checked={c.hideBotAI}
+                      disabled={togglingId === c.id}
+                      onCheckedChange={(checked) => toggleHideBotAI(c.id, checked)}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -9,6 +9,7 @@ declare module 'next-auth' {
       stripeCustomerId?: string | null;
       role?: string;
       isReseller?: boolean;
+      hideBotAI?: boolean;
       accessToken?: string;
       refreshToken?: string;
     } & DefaultSession['user'];
@@ -19,6 +20,7 @@ declare module 'next-auth' {
     plan?: string;
     stripeCustomerId?: string | null;
     role?: string;
+    hideBotAI?: boolean;
     ownedReseller?: { id: string } | null;
   }
 }
@@ -30,6 +32,7 @@ declare module 'next-auth/jwt' {
     stripeCustomerId?: string | null;
     role?: string;
     isReseller?: boolean;
+    hideBotAI?: boolean;
     accessToken?: string;
     refreshToken?: string;
   }
