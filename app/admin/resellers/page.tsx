@@ -38,6 +38,8 @@ export default function AdminResellersPage() {
   const [form, setForm] = useState({ name: '', slug: '', contactEmail: '', discountPercent: '0', ownerEmail: '' });
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<{ id: string; discountPercent: number; isActive: boolean } | null>(null);
+  const [notice, setNotice] = useState('');
+  const [linking, setLinking] = useState<{ id: string; email: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +61,7 @@ export default function AdminResellersPage() {
   const create = async () => {
     setSaving(true);
     setError('');
+    setNotice('');
     try {
       const res = await fetch('/api/admin/resellers', {
         method: 'POST',
@@ -75,6 +78,29 @@ export default function AdminResellersPage() {
       if (!res.ok) throw new Error(json.error || 'Error al crear');
       setShowCreate(false);
       setForm({ name: '', slug: '', contactEmail: '', discountPercent: '0', ownerEmail: '' });
+      if (json.warning) setNotice(json.warning);
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const linkOwner = async () => {
+    if (!linking) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const res = await fetch(`/api/admin/resellers/${linking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerEmail: linking.email }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Error al vincular');
+      setLinking(null);
       await load();
     } catch (e: any) {
       setError(e.message || 'Error');
@@ -141,6 +167,7 @@ export default function AdminResellersPage() {
               <div>
                 <Label htmlFor="r-owner">Email de la cuenta del reseller</Label>
                 <Input id="r-owner" value={form.ownerEmail} onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })} placeholder="panel@acme.com" />
+                <p className="mt-1 text-xs text-slate-500">Debe ser el email con el que esa persona ya se registró en Anytimebot. Si aún no tiene cuenta, déjalo vacío y vincúlala después.</p>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -154,6 +181,7 @@ export default function AdminResellersPage() {
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+      {notice && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{notice}</p>}
 
       {loading ? (
         <div className="flex items-center gap-3 py-12 text-slate-500">
@@ -175,7 +203,7 @@ export default function AdminResellersPage() {
                   <div className="flex items-center gap-3">
                     <CardTitle className="text-base">{r.name}</CardTitle>
                     <Badge variant={r.isActive ? 'default' : 'secondary'}>{r.isActive ? 'Activo' : 'Inactivo'}</Badge>
-                    {r.ownerEmail ? <Badge variant="outline">{r.ownerEmail}</Badge> : null}
+                    {r.ownerEmail ? <Badge variant="outline">{r.ownerEmail}</Badge> : <Badge variant="destructive">Sin cuenta vinculada</Badge>}
                   </div>
                   <code className="rounded bg-slate-100 px-2 py-1 text-xs">?ref={r.slug}</code>
                 </div>
@@ -231,9 +259,30 @@ export default function AdminResellersPage() {
                     </div>
                   </div>
                 ) : (
-                  <Button size="sm" variant="outline" onClick={() => setEditing({ id: r.id, discountPercent: r.discountPercent, isActive: r.isActive })}>
-                    Editar descuento
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditing({ id: r.id, discountPercent: r.discountPercent, isActive: r.isActive })}>
+                      Editar descuento
+                    </Button>
+                    {!r.ownerEmail && (
+                      <Button size="sm" variant="outline" onClick={() => setLinking({ id: r.id, email: '' })}>
+                        Vincular cuenta
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {linking?.id === r.id && (
+                  <div className="flex flex-wrap items-end gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                    <div className="min-w-64 flex-1">
+                      <Label>Email de la cuenta del reseller</Label>
+                      <Input value={linking.email} onChange={(e) => setLinking({ ...linking, email: e.target.value })} placeholder="panel@acme.com" />
+                      <p className="mt-1 text-xs text-slate-500">La persona debe haberse registrado en Anytimebot con ese email.</p>
+                    </div>
+                    <Button size="sm" onClick={linkOwner} disabled={saving}>
+                      {saving && <Loader2 className="mr-1 h-3 w-3 animate-spin" />} Vincular
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setLinking(null)}>Cancelar</Button>
+                  </div>
                 )}
               </CardContent>
             </Card>

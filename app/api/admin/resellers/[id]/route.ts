@@ -25,6 +25,31 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     data.contactEmail = body.contactEmail.trim() || null;
   }
 
+  // Link or unlink the owner account (the user that manages the reseller panel).
+  // Empty string unlinks; otherwise the account must already exist in Anytimebot.
+  if (typeof body.ownerEmail === 'string') {
+    const ownerEmail = body.ownerEmail.trim().toLowerCase();
+    if (!ownerEmail) {
+      data.ownerUserId = null;
+    } else {
+      const owner = await prisma.user.findFirst({
+        where: { email: { equals: ownerEmail, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (!owner) {
+        return NextResponse.json({ error: 'No existe ningún usuario con ese email. La persona debe registrarse primero en Anytimebot.' }, { status: 400 });
+      }
+      const ownedByOther = await prisma.reseller.findFirst({
+        where: { ownerUserId: owner.id, id: { not: params.id } },
+        select: { id: true },
+      });
+      if (ownedByOther) {
+        return NextResponse.json({ error: 'Ese usuario ya gestiona otro reseller' }, { status: 409 });
+      }
+      data.ownerUserId = owner.id;
+    }
+  }
+
   const reseller = await prisma.reseller.update({ where: { id: params.id }, data });
   return NextResponse.json({ ok: true, id: reseller.id });
 }

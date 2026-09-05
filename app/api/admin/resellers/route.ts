@@ -108,22 +108,39 @@ export async function POST(request: NextRequest) {
   }
 
   // Optionally link the reseller panel to an existing user account.
+  // The account must already exist in Anytimebot (same email used to sign up).
+  // If it does not exist yet, the reseller is created WITHOUT an owner and the
+  // account can be linked later via PATCH once the partner registers.
   let ownerUserId: string | null = null;
+  let ownerLinked = false;
+  let ownerNotFound = '';
   if (ownerEmail) {
-    const owner = await prisma.user.findUnique({ where: { email: ownerEmail } });
-    if (!owner) {
-      return NextResponse.json({ error: 'No existe ningún usuario con ese email' }, { status: 400 });
+    const owner = await prisma.user.findFirst({
+      where: { email: { equals: ownerEmail, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (owner) {
+      const alreadyOwner = await prisma.reseller.findUnique({ where: { ownerUserId: owner.id } });
+      if (alreadyOwner) {
+        return NextResponse.json({ error: 'Ese usuario ya gestiona otro reseller' }, { status: 409 });
+      }
+      ownerUserId = owner.id;
+      ownerLinked = true;
+    } else {
+      ownerNotFound = ownerEmail;
     }
-    const alreadyOwner = await prisma.reseller.findUnique({ where: { ownerUserId: owner.id } });
-    if (alreadyOwner) {
-      return NextResponse.json({ error: 'Ese usuario ya gestiona otro reseller' }, { status: 409 });
-    }
-    ownerUserId = owner.id;
   }
 
   const reseller = await prisma.reseller.create({
     data: { name, slug, contactEmail: contactEmail || null, discountPercent, ownerUserId },
   });
 
-  return NextResponse.json({ ok: true, id: reseller.id });
+  return NextResponse.json({
+    ok: true,
+    id: reseller.id,
+    ownerLinked,
+    warning: ownerNotFound
+      ? `No se encontró ninguna cuenta con el email ${ownerNotFound}. El reseller se creó sin cuenta vinculada; podrás vincularla cuando esa persona se registre en Anytimebot.`
+      : null,
+  });
 }
