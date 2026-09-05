@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { getResellerBySlug, getResellerPlanPrices, extractRefFromUrl, RESELLER_REF_COOKIE, resolvePublicPriceCents, type ResellerContext } from '@/lib/resellers';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export const metadata: Metadata = {
   title: 'Planes y precios - Anytimebot',
@@ -111,7 +112,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-slate-950 dark:to-slate-900">
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -125,6 +126,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
                 className="h-[60px] w-[200px] object-contain"
               />
             </div>
+            <ThemeToggle />
             {session ? (
               <a
                 href="/dashboard"

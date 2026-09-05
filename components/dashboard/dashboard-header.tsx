@@ -16,6 +16,7 @@ import { Settings, LogOut, User, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { useTranslation } from '@/lib/i18n/hooks';
 
 export function DashboardHeader() {
@@ -44,6 +45,7 @@ export function DashboardHeader() {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="flex items-center space-x-2 sm:space-x-4 ml-auto">
+        <ThemeToggle />
         <LanguageSwitcher />
         {/* User Menu */}
         <DropdownMenu>

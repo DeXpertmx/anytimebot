@@ -183,7 +183,11 @@
     "noResults": "No results found",
     "language": "Language",
     "english": "English",
-    "spanish": "Spanish"
+    "spanish": "Spanish",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
   },
   "eventTypes": {
     "title": "Event Types",

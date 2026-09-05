@@ -8,12 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Calendar, Clock, Users, MessageSquare, BarChart3, Bot, Link2, Video, Brain, Zap, CheckCircle2, XCircle, Sparkles, Target, TrendingUp, Smartphone } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function LandingPageContent() {
   const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -34,6 +35,7 @@ export function LandingPageContent() {
                 Pricing
               </Link>
               <LanguageSwitcher />
+              <ThemeToggle />
               <Button asChild variant="ghost" className="hover:bg-cyan-50">
                 <Link href="/auth/signin">{t('landing.signIn')}</Link>
               </Button>
@@ -56,7 +58,7 @@ export function LandingPageContent() {
                 {t('landing.heroHighlight')}
               </Badge>
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold text-[#001F3F] mb-6 leading-tight">
+            <h1 className="text-5xl md:text-7xl font-bold text-[#001F3F] dark:text-white mb-6 leading-tight">
               {t('landing.title')}
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#0066CC]">
@@ -112,7 +114,7 @@ export function LandingPageContent() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-[#001F3F] mb-4">
+            <h2 className="text-4xl font-bold text-[#001F3F] dark:text-white mb-4">
               {t('landing.features.title')}
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
@@ -122,14 +124,14 @@ export function LandingPageContent() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {/* WhatsApp Bot - EXCLUSIVE */}
-            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-cyan-50 to-cyan-100 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
+            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
               <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 {t('landing.features.whatsappBot.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#00D4FF] to-[#00B8E6] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <MessageSquare className="h-8 w-8 text-[#001F3F]" />
+                <MessageSquare className="h-8 w-8 text-[#001F3F] dark:text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-[#001F3F] mb-3">
+              <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
                 {t('landing.features.whatsappBot.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
@@ -138,14 +140,14 @@ export function LandingPageContent() {
             </div>
 
             {/* Smart Video Rooms - EXCLUSIVE */}
-            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
+            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
               <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 {t('landing.features.smartVideoRooms.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#001F3F] to-[#003366] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Video className="h-8 w-8 text-[#00D4FF]" />
               </div>
-              <h3 className="text-2xl font-bold text-[#001F3F] mb-3">
+              <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
                 {t('landing.features.smartVideoRooms.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
@@ -154,14 +156,14 @@ export function LandingPageContent() {
             </div>
 
             {/* Pre-Meeting Briefs - EXCLUSIVE */}
-            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-cyan-50 to-cyan-100 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
+            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
               <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 {t('landing.features.preMeetingBriefs.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#00D4FF] to-[#00B8E6] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Brain className="h-8 w-8 text-[#001F3F]" />
+                <Brain className="h-8 w-8 text-[#001F3F] dark:text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-[#001F3F] mb-3">
+              <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
                 {t('landing.features.preMeetingBriefs.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
@@ -170,14 +172,14 @@ export function LandingPageContent() {
             </div>
 
             {/* Intelligent Routing - EXCLUSIVE */}
-            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
+            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
               <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 {t('landing.features.intelligentRouting.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#001F3F] to-[#003366] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Target className="h-8 w-8 text-[#00D4FF]" />
               </div>
-              <h3 className="text-2xl font-bold text-[#001F3F] mb-3">
+              <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
                 {t('landing.features.intelligentRouting.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
@@ -186,14 +188,14 @@ export function LandingPageContent() {
             </div>
 
             {/* Team Scheduling - ENHANCED */}
-            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-cyan-50 to-cyan-100 hover:shadow-2xl transition-all duration-300">
+            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300">
               <Badge className="absolute top-4 right-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
                 {t('landing.features.teamScheduling.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#00D4FF] to-[#00B8E6] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Users className="h-8 w-8 text-[#001F3F]" />
+                <Users className="h-8 w-8 text-[#001F3F] dark:text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-[#001F3F] mb-3">
+              <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
                 {t('landing.features.teamScheduling.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
@@ -202,14 +204,14 @@ export function LandingPageContent() {
             </div>
 
             {/* Post-Meeting Automation - EXCLUSIVE */}
-            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
+            <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
               <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white">
                 {t('landing.features.postMeetingAuto.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#001F3F] to-[#003366] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="h-8 w-8 text-[#00D4FF]" />
               </div>
-              <h3 className="text-2xl font-bold text-[#001F3F] mb-3">
+              <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
                 {t('landing.features.postMeetingAuto.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
@@ -222,9 +224,9 @@ export function LandingPageContent() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="p-6 rounded-xl bg-gray-50 hover:shadow-lg transition-all">
               <div className="w-12 h-12 bg-[#00D4FF] rounded-lg flex items-center justify-center mb-4">
-                <Calendar className="h-6 w-6 text-[#001F3F]" />
+                <Calendar className="h-6 w-6 text-[#001F3F] dark:text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-[#001F3F] mb-2">
+              <h3 className="text-lg font-semibold text-[#001F3F] dark:text-white mb-2">
                 {t('landing.features.eventTypes.title')}
               </h3>
               <p className="text-gray-600 text-sm">
@@ -236,7 +238,7 @@ export function LandingPageContent() {
               <div className="w-12 h-12 bg-[#001F3F] rounded-lg flex items-center justify-center mb-4">
                 <Clock className="h-6 w-6 text-[#00D4FF]" />
               </div>
-              <h3 className="text-lg font-semibold text-[#001F3F] mb-2">
+              <h3 className="text-lg font-semibold text-[#001F3F] dark:text-white mb-2">
                 {t('landing.features.availability.title')}
               </h3>
               <p className="text-gray-600 text-sm">
@@ -246,9 +248,9 @@ export function LandingPageContent() {
 
             <div className="p-6 rounded-xl bg-gray-50 hover:shadow-lg transition-all">
               <div className="w-12 h-12 bg-[#00D4FF] rounded-lg flex items-center justify-center mb-4">
-                <TrendingUp className="h-6 w-6 text-[#001F3F]" />
+                <TrendingUp className="h-6 w-6 text-[#001F3F] dark:text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-[#001F3F] mb-2">
+              <h3 className="text-lg font-semibold text-[#001F3F] dark:text-white mb-2">
                 {t('landing.features.analytics.title')}
               </h3>
               <p className="text-gray-600 text-sm">
@@ -260,7 +262,7 @@ export function LandingPageContent() {
               <div className="w-12 h-12 bg-[#001F3F] rounded-lg flex items-center justify-center mb-4">
                 <Link2 className="h-6 w-6 text-[#00D4FF]" />
               </div>
-              <h3 className="text-lg font-semibold text-[#001F3F] mb-2">
+              <h3 className="text-lg font-semibold text-[#001F3F] dark:text-white mb-2">
                 {t('landing.features.bookingPages.title')}
               </h3>
               <p className="text-gray-600 text-sm">
@@ -270,9 +272,9 @@ export function LandingPageContent() {
 
             <div className="p-6 rounded-xl bg-gray-50 hover:shadow-lg transition-all">
               <div className="w-12 h-12 bg-[#00D4FF] rounded-lg flex items-center justify-center mb-4">
-                <BarChart3 className="h-6 w-6 text-[#001F3F]" />
+                <BarChart3 className="h-6 w-6 text-[#001F3F] dark:text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-[#001F3F] mb-2">
+              <h3 className="text-lg font-semibold text-[#001F3F] dark:text-white mb-2">
                 {t('landing.features.calendar.title')}
               </h3>
               <p className="text-gray-600 text-sm">
@@ -284,7 +286,7 @@ export function LandingPageContent() {
               <div className="w-12 h-12 bg-[#001F3F] rounded-lg flex items-center justify-center mb-4">
                 <Smartphone className="h-6 w-6 text-[#00D4FF]" />
               </div>
-              <h3 className="text-lg font-semibold text-[#001F3F] mb-2">
+              <h3 className="text-lg font-semibold text-[#001F3F] dark:text-white mb-2">
                 {t('landing.features.mobileFirst.title')}
               </h3>
               <p className="text-gray-600 text-sm">
@@ -299,7 +301,7 @@ export function LandingPageContent() {
       <section className="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#001F3F] mb-4">
+            <h2 className="text-4xl font-bold text-[#001F3F] dark:text-white mb-4">
               {t('landing.comparison.title')}
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
