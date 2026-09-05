@@ -134,7 +134,16 @@
     "memberships": "Membresías",
     "support": "Soporte",
     "installApp": "Instalar app",
-    "appInstalled": "App instalada"
+    "appInstalled": "App instalada",
+    "groups": {
+      "general": "General",
+      "planning": "Agenda",
+      "bookingSetup": "Páginas y eventos",
+      "clients": "Clientes y Negocio",
+      "communication": "Comunicación",
+      "system": "Sistema",
+      "billing": "Facturación"
+    }
   },
   "auth": {
     "signIn": "Iniciar Sesión",

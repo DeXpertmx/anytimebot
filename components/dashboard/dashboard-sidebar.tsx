@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -11,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import {
   Calendar,
+  CalendarDays,
   Clock,
   FileText,
   Settings,
@@ -29,6 +29,80 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 
+interface NavItem {
+  nameKey: string;
+  href: string;
+  icon: typeof BarChart3;
+}
+
+interface NavGroup {
+  /** i18n key under dashboard.groups */
+  labelKey: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'general',
+    items: [
+      { nameKey: 'overview', href: '/dashboard', icon: BarChart3 },
+      { nameKey: 'analytics', href: '/dashboard/analytics', icon: LineChart },
+    ],
+  },
+  {
+    labelKey: 'planning',
+    items: [
+      { nameKey: 'calendar', href: '/dashboard/calendar', icon: CalendarDays },
+      { nameKey: 'bookings', href: '/dashboard/bookings', icon: FileText },
+      { nameKey: 'availability', href: '/dashboard/availability', icon: Clock },
+    ],
+  },
+  {
+    labelKey: 'bookingSetup',
+    items: [
+      { nameKey: 'bookingPages', href: '/dashboard/booking-pages', icon: Globe },
+      { nameKey: 'eventTypes', href: '/dashboard/event-types', icon: Calendar },
+    ],
+  },
+  {
+    labelKey: 'clients',
+    items: [
+      { nameKey: 'customers', href: '/dashboard/customers', icon: UsersRound },
+      { nameKey: 'teams', href: '/dashboard/teams', icon: Users },
+      { nameKey: 'feedback', href: '/dashboard/feedback', icon: MessageSquareQuote },
+    ],
+  },
+  {
+    labelKey: 'communication',
+    items: [
+      { nameKey: 'bot', href: '/dashboard/bot', icon: Bot },
+      { nameKey: 'integrations', href: '/dashboard/integrations', icon: MessageCircle },
+    ],
+  },
+  {
+    labelKey: 'billing',
+    items: [
+      { nameKey: 'revenue', href: '/dashboard/revenue', icon: Wallet },
+      { nameKey: 'memberships', href: '/dashboard/memberships', icon: BadgeCheck },
+      { nameKey: 'billingPlans', href: '/pricing', icon: CreditCard },
+    ],
+  },
+  {
+    labelKey: 'system',
+    items: [
+      { nameKey: 'api', href: '/dashboard/api', icon: Shield },
+      { nameKey: 'support', href: '/dashboard/support', icon: LifeBuoy },
+      { nameKey: 'settings', href: '/dashboard/settings', icon: Settings },
+    ],
+  },
+];
+
+function isActive(pathname: string | null | undefined, href: string): boolean {
+  if (!pathname) return false;
+  if (href === '/dashboard') return pathname === '/dashboard';
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -38,110 +112,8 @@ export function DashboardSidebar() {
     window.addEventListener('dashboard:open-menu', openMenu);
     return () => window.removeEventListener('dashboard:open-menu', openMenu);
   }, []);
-  const { data: session } = useSession() || {};
+  useSession();
   const { t } = useTranslation();
-
-  // Check if user is admin - DISABLED
-  // const isAdmin = (session?.user as any)?.role === 'ADMIN';
-
-  const navigation = [
-    {
-      name: t('dashboard.overview'),
-      href: '/dashboard',
-      icon: BarChart3,
-    },
-    {
-      name: t('dashboard.analytics'),
-      href: '/dashboard/analytics',
-      icon: LineChart,
-    },
-    {
-      name: t('dashboard.bookingPages'),
-      href: '/dashboard/booking-pages',
-      icon: Globe,
-    },
-    {
-      name: t('dashboard.eventTypes'),
-      href: '/dashboard/event-types',
-      icon: Calendar,
-    },
-    {
-      name: t('dashboard.teams'),
-      href: '/dashboard/teams',
-      icon: Users,
-    },
-    {
-      name: t('dashboard.bookings'),
-      href: '/dashboard/bookings',
-      icon: FileText,
-    },
-    {
-      name: t('dashboard.customers'),
-      href: '/dashboard/customers',
-      icon: UsersRound,
-    },
-    {
-      name: t('dashboard.feedback'),
-      href: '/dashboard/feedback',
-      icon: MessageSquareQuote,
-    },
-    {
-      name: t('dashboard.revenue'),
-      href: '/dashboard/revenue',
-      icon: Wallet,
-    },
-    {
-      name: t('dashboard.memberships'),
-      href: '/dashboard/memberships',
-      icon: BadgeCheck,
-    },
-    {
-      name: t('dashboard.availability'),
-      href: '/dashboard/availability',
-      icon: Clock,
-    },
-    {
-      name: t('dashboard.calendar'),
-      href: '/dashboard/calendar',
-      icon: Calendar,
-    },
-    {
-      name: t('dashboard.bot'),
-      href: '/dashboard/bot',
-      icon: Bot,
-    },
-    {
-      name: t('dashboard.integrations'),
-      href: '/dashboard/integrations',
-      icon: MessageCircle,
-    },
-    {
-      name: t('dashboard.billingPlans'),
-      href: '/pricing',
-      icon: CreditCard,
-    },
-    {
-      name: t('dashboard.support'),
-      href: '/dashboard/support',
-      icon: LifeBuoy,
-    },
-    {
-      name: t('dashboard.api'),
-      href: '/dashboard/api',
-      icon: Shield,
-    },
-    {
-      name: t('dashboard.settings'),
-      href: '/dashboard/settings',
-      icon: Settings,
-    },
-    // Admin panel - DISABLED
-    // ...(isAdmin ? [{
-    //   name: 'Admin Panel',
-    //   href: '/admin',
-    //   icon: Shield,
-    // }] : []),
-  ];
 
   return (
     <>
@@ -173,34 +145,42 @@ export function DashboardSidebar() {
           </Link>
         </div>
 
-        {/* Navigation — scrolls on its own when the viewport is shorter than
-            the list (tablets in landscape, laptops with small screens). */}
-        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-slim space-y-1 px-4 py-4">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || 
-              (item.href !== '/dashboard' && pathname?.startsWith(item.href));
-            
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  'group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-600 border-r-2 border-indigo-600'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                )}
-              >
-                <item.icon
-                  className={cn(
-                    'mr-3 h-5 w-5 flex-shrink-0',
-                    isActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'
-                  )}
-                />
-                {item.name}
-              </Link>
-            );
-          })}
+        {/* Grouped navigation — scrolls on its own when the viewport is
+            shorter than the list (tablets in landscape, small laptops). */}
+        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-slim px-4 py-4">
+          {NAV_GROUPS.map((group, groupIndex) => (
+            <div
+              key={group.labelKey}
+              className={cn('space-y-1', groupIndex > 0 && 'mt-5 border-t border-gray-100 pt-4')}
+            >
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 select-none">
+                {t(`dashboard.groups.${group.labelKey}`)}
+              </p>
+              {group.items.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                      active
+                        ? 'bg-indigo-50 text-indigo-600 border-r-2 border-indigo-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        'mr-3 h-5 w-5 flex-shrink-0',
+                        active ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'
+                      )}
+                    />
+                    {t(`dashboard.${item.nameKey}`)}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* PWA install button (only when the browser offers installation) */}
