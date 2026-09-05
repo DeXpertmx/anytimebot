@@ -718,7 +718,7 @@
         "answer": "¡Sí! El plan gratuito admite enlaces de video externos de Zoom, Google Meet y Microsoft Teams. Las Smart Video Rooms con grabación/transcripción integradas requieren Pro o superior."
       }
     ],
-    "resellerProvidedBy": "Precios ofrecidos por {name}"
+    "resellerProvidedBy": "Precios ofrecidos por {{name}}"
   },
   "support": {
     "title": "Soporte por tickets",

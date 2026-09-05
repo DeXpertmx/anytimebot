@@ -718,7 +718,7 @@
         "answer": "Yes! The free plan supports external video links from Zoom, Google Meet, and Microsoft Teams. Smart Video Rooms with built-in recording/transcription require Pro or higher."
       }
     ],
-    "resellerProvidedBy": "Prices provided by {name}"
+    "resellerProvidedBy": "Prices provided by {{name}}"
   },
   "support": {
     "title": "Ticket support",
