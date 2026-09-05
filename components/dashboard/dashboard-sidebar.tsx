@@ -11,7 +11,6 @@ import { PwaInstallButton } from '@/components/pwa-install-button';
 import {
   Calendar,
   CalendarDays,
-  Clock,
   FileText,
   Settings,
   Users,
@@ -22,7 +21,6 @@ import {
   MessageCircle,
   LifeBuoy,
   LineChart,
-  CreditCard,
   Shield,
   MessageSquareQuote,
   Wallet,
@@ -54,7 +52,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { nameKey: 'calendar', href: '/dashboard/calendar', icon: CalendarDays },
       { nameKey: 'bookings', href: '/dashboard/bookings', icon: FileText },
-      { nameKey: 'availability', href: '/dashboard/availability', icon: Clock },
     ],
   },
   {
@@ -77,6 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { nameKey: 'bot', href: '/dashboard/bot', icon: Bot },
       { nameKey: 'integrations', href: '/dashboard/integrations', icon: MessageCircle },
+      { nameKey: 'api', href: '/dashboard/api', icon: Shield },
     ],
   },
   {
@@ -84,13 +82,11 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { nameKey: 'revenue', href: '/dashboard/revenue', icon: Wallet },
       { nameKey: 'memberships', href: '/dashboard/memberships', icon: BadgeCheck },
-      { nameKey: 'billingPlans', href: '/pricing', icon: CreditCard },
     ],
   },
   {
     labelKey: 'system',
     items: [
-      { nameKey: 'api', href: '/dashboard/api', icon: Shield },
       { nameKey: 'support', href: '/dashboard/support', icon: LifeBuoy },
       { nameKey: 'settings', href: '/dashboard/settings', icon: Settings },
     ],
