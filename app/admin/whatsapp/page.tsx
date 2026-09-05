@@ -44,19 +44,25 @@ export default function AdminWhatsAppPage() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [adminPhone, setAdminPhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/whatsapp/status');
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(data);
-        if (data.adminPhone) setAdminPhone(data.adminPhone);
-        return data as StatusPayload;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'No se pudo consultar el estado de WhatsApp');
+        return null;
       }
+      setError(null);
+      setStatus(data);
+      if (data.adminPhone) setAdminPhone(data.adminPhone);
+      return data as StatusPayload;
     } catch (e) {
-      console.error('Failed to fetch WhatsApp status:', e);
+      const message = e instanceof Error ? e.message : 'No se pudo consultar el estado de WhatsApp';
+      setError(message);
+      console.error('Error al consultar el estado de WhatsApp:', e);
     }
     return null;
   }, []);
@@ -210,6 +216,12 @@ export default function AdminWhatsAppPage() {
             </div>
           ) : (
             <>
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  {error}
+                </div>
+              )}
+
               {/* Connection status */}
               <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
                 <div className="flex items-center gap-3">

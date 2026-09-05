@@ -53,6 +53,10 @@ export async function GET(request: NextRequest) {
       nextCursor: logs.length === limit ? logs[logs.length - 1].createdAt.toISOString() : null,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to read audit log' }, { status: 500 });
+    console.error('Error al leer los registros de auditoría:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'No se pudieron leer los registros de auditoría' },
+      { status: 500 },
+    );
   }
 }

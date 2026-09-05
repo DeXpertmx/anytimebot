@@ -1,12 +1,15 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { requireAdmin, getAdminUser } from '@/lib/admin';
+import { getAdminUser } from '@/lib/admin';
 import { activateSystemWhatsApp, getSystemWhatsAppQr } from '@/lib/system-whatsapp';
 
 export async function POST(req: Request) {
   try {
-    const admin = await requireAdmin().then(() => getAdminUser());
+    const admin = await getAdminUser();
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
+    }
     const origin = new URL(req.url).origin;
 
     const { instanceName } = await activateSystemWhatsApp(origin, admin?.email ?? null);
@@ -22,7 +25,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Error activating system WhatsApp:', error);
     return NextResponse.json(
-      { success: false, error: (error as Error).message || 'Failed to activate WhatsApp' },
+      { success: false, error: (error as Error).message || 'No se pudo activar WhatsApp' },
       { status: 500 },
     );
   }

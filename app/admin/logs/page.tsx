@@ -31,20 +31,22 @@ interface AuditEntry {
   createdAt: string;
 }
 
+const ALL_ACTIONS = '__all__';
+
 const ACTION_OPTIONS = [
-  { value: '', label: 'All actions' },
-  { value: 'SET_EMAIL_SMTP', label: 'Email — SMTP saved' },
-  { value: 'SET_EMAIL_CREDENTIALS', label: 'Email — Resend key saved' },
-  { value: 'CLEAR_EMAIL_CREDENTIALS', label: 'Email — credentials cleared' },
-  { value: 'TEST_EMAIL', label: 'Email — test sent' },
-  { value: 'SET_STRIPE_MODE', label: 'Stripe — mode switched' },
-  { value: 'SET_STRIPE_CREDENTIALS', label: 'Stripe — credentials saved' },
-  { value: 'CLEAR_STRIPE_CREDENTIALS', label: 'Stripe — credentials cleared' },
-  { value: 'CHANGE_PLAN', label: 'User — plan changed' },
-  { value: 'SUSPEND_USER', label: 'User — suspended' },
-  { value: 'REACTIVATE_USER', label: 'User — reactivated' },
-  { value: 'RESET_USAGE', label: 'User — usage reset' },
-  { value: 'UPDATE_SETTINGS', label: 'Settings — updated' },
+  { value: ALL_ACTIONS, label: 'Todas las acciones' },
+  { value: 'SET_EMAIL_SMTP', label: 'Correo — SMTP guardado' },
+  { value: 'SET_EMAIL_CREDENTIALS', label: 'Correo — clave guardada' },
+  { value: 'CLEAR_EMAIL_CREDENTIALS', label: 'Correo — credenciales eliminadas' },
+  { value: 'TEST_EMAIL', label: 'Correo — prueba enviada' },
+  { value: 'SET_STRIPE_MODE', label: 'Stripe — modo cambiado' },
+  { value: 'SET_STRIPE_CREDENTIALS', label: 'Stripe — credenciales guardadas' },
+  { value: 'CLEAR_STRIPE_CREDENTIALS', label: 'Stripe — credenciales eliminadas' },
+  { value: 'CHANGE_PLAN', label: 'Usuario — plan cambiado' },
+  { value: 'SUSPEND_USER', label: 'Usuario — suspendido' },
+  { value: 'REACTIVATE_USER', label: 'Usuario — reactivado' },
+  { value: 'RESET_USAGE', label: 'Usuario — uso restablecido' },
+  { value: 'UPDATE_SETTINGS', label: 'Configuración — actualizada' },
 ];
 
 const ACTION_BADGE: Record<string, string> = {
@@ -78,22 +80,26 @@ export default function AdminLogsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchLogs = useCallback(async (reset: boolean, cursor?: string) => {
     if (reset) setLoading(true);
     else setLoadingMore(true);
     try {
+      setError(null);
       const params = new URLSearchParams({ limit: '50' });
-      if (action) params.set('action', action);
+      if (action && action !== ALL_ACTIONS) params.set('action', action);
       if (cursor) params.set('cursor', cursor);
       const response = await fetch(`/api/admin/logs?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to load logs');
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudieron cargar los registros');
       setLogs((prev) => (reset ? data.logs : [...prev, ...data.logs]));
       setTotal(data.total);
       setNextCursor(data.nextCursor);
-    } catch (error) {
-      console.error('Failed to load audit logs:', error);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'No se pudieron cargar los registros';
+      setError(message);
+      console.error('Error al cargar los registros de auditoría:', caught);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -110,16 +116,16 @@ export default function AdminLogsPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <ScrollText className="h-6 w-6" />
-            Audit Logs
+            Registros de auditoría
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Who changed email, Stripe and user settings, and the result of test emails.
+            Consulta quién modificó el correo, Stripe y la configuración de usuarios, además del resultado de los emails de prueba.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={action} onValueChange={(v) => setAction(v)}>
+          <Select value={action || ALL_ACTIONS} onValueChange={(v) => setAction(v === ALL_ACTIONS ? '' : v)}>
             <SelectTrigger className="w-64">
-              <SelectValue placeholder="Filter by action" />
+              <SelectValue placeholder="Filtrar por acción" />
             </SelectTrigger>
             <SelectContent>
               {ACTION_OPTIONS.map((opt) => (
@@ -138,27 +144,32 @@ export default function AdminLogsPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            {total} {total === 1 ? 'entry' : 'entries'}
+            {total} {total === 1 ? 'registro' : 'registros'}
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {error && !loading && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : logs.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              No audit log entries found.
+              No se encontraron registros de auditoría.
             </p>
           ) : (
             <div className="space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-44">Date</TableHead>
-                    <TableHead className="w-56">Admin</TableHead>
-                    <TableHead className="w-48">Action</TableHead>
-                    <TableHead>Details</TableHead>
+                    <TableHead className="w-44">Fecha</TableHead>
+                    <TableHead className="w-56">Administrador</TableHead>
+                    <TableHead className="w-48">Acción</TableHead>
+                    <TableHead>Detalles</TableHead>
                     <TableHead className="w-36">IP</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -196,7 +207,7 @@ export default function AdminLogsPage() {
                     disabled={loadingMore}
                   >
                     <ChevronDown className="h-4 w-4 mr-1" />
-                    {loadingMore ? 'Loading...' : 'Load more'}
+                    {loadingMore ? 'Cargando…' : 'Cargar más'}
                   </Button>
                 </div>
               )}

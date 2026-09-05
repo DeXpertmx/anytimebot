@@ -1,12 +1,15 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/admin';
+import { getAdminUser } from '@/lib/admin';
 import { setSystemWhatsAppAdminPhone } from '@/lib/system-whatsapp';
 
 export async function POST(req: Request) {
   try {
-    await requireAdmin();
+    const admin = await getAdminUser();
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
+    }
     const body = await req.json().catch(() => ({}));
     const phone = typeof body?.phone === 'string' ? body.phone.trim() || null : null;
 
