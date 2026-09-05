@@ -9,10 +9,20 @@ import { useTranslation } from '@/lib/i18n/hooks';
 type PaidPlan = 'BASIC' | 'PRO' | 'TEAM';
 type PlanKey = 'basic' | 'pro' | 'team';
 
+export interface ResellerPricing {
+  resellerName: string;
+  prices: {
+    basic: number;
+    pro: number;
+    team: number;
+  };
+}
+
 interface PricingContentProps {
   currentPlan: string;
   hasActiveSubscription: boolean;
   isLoggedIn: boolean;
+  resellerPricing?: ResellerPricing | null;
 }
 
 const PLAN_ORDER: PlanKey[] = ['basic', 'pro', 'team'];
@@ -28,9 +38,21 @@ const PLAN_DETAILS: Record<PlanKey, {
   team: { price: 39, billingKey: 'perMonth', icon: Users },
 };
 
-export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn }: PricingContentProps) {
+export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn, resellerPricing }: PricingContentProps) {
   const [loading, setLoading] = useState<PlanKey | null>(null);
   const { t } = useTranslation();
+
+  // Reseller pricing overrides the official prices for attributed customers.
+  const priceOf = (planKey: PlanKey): number => {
+    if (resellerPricing) return resellerPricing.prices[planKey];
+    return PLAN_DETAILS[planKey].price;
+  };
+
+  const formatPrice = (planKey: PlanKey): string => {
+    const value = priceOf(planKey);
+    const isWhole = Number.isInteger(value);
+    return isWhole ? `€${value}` : `€${value.toFixed(2)}`;
+  };
 
   const handlePlanAction = async (planKey: PlanKey) => {
     if (!isLoggedIn) {
@@ -207,9 +229,15 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn 
                 </div>
 
                 <div className="mt-7 flex items-end gap-2">
-                  <span className="text-5xl font-bold tracking-tight text-gray-950">€{details.price}</span>
+                  <span className="text-5xl font-bold tracking-tight text-gray-950">{formatPrice(planKey)}</span>
                   <span className="mb-1 text-sm text-gray-500">{t(`pricing.${details.billingKey}`)}</span>
                 </div>
+
+                {resellerPricing && (
+                  <p className="mt-3 rounded-md bg-indigo-50 px-3 py-2 text-center text-xs font-medium text-indigo-700">
+                    {t('pricing.resellerProvidedBy', { name: resellerPricing.resellerName })}
+                  </p>
+                )}
 
                 <button
                   type="button"

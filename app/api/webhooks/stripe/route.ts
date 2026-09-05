@@ -96,7 +96,16 @@ export async function POST(request: NextRequest) {
 
         if (user) {
           const priceId = subscription.items.data[0]?.price.id;
-          const plan = priceId === (await getStripePriceId(eventMode, 'TEAM')) ? 'TEAM' : 'PRO';
+          // Reseller subscriptions use dynamic price_data, so the price ID is
+          // not one of the official ones. The checkout metadata (copied onto
+          // the subscription) carries the plan; fall back to the price ID map.
+          const metaPlan = subscription.metadata?.plan;
+          const plan =
+            metaPlan === 'TEAM' || metaPlan === 'PRO'
+              ? metaPlan
+              : priceId === (await getStripePriceId(eventMode, 'TEAM'))
+                ? 'TEAM'
+                : 'PRO';
           const status = mapSubscriptionStatus(subscription.status);
           const periodEndSeconds = getSubscriptionPeriodEnd(subscription);
           const periodEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000) : null;

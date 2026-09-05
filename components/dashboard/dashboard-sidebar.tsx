@@ -25,6 +25,7 @@ import {
   MessageSquareQuote,
   Wallet,
   BadgeCheck,
+  Store,
 } from 'lucide-react';
 
 interface NavItem {
@@ -93,6 +94,9 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// Extra navigation for reseller accounts (their own pricing panel).
+const RESELLER_NAV: NavItem = { nameKey: 'resellerPanel', href: '/dashboard/reseller', icon: Store };
+
 function isActive(pathname: string | null | undefined, href: string): boolean {
   if (!pathname) return false;
   if (href === '/dashboard') return pathname === '/dashboard';
@@ -102,13 +106,14 @@ function isActive(pathname: string | null | undefined, href: string): boolean {
 export function DashboardSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: session } = useSession();
+  const isReseller = !!(session?.user as any)?.isReseller;
 
   useEffect(() => {
     const openMenu = () => setMobileOpen(true);
     window.addEventListener('dashboard:open-menu', openMenu);
     return () => window.removeEventListener('dashboard:open-menu', openMenu);
   }, []);
-  useSession();
   const { t } = useTranslation();
 
   return (
@@ -152,6 +157,26 @@ export function DashboardSidebar() {
               <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400 select-none">
                 {t(`dashboard.groups.${group.labelKey}`)}
               </p>
+              {isReseller && group.labelKey === 'system' && (
+                <Link
+                  key={RESELLER_NAV.href}
+                  href={RESELLER_NAV.href}
+                  className={cn(
+                    'group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                    isActive(pathname, RESELLER_NAV.href)
+                      ? 'bg-indigo-50 text-indigo-600 border-r-2 border-indigo-600'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  )}
+                >
+                  <RESELLER_NAV.icon
+                    className={cn(
+                      'mr-3 h-5 w-5 flex-shrink-0',
+                      isActive(pathname, RESELLER_NAV.href) ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'
+                    )}
+                  />
+                  {t(`dashboard.${RESELLER_NAV.nameKey}`)}
+                </Link>
+              )}
               {group.items.map((item) => {
                 const active = isActive(pathname, item.href);
                 return (

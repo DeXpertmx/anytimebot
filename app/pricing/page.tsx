@@ -1,9 +1,11 @@
 
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { PricingContent } from '@/components/pricing/pricing-content';
+import { PricingContent, type ResellerPricing } from '@/components/pricing/pricing-content';
 import { prisma } from '@/lib/db';
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { getResellerBySlug, getResellerPlanPrices, extractRefFromUrl, RESELLER_REF_COOKIE, resolvePublicPriceCents, type ResellerContext } from '@/lib/resellers';
 
 export const metadata: Metadata = {
   title: 'Planes y precios - Anytimebot',
@@ -14,7 +16,69 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PricingPage() {
+interface PricingPageProps {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
+
+/**
+ * Resolve the pricing context:
+ * 1. A logged-in user attributed to a reseller uses that reseller's prices.
+ * 2. Otherwise the ?ref= cookie/param points at a reseller (attribution).
+ * 3. Otherwise official prices.
+ */
+async function resolveResellerContext(searchParams?: { [key: string]: string | string[] | undefined }): Promise<{
+  reseller: ResellerContext | null;
+  prices: Partial<Record<'BASIC' | 'PRO' | 'TEAM', number>>;
+}> {
+  const cookieStore = cookies();
+
+  // 1. Logged-in user's reseller (persistent attribution).
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { resellerId: true },
+    });
+    if (user?.resellerId) {
+      const reseller = await prisma.reseller.findUnique({
+        where: { id: user.resellerId },
+        select: { id: true, slug: true, name: true, discountPercent: true, isActive: true },
+      });
+      if (reseller?.isActive) {
+        const ctx: ResellerContext = {
+          id: reseller.id,
+          slug: reseller.slug,
+          name: reseller.name,
+          discountPercent: reseller.discountPercent,
+        };
+        const prices = await getResellerPlanPrices(ctx.id);
+        return { reseller: ctx, prices };
+      }
+    }
+  }
+
+  // 2. Cookie/param ref attribution.
+  let ref = '';
+  const cookieRef = cookieStore.get(RESELLER_REF_COOKIE)?.value || '';
+  const paramRef = extractRefFromUrl(
+    searchParams ? new URLSearchParams(
+      Object.entries(searchParams).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : [[k, v as string]])),
+    ) : null,
+  );
+  ref = paramRef || cookieRef;
+
+  if (ref) {
+    const reseller = await getResellerBySlug(ref);
+    if (reseller) {
+      const prices = await getResellerPlanPrices(reseller.id);
+      return { reseller, prices };
+    }
+  }
+
+  return { reseller: null, prices: {} };
+}
+
+export default async function PricingPage({ searchParams }: PricingPageProps) {
   const session = await getServerSession(authOptions);
   
   let currentPlan = 'FREE';
@@ -31,7 +95,21 @@ export default async function PricingPage() {
       hasActiveSubscription = user.subscriptionStatus === 'ACTIVE';
     }
   }
-  
+
+  const { reseller, prices } = await resolveResellerContext(searchParams);
+
+  // Build per-plan public prices (euros) for the client component.
+  const resellerPricing: ResellerPricing | null = reseller
+    ? {
+        resellerName: reseller.name,
+        prices: {
+          basic: resolvePublicPriceCents('BASIC', prices) / 100,
+          pro: resolvePublicPriceCents('PRO', prices) / 100,
+          team: resolvePublicPriceCents('TEAM', prices) / 100,
+        },
+      }
+    : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
@@ -79,6 +157,7 @@ export default async function PricingPage() {
         currentPlan={currentPlan} 
         hasActiveSubscription={hasActiveSubscription}
         isLoggedIn={!!session}
+        resellerPricing={resellerPricing}
       />
     </div>
   );

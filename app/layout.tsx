@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { I18nProvider } from '@/components/i18n-provider';
 import { PWARegister } from '@/components/pwa-register';
+import { ResellerAttribution } from '@/components/reseller-attribution';
 import { cookies } from 'next/headers';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -55,6 +56,7 @@ export default async function RootLayout({
         <I18nProvider locale={locale}>
           <Providers session={session}>
             <PWARegister />
+            <ResellerAttribution />
             {children}
           </Providers>
         </I18nProvider>

@@ -107,6 +107,12 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Reseller attribution (which partner brought this customer)
+  resellerId      String?    @map("reseller_id")
+  reseller        Reseller?  @relation("ResellerCustomer", fields: [resellerId], references: [id], onDelete: SetNull)
+  // Reseller account owned by this user (accesses the reseller panel)
+  ownedReseller   Reseller?  @relation("ResellerOwner")
+
   // Relations
   accounts            Account[]
   sessions            Session[]
@@ -132,6 +138,45 @@ model User {
   resources           Resource[]
 
   @@map("users")
+}
+
+// Partner/reseller accounts: they get a wholesale discount negotiated by
+// Anytimebot and set their own public prices per plan. Customers arriving via
+// the reseller's identifier are attributed to them and only ever see the
+// reseller's prices (never the official ones).
+model Reseller {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique // identifier used in links: anytimebot.app/r/{slug} or ?ref={slug}
+  contactEmail   String?  @map("contact_email")
+  discountPercent Int     @default(0) @map("discount_percent") // wholesale discount Anytimebot grants (0-100)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  ownerUserId String?  @unique @map("owner_user_id") // user that manages this reseller panel
+  ownerUser   User?    @relation("ResellerOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  customers   User[]   @relation("ResellerCustomer")
+  planPrices  ResellerPlanPrice[]
+
+  @@map("resellers")
+}
+
+// Public price a reseller sets for each paid plan. Must be >= the wholesale
+// price (official price x (1 - discountPercent/100)) to avoid undercutting
+// Anytimebot. If no row exists for a plan, the official price is shown.
+model ResellerPlanPrice {
+  id         String           @id @default(cuid())
+  resellerId String           @map("reseller_id")
+  plan       SubscriptionPlan
+  priceCents Int              @map("price_cents") // public price in cents
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  reseller Reseller @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+
+  @@unique([resellerId, plan])
+  @@map("reseller_plan_prices")
 }
 
 // CRM: contact record per owner guest (auto-synced from bookings)

@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   Smartphone,
-  ScrollText
+  ScrollText,
+  Store
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
   { name: 'Usage & Costs', href: '/admin/usage', icon: Activity },
   { name: 'Channels', href: '/admin/channels', icon: MessageSquare },
+  { name: 'Resellers', href: '/admin/resellers', icon: Store },
   { name: 'WhatsApp', href: '/admin/whatsapp', icon: Smartphone },
   { name: 'Support', href: '/admin/support', icon: LifeBuoy },
   { name: 'Audit Logs', href: '/admin/logs', icon: ScrollText },

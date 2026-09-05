@@ -91,6 +91,7 @@ export const authOptions: NextAuthOptions = {
         token.plan = (user as any).plan;
         token.stripeCustomerId = (user as any).stripeCustomerId;
         token.role = (user as any).role;
+        token.isReseller = (user as any).ownedReseller ? true : false;
       }
       
       // Store access token in token for calendar access
@@ -111,6 +112,7 @@ export const authOptions: NextAuthOptions = {
             stripeCustomerId: true,
             username: true,
             role: true,
+            ownedReseller: { select: { id: true } },
           },
         });
         if (dbUser) {
@@ -118,6 +120,7 @@ export const authOptions: NextAuthOptions = {
           token.stripeCustomerId = dbUser.stripeCustomerId;
           token.username = dbUser.username;
           token.role = dbUser.role;
+          token.isReseller = !!dbUser.ownedReseller;
         }
       }
       
@@ -132,6 +135,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).accessToken = token.accessToken;
         (session.user as any).refreshToken = token.refreshToken;
         (session.user as any).role = token.role;
+        (session.user as any).isReseller = token.isReseller;
       }
       return session;
     },

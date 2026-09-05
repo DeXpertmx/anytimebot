@@ -4,6 +4,8 @@ import bcryptjs from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { isValidEmail, generateSlug } from '@/lib/utils';
 import { notifyAdminNewSignup } from '@/lib/system-whatsapp';
+import { cookies } from 'next/headers';
+import { RESELLER_REF_COOKIE } from '@/lib/resellers';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +62,18 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcryptjs.hash(password, 12);
 
+    // Reseller attribution: if the visitor arrived through a reseller link,
+    // the atb_ref cookie is set; assign the reseller to the new account.
+    const ref = cookies().get(RESELLER_REF_COOKIE)?.value || '';
+    let resellerId: string | null = null;
+    if (ref) {
+      const reseller = await prisma.reseller.findUnique({
+        where: { slug: ref },
+        select: { id: true, isActive: true },
+      });
+      if (reseller?.isActive) resellerId = reseller.id;
+    }
+
     // Create user
     const user = await prisma.user.create({
       data: {
@@ -67,6 +81,7 @@ export async function POST(request: NextRequest) {
         email,
         username: finalUsername,
         password: hashedPassword,
+        ...(resellerId ? { resellerId } : {}),
       },
     });
 

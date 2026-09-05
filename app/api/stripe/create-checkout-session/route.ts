@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db';
 import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { getStripeMode, getStripeKeys, getStripePriceId } from '@/lib/stripe-mode';
 import { updateUserPlanQuotas, type PlanTier } from '@/lib/plans';
+import { getResellerBySlug, getResellerPlanPrices, resolvePublicPriceCents, OFFICIAL_PRICE_CENTS } from '@/lib/resellers';
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
         email: true,
         name: true,
         plan: true,
+        resellerId: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
         foundersBasicCheckoutSessionId: true,
@@ -47,6 +49,25 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Reseller pricing: an attributed customer pays the reseller's public
+    // price (which is always >= wholesale). Falls back to the official price
+    // when the reseller hasn't configured that plan.
+    let resellerPublicCents: number | null = null;
+    if (user.resellerId) {
+      const reseller = await prisma.reseller.findUnique({
+        where: { id: user.resellerId },
+        select: { slug: true, isActive: true },
+      });
+      if (reseller?.isActive) {
+        const planPrices = await getResellerPlanPrices(user.resellerId);
+        const resolved = resolvePublicPriceCents(plan as 'BASIC' | 'PRO' | 'TEAM', planPrices);
+        const official = OFFICIAL_PRICE_CENTS[plan as 'BASIC' | 'PRO' | 'TEAM'] ?? 0;
+        if (resolved > 0 && resolved !== official) {
+          resellerPublicCents = resolved;
+        }
+      }
     }
 
     const confirmed = body.confirmed === true;
@@ -104,7 +125,7 @@ export async function POST(req: NextRequest) {
                 name: 'Anytimebot Básico de fundadores',
                 description: 'Acceso de pago único a las funciones esenciales de reservas',
               },
-              unit_amount: 2900,
+              unit_amount: resellerPublicCents ?? 2900,
             },
             quantity: 1,
           },
@@ -114,6 +135,7 @@ export async function POST(req: NextRequest) {
         metadata: {
           userId: user.id,
           plan: 'BASIC',
+          ...(user.resellerId ? { resellerId: user.resellerId } : {}),
         },
       });
 
@@ -126,11 +148,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Never trust a client-supplied Price ID. Resolve subscription prices only
-    // from server-side environment variables for the active mode.
+    // from server-side configuration: the reseller's public price (dynamic
+    // price_data) or the official price ID for the active mode.
     const subscriptionPriceId = plan === 'PRO'
       ? await getStripePriceId(mode, 'PRO')
       : await getStripePriceId(mode, 'TEAM');
-    if (!subscriptionPriceId) {
+    if (!subscriptionPriceId && !resellerPublicCents) {
       return NextResponse.json({ error: `Stripe price is not configured for ${plan} in ${mode} mode` }, { status: 503 });
     }
 
@@ -149,7 +172,7 @@ export async function POST(req: NextRequest) {
           // user: it changes their recurring price, even when prorated.
           if (!confirmed) {
             const currentPrice = existingSubscription.items?.data?.[0]?.price?.unit_amount ?? null;
-            const targetPrice = (await stripe.prices.retrieve(subscriptionPriceId)).unit_amount ?? null;
+            const targetPrice = resellerPublicCents ?? (subscriptionPriceId ? (await stripe.prices.retrieve(subscriptionPriceId)).unit_amount ?? null : null);
             return NextResponse.json({
               requiresConfirmation: true,
               currentPlan: user.plan,
@@ -159,13 +182,47 @@ export async function POST(req: NextRequest) {
             });
           }
 
+          // Reseller customers switch to their reseller's public price via
+          // inline price_data (no fixed Price ID exists for it); everyone else
+          // switches to the official price ID.
+          let resellerProductId = '';
+          if (resellerPublicCents) {
+            // Reuse the official product (so it shows the same product in the
+            // customer portal); fall back to a dedicated product if needed.
+            if (subscriptionPriceId) {
+              const officialPrice = await stripe.prices.retrieve(subscriptionPriceId);
+              resellerProductId = (officialPrice.product as string) || '';
+            }
+            if (!resellerProductId) {
+              const product = await stripe.products.create({ name: `Anytimebot ${plan}` });
+              resellerProductId = product.id;
+            }
+          }
+
           const updated = await stripe.subscriptions.update(user.stripeSubscriptionId, {
-            items: [{ id: existingItemId, price: subscriptionPriceId }],
+            items: resellerPublicCents
+              ? [{
+                  id: existingItemId,
+                  price_data: {
+                    currency: 'eur',
+                    product: resellerProductId,
+                    unit_amount: resellerPublicCents,
+                    recurring: { interval: 'month' },
+                  },
+                }]
+              : [{ id: existingItemId, price: subscriptionPriceId }],
             proration_behavior: 'create_prorations',
             proration_date: Math.floor(Date.now() / 1000),
+            // Keep the plan metadata current so the webhook can resolve the
+            // plan for reseller subscriptions (whose price ID is not official).
+            metadata: {
+              ...(existingSubscription.metadata || {}),
+              plan,
+            },
           });
 
           const periodEndSeconds = getSubscriptionPeriodEnd(updated);
+          const updatedPriceId = updated.items?.data?.[0]?.price?.id ?? subscriptionPriceId ?? null;
 
           await prisma.user.update({
             where: { id: user.id },
@@ -184,13 +241,13 @@ export async function POST(req: NextRequest) {
               plan,
               status: 'ACTIVE',
               stripeSubscriptionId: updated.id,
-              stripePriceId: subscriptionPriceId,
+              stripePriceId: updatedPriceId,
               ...(periodEndSeconds ? { stripeCurrentPeriodEnd: new Date(periodEndSeconds * 1000) } : {}),
             },
             update: {
               plan,
               status: 'ACTIVE',
-              stripePriceId: subscriptionPriceId,
+              stripePriceId: updatedPriceId,
               ...(periodEndSeconds ? { stripeCurrentPeriodEnd: new Date(periodEndSeconds * 1000) } : {}),
             },
           });
@@ -210,12 +267,27 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
-      line_items: [{ price: subscriptionPriceId, quantity: 1 }],
+      line_items: resellerPublicCents
+        ? [
+            {
+              price_data: {
+                currency: 'eur',
+                product_data: {
+                  name: `Anytimebot ${plan}`,
+                },
+                unit_amount: resellerPublicCents,
+                recurring: { interval: 'month' },
+              },
+              quantity: 1,
+            },
+          ]
+        : [{ price: subscriptionPriceId, quantity: 1 }],
       success_url: `${origin}/dashboard?payment=success&plan=${plan}`,
       cancel_url: `${origin}/pricing?payment=cancelled`,
       metadata: {
         userId: user.id,
         plan,
+        ...(user.resellerId ? { resellerId: user.resellerId } : {}),
       },
     });
 
