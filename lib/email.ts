@@ -70,6 +70,35 @@ export async function sendEmail({ to, subject, html }: EmailOptions): Promise<bo
 }
 
 /**
+ * Resolve the booking owner's public identity (name + avatar) so transactional
+ * emails can greet the guest with who they booked. Uploaded avatars may be
+ * stored as a relative /api/storage/… URL, so it is absolutized for email.
+ */
+async function resolveHostIdentity(
+  userId: string
+): Promise<{ hostName: string; hostAvatarUrl: string }> {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    process.env.NEXTAUTH_URL ||
+    'https://anytimebot.app';
+  const hostUser = await prisma.user
+    .findUnique({
+      where: { id: userId },
+      select: { name: true, avatar: true, image: true },
+    })
+    .catch(() => null);
+  const hostName = hostUser?.name || '';
+  const hostAvatarRaw = hostUser?.avatar || hostUser?.image || '';
+  const hostAvatarUrl = hostAvatarRaw
+    ? hostAvatarRaw.startsWith('/')
+      ? `${baseUrl}${hostAvatarRaw}`
+      : hostAvatarRaw
+    : '';
+  return { hostName, hostAvatarUrl };
+}
+
+/**
  * Format date with timezone
  */
 function formatDateWithTimezone(date: Date, timezone: string): string {
@@ -234,19 +263,7 @@ export async function sendBookingConfirmationWithTemplate(data: {
 
   // Resolve the host identity (avatar + name) so confirmations show who the
   // guest booked with, both in custom templates and the default fallback.
-  const hostUser = await prisma.user
-    .findUnique({
-      where: { id: userId },
-      select: { name: true, avatar: true, image: true },
-    })
-    .catch(() => null);
-  const hostName = hostUser?.name || '';
-  const hostAvatarRaw = hostUser?.avatar || hostUser?.image || '';
-  const hostAvatarUrl = hostAvatarRaw
-    ? hostAvatarRaw.startsWith('/')
-      ? `${baseUrl}${hostAvatarRaw}`
-      : hostAvatarRaw
-    : '';
+  const { hostName, hostAvatarUrl } = await resolveHostIdentity(userId);
 
   // Try to get custom template
   const template = await getEmailTemplate(userId, 'confirmation');
@@ -587,6 +604,12 @@ export async function sendPostMeetingSummary(data: {
     bookingUrl,
   } = data;
 
+  // Host identity for the header/greeting — prefer the caller-provided name,
+  // resolving the account avatar so templates and the default HTML show who
+  // the guest met with.
+  const { hostName: resolvedHostName, hostAvatarUrl } = await resolveHostIdentity(userId);
+  const effectiveHostName = hostName || resolvedHostName;
+
   const formattedDate = formatDateWithTimezone(startTime, timezone);
   const summaryHtml = summary ? markdownToHtml(summary) : '';
 
@@ -595,7 +618,8 @@ export async function sendPostMeetingSummary(data: {
   if (template) {
     const variables = {
       guestName,
-      hostName: hostName || '',
+      hostName: effectiveHostName,
+      hostAvatar: hostAvatarUrl,
       eventTitle,
       startTime: formattedDate,
       timezone,
@@ -617,7 +641,9 @@ export async function sendPostMeetingSummary(data: {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          ${hostAvatarUrl ? `<img src="${hostAvatarUrl}" alt="${effectiveHostName || ''}" style="width: 72px; height: 72px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.85); object-fit: cover; margin-bottom: 10px;" />` : ''}
           <h1 style="margin: 0; font-size: 26px;">¡Gracias por tu reunión! 🎉</h1>
+          ${effectiveHostName ? `<p style="margin: 8px 0 0; font-size: 15px; opacity: 0.95;">con ${effectiveHostName}</p>` : ''}
         </div>
 
         <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
@@ -633,7 +659,7 @@ export async function sendPostMeetingSummary(data: {
           </div>
           ` : ''}
 
-          ${hostName ? `<p style="font-size: 16px;">Un saludo,<br><strong>${hostName}</strong></p>` : `<p style="font-size: 16px;">Un saludo,<br><strong>ANYTIMEBOT</strong></p>`}
+          ${effectiveHostName ? `<p style="font-size: 16px;">Un saludo,<br><strong>${effectiveHostName}</strong></p>` : `<p style="font-size: 16px;">Un saludo,<br><strong>ANYTIMEBOT</strong></p>`}
 
           ${bookingUrl ? `
           <div style="text-align: center; margin: 30px 0;">
@@ -676,8 +702,11 @@ export async function sendBookingReminder(data: {
   timezone?: string;
   cancelToken?: string;
   rescheduleToken?: string;
+  /** Host identity (avatar + name) shown in the reminder header. */
+  hostName?: string | null;
+  hostAvatar?: string | null;
 }): Promise<boolean> {
-  const { to, guestName, eventTitle, startTime, videoLink, location, timezone = 'UTC', cancelToken, rescheduleToken } = data;
+  const { to, guestName, eventTitle, startTime, videoLink, location, timezone = 'UTC', cancelToken, rescheduleToken, hostName, hostAvatar } = data;
   
   const formattedDate = formatDateWithTimezone(startTime, timezone);
 
@@ -685,6 +714,13 @@ export async function sendBookingReminder(data: {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
   const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : null;
   const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : null;
+
+  // Absolute avatar URL for email clients (uploaded avatars may be relative).
+  const hostAvatarUrl = hostAvatar
+    ? hostAvatar.startsWith('/')
+      ? `${baseUrl}${hostAvatar}`
+      : hostAvatar
+    : null;
 
   const html = `
     <!DOCTYPE html>
@@ -695,7 +731,9 @@ export async function sendBookingReminder(data: {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
         <div style="background-color: #f59e0b; color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          ${hostAvatarUrl ? `<img src="${hostAvatarUrl}" alt="${hostName || ''}" style="width: 72px; height: 72px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.85); object-fit: cover; margin-bottom: 10px;" />` : ''}
           <h1 style="margin: 0; font-size: 28px;">Recordatorio de Reunión ⏰</h1>
+          ${hostName ? `<p style="margin: 8px 0 0; font-size: 15px; opacity: 0.95;">con ${hostName}</p>` : ''}
         </div>
         
         <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
@@ -777,6 +815,9 @@ export async function sendBookingReminderWithTemplate(data: {
 }): Promise<boolean> {
   const { userId, to, guestName, eventTitle, startTime, videoLink, location, timezone = 'UTC', cancelToken, rescheduleToken, hoursBefore = 24 } = data;
   
+  // Resolve the host identity (avatar + name) so reminders show who booked it.
+  const { hostName, hostAvatarUrl } = await resolveHostIdentity(userId);
+  
   // Try to get custom template
   const templateType = hoursBefore === 1 ? 'reminder_1h' : 'reminder_24h';
   const template = await getEmailTemplate(userId, templateType);
@@ -797,6 +838,9 @@ export async function sendBookingReminderWithTemplate(data: {
       cancelUrl,
       rescheduleUrl,
       hoursBefore: hoursBefore.toString(),
+      // Host identity for custom templates ({{hostName}} / {{hostAvatar}})
+      hostName,
+      hostAvatar: hostAvatarUrl,
     };
     
     const html = replaceTemplateVariables(template.htmlBody, variables);
@@ -805,8 +849,8 @@ export async function sendBookingReminderWithTemplate(data: {
     return sendEmail({ to, subject, html });
   }
   
-  // Fall back to default template
-  return sendBookingReminder(data);
+  // Fall back to default template (pass host identity for the header)
+  return sendBookingReminder({ ...data, hostName, hostAvatar: hostAvatarUrl });
 }
 
 /**
