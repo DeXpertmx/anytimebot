@@ -35,6 +35,13 @@ interface Booking {
     videoLink?: string;
     formFields?: Array<{ id: string; label: string }>;
   };
+  customer?: {
+    name?: string | null;
+    email?: string;
+    photo?: string | null;
+    company?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
 function bookingStatusLabel(status: string) {
@@ -287,6 +294,21 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {booking.customer?.photo && (
+                <div className="flex items-center gap-4 pb-2">
+                  <img
+                    src={booking.customer.photo}
+                    alt={booking.guestName || 'Cliente'}
+                    className="h-16 w-16 rounded-full object-cover ring-2 ring-indigo-100"
+                  />
+                  <div>
+                    <p className="font-semibold">{booking.customer.name || booking.guestName}</p>
+                    {booking.customer.company && (
+                      <p className="text-sm text-muted-foreground">{booking.customer.company}</p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Nombre</label>

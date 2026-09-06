@@ -39,7 +39,31 @@ export default async function EmbedBookingPage({ params }: EmbedBookingPageProps
     <div className="min-h-screen bg-white flex flex-col">
       <div className="flex-1 p-3 sm:p-4">
         <div className="mb-3">
-          <h1 className="text-lg font-bold text-gray-900 leading-tight">
+          <div className="flex items-center gap-2.5">
+            {user.avatar || user.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.avatar || user.image || undefined}
+                alt={user.name || 'User'}
+                className="h-9 w-9 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100">
+                <span className="text-sm font-semibold text-indigo-600">
+                  {user.name?.[0] || user.email[0].toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900">
+                {user.name || user.email}
+              </p>
+              {user.username && (
+                <p className="truncate text-xs text-gray-500">@{user.username}</p>
+              )}
+            </div>
+          </div>
+          <h1 className="text-lg font-bold text-gray-900 leading-tight mt-2">
             {bookingPage.title}
           </h1>
           {bookingPage.description && (

@@ -23,6 +23,8 @@ interface Booking {
   locationName?: string | null;
   locationAddress?: string | null;
   eventType: { name: string; color?: string };
+  /** CRM customer matched by guest email (photo shown in the modal). */
+  customer?: { name?: string | null; email?: string; photo?: string | null; company?: string | null; phone?: string | null } | null;
 }
 interface Team { id: string; name: string; members: { id: string; email: string; user?: { name?: string | null; image?: string | null } | null }[]; }
 interface EventType { id: string; name: string; duration: number; color?: string; bookingPage: { id: string; name: string } }
@@ -498,7 +500,17 @@ export default function CalendarPage() {
                 <p className="mt-1 text-sm text-slate-700">{formatTime(selectedBooking.startTime)} - {formatTime(selectedBooking.endTime)}</p>
               </div>
               <div className="flex items-center gap-3">
-                <UserRound className="h-4 w-4 text-indigo-500" />
+                {selectedBooking.customer?.photo ? (
+                  <img
+                    src={selectedBooking.customer.photo}
+                    alt={selectedBooking.guestName || 'Cliente'}
+                    className="h-10 w-10 rounded-full object-cover ring-2 ring-indigo-100"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                    <UserRound className="h-5 w-5" />
+                  </div>
+                )}
                 <div>
                   <p className="font-medium">{selectedBooking.guestName}</p>
                   <p className="text-sm text-slate-500">Cliente</p>
@@ -508,6 +520,11 @@ export default function CalendarPage() {
                 <Mail className="h-4 w-4 text-indigo-500" />
                 <p className="text-sm text-slate-600">{selectedBooking.guestEmail}</p>
               </div>
+              {selectedBooking.customer?.company && (
+                <p className="-mt-2 text-xs text-slate-500">
+                  {selectedBooking.customer.company}
+                </p>
+              )}
               {(selectedBooking.resourceName || selectedBooking.locationName) && (
                 <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-3">
                   <p className="flex items-center text-sm font-semibold text-indigo-900">

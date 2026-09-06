@@ -19,6 +19,7 @@ import {
   sendSystemMeetingSummary,
 } from '@/lib/system-whatsapp';
 import { notifyBookingCancelled } from '@/lib/push-notifications';
+import { findCustomersByGuestEmails, attachCustomerToBooking } from '@/lib/customer-match';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { generateMeetingSummary } from '@/lib/meeting-summary';
@@ -70,9 +71,16 @@ export async function GET(
       );
     }
 
+    // Attach the CRM customer (photo) when the guest email matches a contact.
+    const customersByEmail = await findCustomersByGuestEmails(
+      (session.user as any).id,
+      [booking.guestEmail]
+    );
+    const withCustomer = attachCustomerToBooking(booking, customersByEmail);
+
     return NextResponse.json({
       success: true,
-      data: booking,
+      data: withCustomer,
     });
   } catch (error) {
     console.error('Error fetching booking:', error);

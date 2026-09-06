@@ -101,8 +101,11 @@ export async function sendBookingConfirmation(data: {
   cancelToken?: string;
   rescheduleToken?: string;
   meetingPageUrl?: string;
+  /** Host identity shown in the greeting (avatar + name of the booking owner). */
+  hostName?: string | null;
+  hostAvatar?: string | null;
 }): Promise<boolean> {
-  const { to, guestName, eventTitle, startTime, duration, location, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl } = data;
+  const { to, guestName, eventTitle, startTime, duration, location, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl, hostName, hostAvatar } = data;
   
   const formattedDate = formatDateWithTimezone(startTime, timezone);
 
@@ -110,6 +113,13 @@ export async function sendBookingConfirmation(data: {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
   const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : null;
   const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : null;
+
+  // Absolute URL for email clients (uploaded avatars may be relative /api/storage…)
+  const hostAvatarUrl = hostAvatar
+    ? hostAvatar.startsWith('/')
+      ? `${baseUrl}${hostAvatar}`
+      : hostAvatar
+    : null;
 
   const html = `
     <!DOCTYPE html>
@@ -120,7 +130,13 @@ export async function sendBookingConfirmation(data: {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
         <div style="background-color: #00BFFF; color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
+          ${
+            hostAvatarUrl
+              ? `<img src="${hostAvatarUrl}" alt="${hostName || ''}" style="width: 72px; height: 72px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.85); object-fit: cover; margin-bottom: 10px;" />`
+              : ''
+          }
           <h1 style="margin: 0; font-size: 28px;">¡Reserva Confirmada! 🎉</h1>
+          ${hostName ? `<p style="margin: 8px 0 0; font-size: 15px; opacity: 0.95;">con ${hostName}</p>` : ''}
         </div>
         
         <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
@@ -213,13 +229,30 @@ export async function sendBookingConfirmationWithTemplate(data: {
   meetingPageUrl?: string;
 }): Promise<boolean> {
   const { userId, to, guestName, eventTitle, startTime, duration, location, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl } = data;
-  
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
+
+  // Resolve the host identity (avatar + name) so confirmations show who the
+  // guest booked with, both in custom templates and the default fallback.
+  const hostUser = await prisma.user
+    .findUnique({
+      where: { id: userId },
+      select: { name: true, avatar: true, image: true },
+    })
+    .catch(() => null);
+  const hostName = hostUser?.name || '';
+  const hostAvatarRaw = hostUser?.avatar || hostUser?.image || '';
+  const hostAvatarUrl = hostAvatarRaw
+    ? hostAvatarRaw.startsWith('/')
+      ? `${baseUrl}${hostAvatarRaw}`
+      : hostAvatarRaw
+    : '';
+
   // Try to get custom template
   const template = await getEmailTemplate(userId, 'confirmation');
   
   if (template) {
     const formattedDate = formatDateWithTimezone(startTime, timezone);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
     const cancelUrl = cancelToken ? `${baseUrl}/booking/cancel?token=${cancelToken}` : '';
     const rescheduleUrl = rescheduleToken ? `${baseUrl}/booking/reschedule?token=${rescheduleToken}` : '';
     
@@ -235,6 +268,9 @@ export async function sendBookingConfirmationWithTemplate(data: {
       rescheduleUrl,
       meetingPageUrl: meetingPageUrl || '',
       bookingId: bookingId || '',
+      // Host identity for custom templates ({{hostName}} / {{hostAvatar}})
+      hostName,
+      hostAvatar: hostAvatarUrl,
     };
     
     const html = replaceTemplateVariables(template.htmlBody, variables);
@@ -243,8 +279,8 @@ export async function sendBookingConfirmationWithTemplate(data: {
     return sendEmail({ to, subject, html });
   }
   
-  // Fall back to default template
-  return sendBookingConfirmation(data);
+  // Fall back to default template (pass host identity for the header)
+  return sendBookingConfirmation({ ...data, hostName, hostAvatar: hostAvatarUrl });
 }
 
 /**

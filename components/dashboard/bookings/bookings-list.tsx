@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, Sofa, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Sofa, Video, Phone, User, Mail, MoreVertical, Eye, Lightbulb, CheckCircle2, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,13 @@ interface Booking {
     title: string;
     slug: string;
   };
+  customer?: {
+    name?: string | null;
+    email?: string;
+    photo?: string | null;
+    company?: string | null;
+    phone?: string | null;
+  } | null;
 }
 
 interface BookingsListProps {
@@ -188,13 +195,27 @@ export function BookingsList({ bookings }: BookingsListProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-3">
                         <div className="flex items-center text-sm text-gray-600">
-                          <User className="h-4 w-4 mr-2" />
+                          {booking.customer?.photo ? (
+                            <img
+                              src={booking.customer.photo}
+                              alt={booking.guestName || 'Cliente'}
+                              className="h-7 w-7 rounded-full object-cover mr-2"
+                            />
+                          ) : (
+                            <User className="h-4 w-4 mr-2" />
+                          )}
                           <span className="font-medium">{booking.guestName}</span>
                         </div>
                         <div className="flex items-center text-sm text-gray-600">
                           <Mail className="h-4 w-4 mr-2" />
                           <span>{booking.guestEmail}</span>
                         </div>
+                        {booking.customer?.company && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Building2 className="h-4 w-4 mr-2" />
+                            <span>{booking.customer.company}</span>
+                          </div>
+                        )}
                         {booking.guestPhone && (
                           <div className="flex items-center text-sm text-gray-600">
                             <Phone className="h-4 w-4 mr-2" />

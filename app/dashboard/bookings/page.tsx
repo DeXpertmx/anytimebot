@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { BookingsList } from '@/components/dashboard/bookings/bookings-list';
+import { findCustomersByGuestEmails, attachCustomersToBookings } from '@/lib/customer-match';
 
 export const metadata = {
   title: 'Reservas - ANYTIMEBOT',
@@ -62,6 +63,14 @@ export default async function BookingsPage() {
     )
   );
 
+  // Attach the CRM customer (photo) to each booking whose guest email
+  // matches a saved contact.
+  const customersByEmail = await findCustomersByGuestEmails(
+    user.id,
+    allBookings.map((b) => (b as any).guestEmail)
+  );
+  const bookingsWithCustomers = attachCustomersToBookings(allBookings, customersByEmail);
+
   return (
     <div className="space-y-6">
       <div>
@@ -70,7 +79,7 @@ export default async function BookingsPage() {
           Gestiona y consulta todas tus reservas programadas
         </p>
       </div>
-      <BookingsList bookings={allBookings} />
+      <BookingsList bookings={bookingsWithCustomers as any} />
     </div>
   );
 }

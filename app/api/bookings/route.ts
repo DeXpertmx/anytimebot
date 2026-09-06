@@ -15,6 +15,7 @@ import { createVideoSession } from '@/lib/video-session';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
+import { findCustomersByGuestEmails, attachCustomersToBookings } from '@/lib/customer-match';
 import { notifyBookingCreated } from '@/lib/push-notifications';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
@@ -76,10 +77,17 @@ export async function GET(request: NextRequest) {
       prisma.booking.count({ where }),
     ]);
 
+    // Attach the CRM customer (photo) when the guest email matches a contact.
+    const customersByEmail = await findCustomersByGuestEmails(
+      (session.user as any).id,
+      bookings.map((b) => b.guestEmail)
+    );
+    const bookingsWithCustomers = attachCustomersToBookings(bookings, customersByEmail);
+
     return NextResponse.json({
       success: true,
       data: {
-        bookings,
+        bookings: bookingsWithCustomers,
         pagination: {
           page,
           limit,
