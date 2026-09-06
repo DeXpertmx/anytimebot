@@ -357,6 +357,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
                   value={formData.videoLink}
                   onChange={(e) => setFormData(prev => ({ ...prev, videoLink: e.target.value }))}
                 />
+                <p className="text-xs text-gray-500">{t('eventTypes.videoAutoHint')}</p>
               </div>
             </>
           )}

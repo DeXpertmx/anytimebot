@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
             guestName: booking.guestName,
             eventTitle: booking.eventType.name,
             startTime: booking.startTime,
-            videoLink: booking.eventType.videoLink || undefined,
+            videoLink: (booking as any).meetingUrl || booking.eventType.videoLink || undefined,
             location: booking.eventType.location,
             timezone: booking.timezone,
             cancelToken,

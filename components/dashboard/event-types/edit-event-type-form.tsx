@@ -331,6 +331,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               <p className="text-xs text-gray-500">
                 {t('eventTypes.videoLinkHint')}
               </p>
+              <p className="text-xs text-gray-500">{t('eventTypes.videoAutoHint')}</p>
             </div>
           )}
 

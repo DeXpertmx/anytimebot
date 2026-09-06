@@ -309,7 +309,8 @@
     "resourcesEmpty": "Aún no hay recursos. Crea uno desde Configuración → Ubicaciones y recursos.",
     "sedeLabel": "Sede (opcional)",
     "noSede": "Sin sede — sin dirección fija",
-    "sedeHint": "Para eventos presenciales: se usará su dirección en la confirmación y su zona horaria para la disponibilidad."
+    "sedeHint": "Para eventos presenciales: se usará su dirección en la confirmación y su zona horaria para la disponibilidad.",
+    "videoAutoHint": "Si tienes conectada tu cuenta de Zoom o Teams en Integraciones, el enlace de la videollamada se creará automáticamente al reservar. Si no, pega aquí el enlace manual."
   },
   "apiKeys": {
     "title": "API",

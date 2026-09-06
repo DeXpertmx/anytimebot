@@ -12,6 +12,7 @@ import { parseRecurrence, expandRecurrence, describeRecurrence, MAX_SERIES_HORIZ
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
 import { createVideoSession } from '@/lib/video-session';
+import { createProviderMeeting } from '@/lib/video-providers';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
@@ -477,6 +478,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Auto-create the Zoom/Teams meeting on the owner's connected account
+    // when the event type uses one of those providers. The generated join
+    // link replaces the manual videoLink for this booking (emails, calendar,
+    // reminders and the meeting room); if the provider is not connected, the
+    // manually pasted link is kept.
+    let providerMeeting: {
+      roomUrl: string;
+      hostRoomUrl?: string;
+      roomName?: string;
+      password?: string;
+    } | null = null;
+    if (eventType.videoProvider === 'ZOOM' || eventType.videoProvider === 'TEAMS') {
+      try {
+        const created = await createProviderMeeting({
+          userId: eventType.bookingPage.userId,
+          provider: eventType.videoProvider === 'ZOOM' ? 'zoom' : 'teams',
+          topic: eventType.name,
+          startTime: bookingStartTime,
+          duration: eventType.duration,
+          timezone: booking.timezone || 'UTC',
+          agenda: `Reunión con ${guestName}`,
+          attendeeEmails: [guestEmail],
+        });
+        if (created.roomUrl) {
+          providerMeeting = {
+            roomUrl: created.roomUrl,
+            hostRoomUrl: created.hostRoomUrl,
+            roomName: created.roomName,
+            password: created.password,
+          };
+          // In-memory so the confirmation email of THIS booking includes it,
+          // and persisted on the booking so reminders/reschedule can use it.
+          eventType.videoLink = created.roomUrl;
+          await prisma.booking
+            .update({
+              where: { id: booking.id },
+              data: { meetingUrl: created.roomUrl },
+            })
+            .catch(() => undefined);
+        } else {
+          console.warn(
+            `No se pudo crear la reunión de ${eventType.videoProvider}: ${created.error || 'desconocido'}`
+          );
+        }
+      } catch (error) {
+        console.error(`Error creating ${eventType.videoProvider} meeting:`, error);
+      }
+    }
+
     // Create Google Calendar event(s) if user has calendar sync enabled.
     // For a series: one free/busy sweep across the whole span, then one event
     // per occurrence (best-effort — the bookings already exist in the DB).
@@ -568,9 +618,16 @@ export async function POST(request: NextRequest) {
     const cancelToken = generateBookingToken(booking.id, 'cancel');
     const rescheduleToken = generateBookingToken(booking.id, 'reschedule');
 
-    // Create video session if event type uses embedded video or Daily.co
+    // Create video session for embedded video (Daily) or auto-generated
+    // Zoom/Teams meetings so the meeting room can load the join link.
     let videoSession = null;
-    if (eventType.videoProvider === 'DAILY' && eventType.enableEmbeddedVideo) {
+    const autoVideoSession =
+      (eventType.videoProvider === 'ZOOM' || eventType.videoProvider === 'TEAMS') &&
+      !!providerMeeting;
+    if (
+      (eventType.videoProvider === 'DAILY' && eventType.enableEmbeddedVideo) ||
+      autoVideoSession
+    ) {
       try {
         videoSession = await createVideoSession({
           bookingId: booking.id,
@@ -585,6 +642,14 @@ export async function POST(request: NextRequest) {
             startTime: bookingStartTime,
             guestName,
           },
+          meetingUrls: providerMeeting
+            ? {
+                roomUrl: providerMeeting.roomUrl,
+                hostRoomUrl: providerMeeting.hostRoomUrl || providerMeeting.roomUrl,
+                roomName: providerMeeting.roomName || null,
+                password: providerMeeting.password,
+              }
+            : undefined,
         });
         console.log('Video session created:', videoSession.id);
       } catch (videoError) {

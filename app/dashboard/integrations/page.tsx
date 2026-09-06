@@ -11,10 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
   Loader2, CheckCircle2, XCircle, MessageCircle, QrCode, RefreshCw, Trash2, Zap,
-  Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone, CreditCard,
+  Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone, CreditCard, Video,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { StripeConnectCard } from '@/components/dashboard/settings/stripe-connect-card';
+import { VideoConnections } from '@/components/dashboard/integrations/video-connections';
 
 type ConnStatus = 'not_created' | 'connecting' | 'connected' | 'error' | 'loading';
 
@@ -32,7 +33,7 @@ export default function IntegrationsPage() {
   const [showingQr, setShowingQr] = useState(false);
 
   // Twilio state (kept as-is)
-  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio' | 'payments'>('whatsapp');
+  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio' | 'payments' | 'video'>('whatsapp');
   const [twilioConfig, setTwilioConfig] = useState({ accountSid: '', authToken: '', phoneNumber: '' });
   const [twilioStatus, setTwilioStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
   const [twilioKey, setTwilioKey] = useState(0);
@@ -69,6 +70,21 @@ export default function IntegrationsPage() {
   useEffect(() => {
     void checkStatus();
   }, [checkStatus]);
+
+  // After an OAuth callback (Zoom/Teams) the platform redirects back here with
+  // ?tab=video&connected=<provider> (or &error=<provider>). Select the tab and
+  // surface the result without requiring a manual refresh.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'video') setActiveProvider('video');
+    const connected = params.get('connected');
+    if (connected === 'zoom') toast.success('Zoom conectado correctamente');
+    else if (connected === 'teams') toast.success('Microsoft Teams conectado correctamente');
+    const error = params.get('error');
+    if (error === 'zoom') toast.error('No se pudo conectar Zoom');
+    else if (error === 'teams') toast.error('No se pudo conectar Microsoft Teams');
+  }, []);
 
   // The pairing service updates asynchronously after the QR is scanned.
   // Poll while pairing so the UI reflects the server state without requiring
@@ -273,7 +289,7 @@ export default function IntegrationsPage() {
       </Alert>
 
       <Tabs value={activeProvider} onValueChange={(v) => setActiveProvider(v as any)} className="w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
             WhatsApp
@@ -287,6 +303,10 @@ export default function IntegrationsPage() {
           <TabsTrigger value="payments" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
             Pagos y Cobros
+          </TabsTrigger>
+          <TabsTrigger value="video" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Videollamadas
           </TabsTrigger>
         </TabsList>
 
@@ -496,6 +516,10 @@ export default function IntegrationsPage() {
         {/* Pagos y Cobros tab (Stripe Connect) */}
         <TabsContent value="payments">
           <StripeConnectCard />
+        </TabsContent>
+        {/* Videollamadas tab (Zoom / Microsoft Teams) */}
+        <TabsContent value="video">
+          <VideoConnections />
         </TabsContent>
       </Tabs>
     </div>

@@ -289,7 +289,7 @@ export async function PUT(
           startTime: updatedBooking.startTime,
           duration: updatedBooking.eventType.duration,
           location: updatedBooking.eventType.location,
-          videoLink: updatedBooking.eventType.videoLink || undefined,
+          videoLink: (updatedBooking as any).meetingUrl || updatedBooking.eventType.videoLink || undefined,
           timezone: updatedBooking.timezone,
           bookingId: updatedBooking.id,
           cancelToken,

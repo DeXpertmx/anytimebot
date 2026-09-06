@@ -309,7 +309,8 @@
     "resourcesEmpty": "No resources yet. Create one from Settings → Locations & resources.",
     "sedeLabel": "Location (optional)",
     "noSede": "No location — no fixed address",
-    "sedeHint": "For in-person events: its address is shown on the confirmation and its timezone drives availability."
+    "sedeHint": "For in-person events: its address is shown on the confirmation and its timezone drives availability.",
+    "videoAutoHint": "If you have Zoom or Teams connected in Integraciones, the meeting link is created automatically when booking. Otherwise, paste the link here."
   },
   "apiKeys": {
     "title": "API",

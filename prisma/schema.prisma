@@ -133,6 +133,7 @@ model User {
   adminNotes          AdminNote[]
   auditLogs           AdminAuditLog[]
   timeOffs            TimeOff[]
+  integrationConnections IntegrationConnection[]
   customers           Customer[]
   supportTickets      SupportTicket[]
   memberSubscriptions MemberSubscription[]
@@ -584,6 +585,7 @@ model Booking {
   status                BookingStatus @default(PENDING)
   formData              Json?         @map("form_data") // Custom form fields data
   googleCalendarEventId String?       @map("google_calendar_event_id") // Google Calendar Event ID
+  meetingUrl            String?       @map("meeting_url") // Auto-generated Zoom/Teams join link for this booking
 
   // Host notes / post-meeting summary (internal)
   notes       String?   @db.Text
@@ -1095,3 +1097,33 @@ model EmailTemplate {
   @@unique([userId, type])
   @@map("email_templates")
 }
+/**
+ * Per-user OAuth connections for external video providers (Zoom, Microsoft
+ * Teams). Each tenant authorizes with their own account; the platform only
+ * provides the OAuth app credentials. Tokens are stored so meetings are
+ * created on the tenant's own account during booking.
+ */
+model IntegrationConnection {
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  provider           String    @map("provider") // "zoom" | "teams"
+  accessToken        String?   @map("access_token") @db.Text
+  refreshToken       String?   @map("refresh_token") @db.Text
+  tokenType          String?   @map("token_type")
+  scope              String?   @db.Text
+  expiresAt          DateTime? @map("expires_at")
+  providerAccountId  String?   @map("provider_account_id") // Zoom user id / Teams object id
+  accountEmail       String?   @map("account_email") // Connected account email for display
+  accountDisplayName String?   @map("account_display_name") // Zoom display name / Teams name
+  tenantId           String?   @map("tenant_id") // Microsoft tenant (tid claim)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([provider])
+  @@map("integration_connections")
+}
+
