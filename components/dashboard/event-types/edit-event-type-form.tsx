@@ -193,6 +193,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           title: t('common.success'),
           description: t('eventTypes.updated'),
         });
+        window.dispatchEvent(new Event('event-types-changed'));
         router.push('/dashboard/event-types');
         router.refresh();
       } else {

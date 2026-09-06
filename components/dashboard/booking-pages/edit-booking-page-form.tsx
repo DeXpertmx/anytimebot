@@ -302,6 +302,7 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
           title: 'Success',
           description: 'Booking page updated successfully',
         });
+        window.dispatchEvent(new Event('booking-pages-changed'));
         router.refresh();
       } else {
         toast({

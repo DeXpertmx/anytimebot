@@ -140,6 +140,7 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
         });
         setOpen(false);
         setFormData({ title: '', slug: '', description: '', isActive: true, brandColor: '#6366f1', logoUrl: '' });
+        window.dispatchEvent(new Event('booking-pages-changed'));
         router.refresh();
       } else {
         toast({

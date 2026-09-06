@@ -54,6 +54,10 @@ export function BookingPagesList() {
 
   useEffect(() => {
     fetchBookingPages();
+    // Refetch when a page is created or edited from a dialog/form, so the
+    // list updates immediately without a manual refresh.
+    window.addEventListener('booking-pages-changed', fetchBookingPages);
+    return () => window.removeEventListener('booking-pages-changed', fetchBookingPages);
   }, []);
 
   const fetchBookingPages = async () => {
@@ -182,7 +186,7 @@ export function BookingPagesList() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href={`/dashboard/booking-pages/${page.id}`} target="_blank">
+                    <Link href={`/${username}/${page.slug}`} target="_blank">
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Ver página
                     </Link>

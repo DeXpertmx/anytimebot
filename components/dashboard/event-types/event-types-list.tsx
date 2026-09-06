@@ -60,6 +60,10 @@ export function EventTypesList() {
 
   useEffect(() => {
     fetchEventTypes();
+    // Refetch when a type is created or edited from a dialog/form, so the
+    // list updates immediately without a manual refresh.
+    window.addEventListener('event-types-changed', fetchEventTypes);
+    return () => window.removeEventListener('event-types-changed', fetchEventTypes);
   }, []);
 
   const fetchEventTypes = async () => {

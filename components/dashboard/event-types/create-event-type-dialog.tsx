@@ -148,6 +148,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           assignmentMode: 'individual',
         });
         setAllowedResourceIds([]);
+        window.dispatchEvent(new Event('event-types-changed'));
         router.refresh();
       } else {
         toast({
