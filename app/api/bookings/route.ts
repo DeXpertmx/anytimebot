@@ -12,13 +12,13 @@ import { parseRecurrence, expandRecurrence, describeRecurrence, MAX_SERIES_HORIZ
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
 import { createVideoSession } from '@/lib/video-session';
-import { createProviderMeeting } from '@/lib/video-providers';
+import { createProviderMeeting, recordVideoMeetingLog } from '@/lib/video-providers';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { recordConsent } from '@/lib/consent';
 import { upsertCustomerFromBooking } from '@/lib/crm';
 import { findCustomersByGuestEmails, attachCustomersToBookings } from '@/lib/customer-match';
 import { notifyBookingCreated } from '@/lib/push-notifications';
-import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
+import { dispatchWebhookEvent, buildBookingPayload, buildMeetingPayload } from '@/lib/webhooks';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
 
 export const dynamic = 'force-dynamic';
@@ -490,10 +490,12 @@ export async function POST(request: NextRequest) {
       password?: string;
     } | null = null;
     if (eventType.videoProvider === 'ZOOM' || eventType.videoProvider === 'TEAMS') {
+      const providerName: 'zoom' | 'teams' = eventType.videoProvider === 'ZOOM' ? 'zoom' : 'teams';
+      const meetingOwnerId = eventType.bookingPage.userId;
       try {
         const created = await createProviderMeeting({
-          userId: eventType.bookingPage.userId,
-          provider: eventType.videoProvider === 'ZOOM' ? 'zoom' : 'teams',
+          userId: meetingOwnerId,
+          provider: providerName,
           topic: eventType.name,
           startTime: bookingStartTime,
           duration: eventType.duration,
@@ -517,13 +519,71 @@ export async function POST(request: NextRequest) {
               data: { meetingUrl: created.roomUrl },
             })
             .catch(() => undefined);
+          // Audit trail + outgoing webhook: meeting created.
+          await recordVideoMeetingLog({
+            userId: meetingOwnerId,
+            bookingId: booking.id,
+            provider: providerName,
+            success: true,
+            roomUrl: created.roomUrl,
+            meetingId: created.roomName,
+          });
+          await dispatchWebhookEvent(
+            meetingOwnerId,
+            'meeting.created',
+            buildMeetingPayload('meeting.created', {
+              bookingId: booking.id,
+              provider: providerName,
+              success: true,
+              roomUrl: created.roomUrl,
+              meetingId: created.roomName,
+            }),
+          );
         } else {
+          const reason = created.error || 'desconocido';
           console.warn(
-            `No se pudo crear la reunión de ${eventType.videoProvider}: ${created.error || 'desconocido'}`
+            `No se pudo crear la reunión de ${eventType.videoProvider}: ${reason}`
+          );
+          // Audit trail + outgoing webhook: meeting failed (provider error).
+          await recordVideoMeetingLog({
+            userId: meetingOwnerId,
+            bookingId: booking.id,
+            provider: providerName,
+            success: false,
+            error: reason,
+          });
+          await dispatchWebhookEvent(
+            meetingOwnerId,
+            'meeting.failed',
+            buildMeetingPayload('meeting.failed', {
+              bookingId: booking.id,
+              provider: providerName,
+              success: false,
+              error: reason,
+            }),
           );
         }
       } catch (error) {
+        const reason = error instanceof Error ? error.message : 'desconocido';
         console.error(`Error creating ${eventType.videoProvider} meeting:`, error);
+        // Audit trail + outgoing webhook: meeting failed (exception).
+        await recordVideoMeetingLog({
+          userId: meetingOwnerId,
+          bookingId: booking.id,
+          provider: providerName,
+          success: false,
+          error: reason,
+        });
+        await dispatchWebhookEvent(
+          meetingOwnerId,
+          'meeting.failed',
+          buildMeetingPayload('meeting.failed', {
+            bookingId: booking.id,
+            provider: providerName,
+            success: false,
+            error: reason,
+          }),
+        );
       }
     }
 

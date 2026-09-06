@@ -134,6 +134,7 @@ model User {
   auditLogs           AdminAuditLog[]
   timeOffs            TimeOff[]
   integrationConnections IntegrationConnection[]
+  videoMeetingLogs    VideoMeetingLog[]
   customers           Customer[]
   supportTickets      SupportTicket[]
   memberSubscriptions MemberSubscription[]
@@ -1103,6 +1104,29 @@ model EmailTemplate {
  * provides the OAuth app credentials. Tokens are stored so meetings are
  * created on the tenant's own account during booking.
  */
+// Audit trail of Zoom/Teams meeting creation attempts. One row per attempt
+// (success or failure), written at booking time so admins can trace when a
+// provider meeting was created or why it failed.
+model VideoMeetingLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  bookingId String   @map("booking_id")
+  provider  String // "zoom" | "teams"
+  success   Boolean
+  roomUrl   String?  @map("room_url") @db.Text
+  meetingId String?  @map("meeting_id")
+  error     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([bookingId])
+  @@index([provider])
+  @@index([createdAt])
+  @@map("video_meeting_logs")
+}
+
 model IntegrationConnection {
   id                 String    @id @default(cuid())
   userId             String    @map("user_id")

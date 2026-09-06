@@ -144,6 +144,38 @@ export interface VideoConnectionStatus {
   error?: string;
 }
 
+/**
+ * Audit trail: record a Zoom/Teams meeting creation attempt (success or
+ * failure) so admins can trace when a meeting was created or why it failed.
+ * Best-effort — never throws, so a logging failure can't break a booking.
+ */
+export async function recordVideoMeetingLog(input: {
+  userId: string;
+  bookingId: string;
+  provider: VideoProviderName;
+  success: boolean;
+  roomUrl?: string | null;
+  meetingId?: string | null;
+  error?: string | null;
+}): Promise<void> {
+  try {
+    await prisma.videoMeetingLog.create({
+      data: {
+        userId: input.userId,
+        bookingId: input.bookingId,
+        provider: input.provider,
+        success: input.success,
+        roomUrl: input.roomUrl ?? null,
+        meetingId: input.meetingId ?? null,
+        error: input.error ?? null,
+      },
+    });
+  } catch (error) {
+    // Never break the booking flow because of audit logging.
+    console.error('Failed to record video meeting log:', error);
+  }
+}
+
 /** Status of both providers for the Integraciones UI. */
 export async function getVideoConnectionsStatus(
   userId: string

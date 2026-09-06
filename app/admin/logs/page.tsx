@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ScrollText, Loader2, RefreshCw, ChevronDown } from 'lucide-react';
+import { ScrollText, Loader2, RefreshCw, ChevronDown, Video } from 'lucide-react';
 
 interface AuditEntry {
   id: string;
@@ -28,6 +28,19 @@ interface AuditEntry {
   ipAddress: string | null;
   adminEmail: string;
   adminName: string | null;
+  createdAt: string;
+}
+
+interface MeetingLogEntry {
+  id: string;
+  provider: string;
+  success: boolean;
+  roomUrl: string | null;
+  meetingId: string | null;
+  error: string | null;
+  bookingId: string;
+  userEmail: string;
+  userName: string | null;
   createdAt: string;
 }
 
@@ -215,6 +228,125 @@ export default function AdminLogsPage() {
           )}
         </CardContent>
       </Card>
+
+      <VideoMeetingLogsSection />
     </div>
+  );
+}
+
+function VideoMeetingLogsSection() {
+  const [logs, setLogs] = useState<MeetingLogEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLogs = useCallback(async (reset: boolean, cursor?: string) => {
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
+    try {
+      setError(null);
+      const params = new URLSearchParams({ limit: '50' });
+      if (cursor) params.set('cursor', cursor);
+      const response = await fetch(`/api/admin/video-meeting-logs?${params.toString()}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'No se pudieron cargar los registros');
+      setLogs((prev) => (reset ? data.logs : [...prev, ...data.logs]));
+      setTotal(data.total);
+      setNextCursor(data.nextCursor);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'No se pudieron cargar los registros';
+      setError(message);
+      console.error('Error al cargar los registros de reuniones:', caught);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLogs(true);
+  }, [fetchLogs]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Video className="h-5 w-5 text-indigo-600" />
+          Reuniones Zoom / Teams
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Creación o fallo de reuniones automáticas al reservar ({total} {total === 1 ? 'registro' : 'registros'}).
+        </p>
+      </CardHeader>
+      <CardContent>
+        {error && !loading && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : logs.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No hay registros de reuniones todavía.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-44">Fecha</TableHead>
+                  <TableHead className="w-52">Usuario</TableHead>
+                  <TableHead className="w-28">Estado</TableHead>
+                  <TableHead className="w-24">Proveedor</TableHead>
+                  <TableHead>Detalles</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {new Date(entry.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <span className="font-medium">{entry.userName || entry.userEmail}</span>
+                      <span className="block text-xs text-muted-foreground">{entry.userEmail}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={entry.success ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}>
+                        {entry.success ? 'Creada' : 'Falló'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm capitalize">{entry.provider}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground break-all">
+                      {entry.success
+                        ? entry.roomUrl || `ID ${entry.meetingId || '—'}`
+                        : entry.error || 'Error desconocido'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {nextCursor && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchLogs(false, nextCursor)}
+                  disabled={loadingMore}
+                >
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  {loadingMore ? 'Cargando…' : 'Cargar más'}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

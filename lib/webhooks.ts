@@ -22,6 +22,8 @@ export const WEBHOOK_EVENTS = [
   'booking.cancelled',
   'booking.completed',
   'booking.rescheduled',
+  'meeting.created',
+  'meeting.failed',
 ] as const;
 
 /**
@@ -94,6 +96,31 @@ interface BookingLike {
       slug: string;
       userId: string;
     };
+  };
+}
+
+/** Payload for meeting.created / meeting.failed webhook events. */
+export function buildMeetingPayload(event: WebhookEvent, data: {
+  bookingId: string;
+  provider: 'zoom' | 'teams';
+  success: boolean;
+  roomUrl?: string | null;
+  meetingId?: string | null;
+  error?: string | null;
+}) {
+  return {
+    event,
+    created_at: new Date().toISOString(),
+    data: {
+      booking_id: data.bookingId,
+      provider: data.provider,
+      success: data.success,
+      meeting: {
+        id: data.meetingId ?? null,
+        room_url: data.roomUrl ?? null,
+      },
+      error: data.error ?? null,
+    },
   };
 }
 
@@ -224,7 +251,7 @@ async function scheduleRetry(
 export async function dispatchWebhookEvent(
   userId: string,
   event: WebhookEvent,
-  payload: ReturnType<typeof buildBookingPayload>,
+  payload: ReturnType<typeof buildBookingPayload> | ReturnType<typeof buildMeetingPayload>,
   deps?: WebhookDeps,
 ): Promise<void> {
   const { prisma: db } = resolveDeps(deps);

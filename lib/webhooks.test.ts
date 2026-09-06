@@ -17,6 +17,7 @@ import {
   verifySignature,
   generateWebhookSecret,
   buildBookingPayload,
+  buildMeetingPayload,
   WEBHOOK_EVENTS,
   type WebhookDeps,
 } from './webhooks';
@@ -443,12 +444,46 @@ test('dispatch never throws even when the database fails', async () => {
   }
 });
 
-test('WEBHOOK_EVENTS covers the five booking lifecycle events', () => {
+test('WEBHOOK_EVENTS covers the booking lifecycle and meeting events', () => {
   assert.deepEqual([...WEBHOOK_EVENTS], [
     'booking.created',
     'booking.confirmed',
     'booking.cancelled',
     'booking.completed',
     'booking.rescheduled',
+    'meeting.created',
+    'meeting.failed',
   ]);
+});
+
+test('buildMeetingPayload carries success/failure details for meeting.created', () => {
+  const payload = buildMeetingPayload('meeting.created', {
+    bookingId: 'b_1',
+    provider: 'zoom',
+    success: true,
+    roomUrl: 'https://zoom.us/j/123',
+    meetingId: '123',
+  });
+  assert.equal(payload.event, 'meeting.created');
+  assert.equal(payload.data.booking_id, 'b_1');
+  assert.equal(payload.data.provider, 'zoom');
+  assert.equal(payload.data.success, true);
+  assert.equal(payload.data.meeting.room_url, 'https://zoom.us/j/123');
+  assert.equal(payload.data.meeting.id, '123');
+  assert.equal(payload.data.error, null);
+  assert.ok(typeof payload.created_at === 'string');
+});
+
+test('buildMeetingPayload includes the error for meeting.failed', () => {
+  const payload = buildMeetingPayload('meeting.failed', {
+    bookingId: 'b_2',
+    provider: 'teams',
+    success: false,
+    error: 'Zoom not connected',
+  });
+  assert.equal(payload.event, 'meeting.failed');
+  assert.equal(payload.data.success, false);
+  assert.equal(payload.data.error, 'Zoom not connected');
+  assert.equal(payload.data.meeting.room_url, null);
+  assert.equal(payload.data.booking_id, 'b_2');
 });
