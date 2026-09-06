@@ -25,6 +25,13 @@ export default async function SettingsPage() {
     redirect('/auth/signin');
   }
 
+  // Whether the account has a linked Google identity (drives the security card:
+  // password management vs. OAuth — avatar uploads no longer imply Google).
+  const googleAccount = await prisma.account.findFirst({
+    where: { userId: user.id, provider: 'google' },
+    select: { id: true },
+  });
+
   return (
     <div className="min-w-0 space-y-6 pb-10">
       <div>
@@ -33,7 +40,7 @@ export default async function SettingsPage() {
           Gestiona la configuración y las preferencias de tu cuenta
         </p>
       </div>
-      <SettingsForm user={user} />
+      <SettingsForm user={user} googleConnected={!!googleAccount} />
       <EmailTemplates />
     </div>
   );

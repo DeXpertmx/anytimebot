@@ -4,7 +4,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LocationsResources } from './locations-resources';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
+import { ImageUploader } from '@/components/ui/image-uploader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ interface User {
   email: string;
   username: string | null;
   image: string | null;
+  avatar?: string | null;
   timezone: string;
   country: string;
   currency: string;
@@ -35,6 +37,8 @@ interface User {
 
 interface SettingsFormProps {
   user: User;
+  /** Whether the account is linked to a Google identity (used by the security card). */
+  googleConnected?: boolean;
 }
 
 const timezones = [
@@ -60,9 +64,10 @@ const timezones = [
   'Pacific/Auckland',
 ];
 
-export function SettingsForm({ user }: SettingsFormProps) {
+export function SettingsForm({ user, googleConnected = false }: SettingsFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { update: updateSession } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [hideBotAI, setHideBotAI] = useState(!!(user as any).hideBotAI);
   const [savingHideBot, setSavingHideBot] = useState(false);
@@ -70,6 +75,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
     name: user.name || '',
     username: user.username || '',
     email: user.email,
+    avatar: user.avatar || '',
     timezone: user.timezone,
     country: user.country || 'ES',
     currency: user.currency || 'EUR',
@@ -217,6 +223,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
           title: 'Configuración actualizada',
           description: 'Tu configuración se ha guardado correctamente.',
         });
+        // Refresh the auth session so the header avatar updates immediately.
+        updateSession().catch(() => undefined);
         router.refresh();
       } else {
         const error = await response.json();
@@ -286,6 +294,19 @@ export function SettingsForm({ user }: SettingsFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="avatar">Foto de perfil</Label>
+            <ImageUploader
+              value={formData.avatar}
+              onChange={(avatar) => setFormData({ ...formData, avatar })}
+              uploadUrl="/api/uploads/avatar"
+              round
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Se muestra en el panel, en tu perfil público y junto a tus reservas.
+            </p>
+          </div>
+
           <div>
             <Label htmlFor="name">Nombre completo</Label>
             <Input
@@ -640,13 +661,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
           <div>
             <p className="font-medium text-gray-900 mb-2">Password</p>
             <p className="text-sm text-gray-600 mb-4">
-              {user.image ? (
-                'You are signed in with Google OAuth. Password management is handled by Google.'
+              {googleConnected ? (
+                'Has iniciado sesión con Google. La gestión de la contraseña la maneja Google.'
               ) : (
                 'Change your password to keep your account secure.'
               )}
             </p>
-            {!user.image && (
+            {!googleConnected && (
               <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
                 Cambiar contraseña
               </Button>
@@ -680,11 +701,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 <div>
                   <p className="font-medium text-gray-900">Google</p>
                   <p className="text-sm text-gray-600">
-                    {user.image ? 'Conectada' : 'No conectada'}
+                    {googleConnected ? 'Conectada' : 'No conectada'}
                   </p>
                 </div>
               </div>
-              {user.image ? (
+              {googleConnected ? (
                 <div className="text-sm text-green-600 font-medium">
                   Conectada
                 </div>

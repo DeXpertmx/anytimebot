@@ -16,6 +16,16 @@ export function storageKeyFromUrl(url: string | null | undefined): string | null
   }
 }
 
+/**
+ * True when the key lives inside one of the per-user namespaces (logos,
+ * avatars or customers) and belongs to this user. Used to reject cross-user
+ * delete attempts.
+ */
+export function isOwnedKey(key: string | null | undefined, userId: string): boolean {
+  const match = /^(logos|avatars|customers)\/([^/]+)\//.exec(key || '');
+  return Boolean(match && match[2] === userId);
+}
+
 /** Builds the absolute app URL for a storage key on a given origin. */
 export function storageUrlFor(origin: string, key: string): string {
   const base = (origin || '').replace(/\/+$/, '');

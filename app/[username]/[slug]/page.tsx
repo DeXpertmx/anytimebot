@@ -141,9 +141,9 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6 sticky top-6">
               <div className="flex items-center mb-4">
-                {user.image ? (
+                {user.avatar || user.image ? (
                   <img
-                    src={user.image}
+                    src={user.avatar || user.image || undefined}
                     alt={user.name || 'User'}
                     className="w-12 h-12 rounded-full mr-3"
                   />

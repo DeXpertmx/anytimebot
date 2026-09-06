@@ -5,10 +5,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { uploadImageFile } from '@/lib/file-uploads';
 
-// POST /api/uploads/logo
+// POST /api/uploads/avatar
 // Multipart form:  { file: File, previousKey?: string }
-// Uploads a booking-page logo to the configured MinIO/S3 storage and returns
-// its public app URL (`{origin}/api/storage/<key>`), stored as logoUrl.
+// Uploads the user's profile picture. The returned URL is stored in
+// User.avatar (Configuración → Perfil). previousKey deletes the replaced
+// avatar object.
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,8 +21,8 @@ export async function POST(request: NextRequest) {
     const result = await uploadImageFile({
       request,
       userId,
-      folder: 'logos',
-      canDeletePrevious: (key) => key.startsWith(`logos/${userId}/`),
+      folder: 'avatars',
+      canDeletePrevious: (key) => key.startsWith(`avatars/${userId}/`),
     });
 
     if (!result.ok) {
@@ -32,9 +33,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ success: true, url: result.url });
   } catch (error) {
-    console.error('Error uploading logo:', error);
+    console.error('Error uploading avatar:', error);
     return NextResponse.json(
-      { error: 'Could not save the image. Check the storage configuration or use a logo URL.' },
+      { error: 'Could not save the image. Check the storage configuration.' },
       { status: 500 },
     );
   }

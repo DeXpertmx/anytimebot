@@ -2,15 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { deleteObject } from '@/lib/storage';
+import { storageKeyFromUrl } from '@/lib/storage-url';
 
 export const dynamic = 'force-dynamic';
 
 async function getOwnedCustomer(id: string, userId: string) {
   const customer = await prisma.customer.findUnique({
     where: { id },
-    select: { userId: true },
+    select: { userId: true, photo: true },
   });
   return customer && customer.userId === userId ? customer : null;
+}
+
+/** Deletes the uploaded photo file of a customer (best effort). */
+async function deleteCustomerPhoto(photo: string | null | undefined) {
+  const key = storageKeyFromUrl(photo || '');
+  if (key) {
+    await deleteObject(key).catch(() => undefined);
+  }
 }
 
 // PATCH /api/customers/[id] - update notes, tags, name, email, company or phone
@@ -25,7 +35,8 @@ export async function PATCH(
     }
 
     const userId = (session.user as any).id;
-    if (!(await getOwnedCustomer(params.id, userId))) {
+    const owned = await getOwnedCustomer(params.id, userId);
+    if (!owned) {
       return NextResponse.json({ success: false, error: 'Customer not found' }, { status: 404 });
     }
 
@@ -57,6 +68,15 @@ export async function PATCH(
         );
       }
       data.email = email;
+    }
+    // Photo: empty string removes it; replacing or removing deletes the old file.
+    if (typeof body.photo === 'string') {
+      const trimmed = body.photo.trim();
+      const next = trimmed || null;
+      if (next !== owned.photo) {
+        await deleteCustomerPhoto(owned.photo);
+      }
+      data.photo = next;
     }
     if (typeof body.notes === 'string') data.notes = body.notes.trim() || null;
     if (Array.isArray(body.tags)) {
@@ -98,11 +118,13 @@ export async function DELETE(
     }
 
     const userId = (session.user as any).id;
-    if (!(await getOwnedCustomer(params.id, userId))) {
+    const owned = await getOwnedCustomer(params.id, userId);
+    if (!owned) {
       return NextResponse.json({ success: false, error: 'Customer not found' }, { status: 404 });
     }
 
     await prisma.customer.delete({ where: { id: params.id } });
+    await deleteCustomerPhoto(owned.photo);
 
     return NextResponse.json({ success: true });
   } catch (error) {

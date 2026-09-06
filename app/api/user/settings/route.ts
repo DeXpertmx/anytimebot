@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { deleteObject } from '@/lib/storage';
+import { storageKeyFromUrl } from '@/lib/storage-url';
 
 export async function GET(request: NextRequest) {
   try {
@@ -104,7 +106,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, username, timezone, country, currency, bio, company, website, linkedin, twitter, phone, address, hideBotAI } = body;
+    const { name, username, timezone, country, currency, bio, company, website, linkedin, twitter, phone, address, hideBotAI, avatar } = body;
 
     // Check if username is taken (if it's being changed)
     if (username && username !== user.username) {
@@ -117,6 +119,19 @@ export async function PATCH(request: NextRequest) {
           { error: 'Username is already taken' },
           { status: 400 }
         );
+      }
+    }
+
+    // Avatar change: empty string removes it. When the picture is replaced or
+    // removed, delete the previous uploaded object so files do not accumulate.
+    if (typeof avatar === 'string') {
+      const trimmed = avatar.trim();
+      const next = trimmed || null;
+      if (next !== user.avatar) {
+        const oldKey = storageKeyFromUrl(user.avatar || '');
+        if (oldKey) {
+          await deleteObject(oldKey).catch(() => undefined);
+        }
       }
     }
 
@@ -137,6 +152,7 @@ export async function PATCH(request: NextRequest) {
         ...(phone !== undefined && { phone }),
         ...(address !== undefined && { address }),
         ...(hideBotAI !== undefined && { hideBotAI }),
+        ...(avatar !== undefined && { avatar: typeof avatar === 'string' && avatar.trim() ? avatar.trim() : null }),
       },
     });
 

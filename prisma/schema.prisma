@@ -47,6 +47,7 @@ model User {
   email         String    @unique
   username      String?   @unique
   image         String?
+  avatar        String?   @map("avatar_url") // Profile picture uploaded to object storage (MinIO)
   password      String?   @map("password") @db.Text // bcrypt hash for credentials login
   timezone      String    @default("UTC")
   country       String    @default("ES")
@@ -190,6 +191,7 @@ model Customer {
   name      String?
   company   String?
   phone     String?
+  photo     String? // Contact photo uploaded to object storage (MinIO)
   notes     String?
   tags      String[] @default([])
   createdAt DateTime @default(now()) @map("created_at")

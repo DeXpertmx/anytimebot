@@ -398,6 +398,7 @@
     "editTitle": "Edit customer",
     "name": "Name",
     "company": "Company",
+        "photo": "Photo",
     "email": "Email",
     "phone": "Phone",
     "notes": "Notes",

@@ -91,9 +91,9 @@ export default async function UserPage({ params }: UserPageProps) {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
             {/* Avatar */}
             <div className="flex-shrink-0">
-              {user.image ? (
+              {user.avatar || user.image ? (
                 <img
-                  src={user.image}
+                  src={user.avatar || user.image || undefined}
                   alt={user.name || 'User'}
                   className="w-28 h-28 md:w-36 md:h-36 rounded-3xl object-cover border-4 border-white/30 shadow-2xl"
                 />

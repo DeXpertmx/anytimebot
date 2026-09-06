@@ -1,14 +1,16 @@
-// Storage helpers for uploaded images (booking-page logos and future uploads).
+// Storage helpers for uploaded images (booking-page logos, profile avatars and
+// customer photos).
 //
-// Files live under `logos/<userId>/...` in the configured bucket and are served
-// back through the app proxy route `/api/storage/[...key]`, so images work even
-// when the MinIO/S3 endpoint is private. Only authenticated users can upload.
+// Files live under `<folder>/<userId>/...` in the configured bucket and are
+// served back through the app proxy route `/api/storage/[...key]`, so images
+// work even when the MinIO/S3 endpoint is private. Only authenticated users
+// can upload, and every object is namespaced under the owner's user id.
 
 import { randomBytes } from 'crypto';
 import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { createStorageClient, getStorageConfig } from './storage-config';
 
-export { storageKeyFromUrl } from './storage-url';
+export { isOwnedKey, storageKeyFromUrl } from './storage-url';
 
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB
 
@@ -47,7 +49,10 @@ export async function uploadImage(opts: {
   buffer: Buffer;
   contentType: string;
   userId: string;
+  /** Top-level namespace: logos | avatars | customers */
   folder?: string;
+  /** Optional extra path segment (e.g. the customer id). */
+  sub?: string;
 }): Promise<string> {
   const { buffer, contentType, userId } = opts;
   const folder = opts.folder || 'logos';
@@ -55,7 +60,10 @@ export async function uploadImage(opts: {
   const client = createStorageClient(cfg);
 
   const ext = extForMime(contentType);
-  const key = `${folder}/${userId}/${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`;
+  const segments = [folder, userId];
+  if (opts.sub) segments.push(opts.sub);
+  segments.push(`${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`);
+  const key = segments.join('/');
 
   await client.send(
     new PutObjectCommand({
@@ -97,13 +105,4 @@ export async function deleteObject(key: string): Promise<void> {
   }
 }
 
-/**
- * Deletes a previously uploaded file owned by the same user (used to replace
- * a logo without leaking old objects). Returns whether anything was deleted.
- */
-export async function deleteOwnedFile(key: string, userId: string): Promise<boolean> {
-  const prefix = `logos/${userId}/`;
-  if (!key || !key.startsWith(prefix)) return false;
-  await deleteObject(key);
-  return true;
-}
+

@@ -4,7 +4,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { storageKeyFromUrl, storageUrlFor } from './storage-url';
+import { isOwnedKey, storageKeyFromUrl, storageUrlFor } from './storage-url';
 
 describe('storageKeyFromUrl', () => {
   test('extracts the key from an app storage URL', () => {
@@ -42,5 +42,21 @@ describe('storageUrlFor', () => {
       storageUrlFor('https://anytimebot.app/', 'logos/u1/1.png'),
       'https://anytimebot.app/api/storage/logos/u1/1.png',
     );
+  });
+});
+
+describe('isOwnedKey', () => {
+  test('accepts keys inside the user\'s own namespaces', () => {
+    assert.equal(isOwnedKey('logos/u1/1.png', 'u1'), true);
+    assert.equal(isOwnedKey('avatars/u1/x.png', 'u1'), true);
+    assert.equal(isOwnedKey('customers/u1/c1/x.png', 'u1'), true);
+  });
+
+  test('rejects keys of other users or unrelated paths', () => {
+    assert.equal(isOwnedKey('logos/u2/1.png', 'u1'), false);
+    assert.equal(isOwnedKey('avatars/u1/x.png', 'u2'), false);
+    assert.equal(isOwnedKey('__anytimebot_probe/x.txt', 'u1'), false);
+    assert.equal(isOwnedKey('', 'u1'), false);
+    assert.equal(isOwnedKey(null, 'u1'), false);
   });
 });

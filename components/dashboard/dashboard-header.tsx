@@ -52,7 +52,7 @@ export function DashboardHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={session?.user?.image || undefined} alt="Avatar" />
+                <AvatarImage src={session?.user?.avatar || session?.user?.image || undefined} alt="Avatar" />
                 <AvatarFallback className="bg-indigo-100 text-indigo-600">
                   {userInitials}
                 </AvatarFallback>

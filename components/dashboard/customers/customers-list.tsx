@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
+import { ImageUploader } from '@/components/ui/image-uploader';
 import {
   Building2,
   CalendarDays,
@@ -39,6 +40,7 @@ interface Customer {
   name?: string | null;
   company?: string | null;
   phone?: string | null;
+  photo?: string | null;
   notes?: string | null;
   tags: string[];
   totalBookings: number;
@@ -76,6 +78,7 @@ export function CustomersList() {
     email: '',
     company: '',
     phone: '',
+    photo: '',
     notes: '',
     tags: [] as string[],
   });
@@ -158,6 +161,7 @@ export function CustomersList() {
       email: customer.email || '',
       company: customer.company || '',
       phone: customer.phone || '',
+      photo: customer.photo || '',
       notes: customer.notes || '',
       tags: [...customer.tags],
     });
@@ -350,8 +354,13 @@ export function CustomersList() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-semibold">
-                      {initials(customer)}
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-100 text-indigo-600 font-semibold">
+                      {customer.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={customer.photo} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center">{initials(customer)}</div>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 truncate">
@@ -531,6 +540,18 @@ export function CustomersList() {
             <DialogTitle>{t('crm.editTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customer-photo">{t('crm.photo')}</Label>
+              <ImageUploader
+                value={form.photo}
+                onChange={(photo) => setForm({ ...form, photo })}
+                uploadUrl="/api/uploads/customer-photo"
+                round
+                beforeUpload={(fd) => {
+                  if (editing) fd.append('customerId', editing.id);
+                }}
+              />
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="customer-name">{t('crm.name')}</Label>
