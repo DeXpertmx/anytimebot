@@ -31,6 +31,14 @@ interface VideoSession {
     notes?: string | null;
     completedAt?: string | null;
     formData: any;
+    /** CRM customer matched by guest email (photo/company shown in the room). */
+    customer?: {
+      name?: string | null;
+      email?: string;
+      photo?: string | null;
+      company?: string | null;
+      phone?: string | null;
+    } | null;
     eventType: {
       id: string;
       name: string;
@@ -42,6 +50,8 @@ interface VideoSession {
         user: {
           name: string;
           email: string;
+          avatar?: string | null;
+          image?: string | null;
         };
       };
     };
@@ -59,6 +69,73 @@ interface RelevantDocument {
   fileName: string;
   content: string;
   similarity: number;
+}
+
+/** Round avatar with an initials fallback (used for host and guest). */
+function PersonAvatar({
+  src,
+  name,
+  size = 40,
+  className = '',
+}: {
+  src?: string | null;
+  name?: string | null;
+  size?: number;
+  className?: string;
+}) {
+  const initials = (name || '?')
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={name || ''}
+        style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+        className={`rounded-full object-cover ring-2 ring-white shadow ${className}`}
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      className={`flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-semibold ring-2 ring-white shadow ${className}`}
+    >
+      {initials || '?'}
+    </div>
+  );
+}
+
+/** One participant (avatar + name + optional role/subtitle), used in the lobby and briefing. */
+function Participant({
+  src,
+  name,
+  role,
+  subtitle,
+  size = 56,
+}: {
+  src?: string | null;
+  name: string;
+  role: string;
+  subtitle?: string | null;
+  size?: number;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <PersonAvatar src={src} name={name} size={size} />
+      <div className="text-center min-w-0">
+        <p className="text-sm font-semibold text-gray-900 leading-tight truncate max-w-[9rem]">{name}</p>
+        <p className="text-xs text-gray-500 leading-tight truncate max-w-[9rem]">
+          {subtitle ? `${role} · ${subtitle}` : role}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function MeetingPage() {
@@ -262,6 +339,14 @@ export default function MeetingPage() {
   const meetingUrl = isHost ? videoSession.hostRoomUrl : videoSession.roomUrl;
   const isExternalMeeting = /^(https?:\/\/)?(meet\.google\.com|zoom\.us|teams\.microsoft\.com)(\/|$)/i.test(meetingUrl);
 
+  // Participant identity (avatar photo with initials fallback).
+  const hostUser = videoSession.booking.eventType.bookingPage.user;
+  const hostName = hostUser.name || hostUser.email;
+  const hostAvatar = hostUser.avatar || hostUser.image || null;
+  const guestName = videoSession.booking.guestName || 'Invitado';
+  const guestAvatar = videoSession.booking.customer?.photo || null;
+  const guestCompany = videoSession.booking.customer?.company || null;
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Video Section */}
@@ -281,6 +366,10 @@ export default function MeetingPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center -space-x-2 mr-1" title={`${hostName} · ${guestName}`}>
+                <PersonAvatar src={hostAvatar} name={hostName} size={32} />
+                <PersonAvatar src={guestAvatar} name={guestName} size={32} />
+              </div>
               {videoSession.booking.eventType.enableLiveAI && (
                 <span className="flex items-center gap-2 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
                   <CheckCircle className="w-4 h-4" />
@@ -301,8 +390,23 @@ export default function MeetingPage() {
                   Sala de Reunión Virtual
                 </h2>
                 <p className="text-gray-600">
-                  Estás a punto de unirte a la reunión con {videoSession.booking.guestName}
+                  Estás a punto de unirte a la reunión con {guestName}
                 </p>
+
+                <div className="flex items-center justify-center gap-8 my-7">
+                  <Participant src={hostAvatar} name={hostName} role="Anfitrión" size={56} />
+                  <div className="flex flex-col items-center gap-1.5 text-indigo-400">
+                    <Video className="w-5 h-5" />
+                    <span className="text-xs font-medium">Reunión</span>
+                  </div>
+                  <Participant
+                    src={guestAvatar}
+                    name={guestName}
+                    role="Invitado"
+                    subtitle={guestCompany}
+                    size={56}
+                  />
+                </div>
               </div>
 
               {videoSession.booking.eventType.enableRecording && (
@@ -414,6 +518,25 @@ export default function MeetingPage() {
               <TabsContent value="briefing" className="mt-4">
                 {briefing ? (
                   <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <PersonAvatar src={hostAvatar} name={hostName} size={36} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{hostName}</p>
+                          <p className="text-xs text-gray-500 leading-tight">Anfitrión</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="min-w-0 text-right">
+                          <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{guestName}</p>
+                          <p className="text-xs text-gray-500 leading-tight truncate">
+                            Invitado{guestCompany ? ` · ${guestCompany}` : ''}
+                          </p>
+                        </div>
+                        <PersonAvatar src={guestAvatar} name={guestName} size={36} />
+                      </div>
+                    </div>
+
                     <div>
                       <h4 className="font-semibold text-sm text-gray-900 mb-2">
                         Puntos Clave a Discutir

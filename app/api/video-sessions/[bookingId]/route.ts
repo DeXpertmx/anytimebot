@@ -1,6 +1,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getVideoSession } from '@/lib/video-session';
+import {
+  findCustomersByGuestEmails,
+  attachCustomerToBooking,
+} from '@/lib/customer-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +28,20 @@ export async function GET(
       );
     }
 
+    // Attach the CRM customer (photo, company) when the guest email matches a
+    // saved contact, so the meeting room and briefing can show who the guest is.
+    const hostUserId = videoSession.booking.eventType.bookingPage.userId;
+    const customersByEmail = await findCustomersByGuestEmails(hostUserId, [
+      videoSession.booking.guestEmail,
+    ]);
+    const sessionWithCustomer = {
+      ...videoSession,
+      booking: attachCustomerToBooking(videoSession.booking, customersByEmail),
+    };
+
     return NextResponse.json({
       success: true,
-      videoSession,
+      videoSession: sessionWithCustomer,
     });
   } catch (error: any) {
     console.error('Error fetching video session:', error);
