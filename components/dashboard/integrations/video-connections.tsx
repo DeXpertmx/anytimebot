@@ -12,6 +12,7 @@ type VideoStatus = {
   accountEmail?: string;
   accountDisplayName?: string;
   error?: string;
+  platformManaged?: boolean;
 };
 
 /**
@@ -93,28 +94,50 @@ export function VideoConnections() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {status?.connected ? (
-          <>
-            <div className="text-sm text-gray-700">
-              <p className="font-medium">{status.accountDisplayName || label}</p>
-              {status.accountEmail && (
-                <p className="text-muted-foreground">{status.accountEmail}</p>
-              )}
-            </div>
-            <Button
-              variant="destructive"
-              onClick={() => disconnect(provider)}
-              disabled={busy === provider}
-            >
-              {busy === provider ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Unplug className="mr-2 h-4 w-4" />
-              )}
-              Desconectar
-            </Button>
-          </>
-        ) : (
+      {status?.connected ? (
+        <>
+          {status.platformManaged ? (
+            <>
+              <div className="text-sm text-gray-700">
+                <p className="font-medium">{status.accountDisplayName || label}</p>
+                <p className="text-muted-foreground">
+                  Los eventos de videollamada se crean automáticamente con la cuenta de la
+                  plataforma. No necesitas conectar una cuenta personal.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => connect(provider)}
+                disabled={busy === provider}
+              >
+                <MonitorPlay className="mr-2 h-4 w-4" />
+                Conectar mi cuenta
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-gray-700">
+                <p className="font-medium">{status.accountDisplayName || label}</p>
+                {status.accountEmail && (
+                  <p className="text-muted-foreground">{status.accountEmail}</p>
+                )}
+              </div>
+              <Button
+                variant="destructive"
+                onClick={() => disconnect(provider)}
+                disabled={busy === provider}
+              >
+                {busy === provider ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Unplug className="mr-2 h-4 w-4" />
+                )}
+                Desconectar
+              </Button>
+            </>
+          )}
+        </>
+      ) : (
           <>
             {status?.error === 'not_configured' && (
               <p className="text-xs text-amber-600">

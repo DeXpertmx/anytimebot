@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 
 import {
   zoomCredentials,
+  zoomAccountCredentials,
+  getZoomS2sHost,
   buildZoomAuthorizeUrl,
   buildZoomMeetingPayload,
 } from './zoom';
@@ -51,6 +53,47 @@ describe('zoomCredentials / teamsCredentials', () => {
       clientSecret: 'ms-secret',
       tenantId: 'ms-tenant',
     });
+  });
+});
+
+describe('zoomAccountCredentials (Server-to-Server mode)', () => {
+  test('returns null when the account id is missing', () => {
+    process.env.ZOOM_CLIENT_ID = 'zoom-id';
+    process.env.ZOOM_CLIENT_SECRET = 'zoom-secret';
+    delete process.env.ZOOM_ACCOUNT_ID;
+    assert.equal(zoomAccountCredentials(), null);
+  });
+
+  test('returns null when only some variables are present', () => {
+    process.env.ZOOM_ACCOUNT_ID = 'acc-1';
+    delete process.env.ZOOM_CLIENT_ID;
+    process.env.ZOOM_CLIENT_SECRET = 'zoom-secret';
+    assert.equal(zoomAccountCredentials(), null);
+  });
+
+  test('reads account id + client id + secret from env', () => {
+    process.env.ZOOM_ACCOUNT_ID = 'acc-1';
+    process.env.ZOOM_CLIENT_ID = 'zoom-id';
+    process.env.ZOOM_CLIENT_SECRET = 'zoom-secret';
+    assert.deepEqual(zoomAccountCredentials(), {
+      accountId: 'acc-1',
+      clientId: 'zoom-id',
+      clientSecret: 'zoom-secret',
+    });
+  });
+});
+
+describe('getZoomS2sHost', () => {
+  test('uses ZOOM_HOST_EMAIL without any network call', async () => {
+    process.env.ZOOM_HOST_EMAIL = 'host@example.com';
+    const host = await getZoomS2sHost();
+    assert.deepEqual(host, { userId: 'host@example.com', email: 'host@example.com' });
+  });
+
+  test('rejects when no host email is configured and no account credentials exist', async () => {
+    delete process.env.ZOOM_HOST_EMAIL;
+    delete process.env.ZOOM_ACCOUNT_ID;
+    await assert.rejects(() => getZoomS2sHost(), /not configured/);
   });
 });
 

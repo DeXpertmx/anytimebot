@@ -13,6 +13,9 @@ import {
   refreshZoomToken,
   getZoomUser,
   zoomCredentials,
+  zoomAccountCredentials,
+  getZoomAccountAccessToken,
+  getZoomS2sHost,
   type ZoomMeetingResult,
 } from '@/lib/zoom';
 import {
@@ -92,25 +95,46 @@ export async function createProviderMeeting(
   const { userId, provider, topic, startTime, duration, timezone, agenda, attendeeEmails } = input;
 
   if (provider === 'zoom') {
-    if (!zoomCredentials()) {
-      return { error: 'Zoom app not configured' };
-    }
+    // Preferred: the tenant's own connected Zoom account (per-user OAuth).
     const fresh = await getFreshAccessToken(userId, 'zoom');
-    if (!fresh?.accessToken || !fresh.accountId) {
-      return { error: 'Zoom not connected' };
+    if (fresh?.accessToken && fresh.accountId) {
+      const result: ZoomMeetingResult = await createZoomMeetingWithToken(
+        fresh.accessToken,
+        fresh.accountId,
+        { topic, startTime, duration, timezone, agenda }
+      );
+      if (!result.success) return { error: result.error || 'Zoom meeting creation failed' };
+      return {
+        roomUrl: result.joinUrl,
+        hostRoomUrl: result.hostStartUrl || result.joinUrl,
+        roomName: result.meetingId,
+        password: result.password,
+      };
     }
-    const result: ZoomMeetingResult = await createZoomMeetingWithToken(
-      fresh.accessToken,
-      fresh.accountId,
-      { topic, startTime, duration, timezone, agenda }
-    );
-    if (!result.success) return { error: result.error || 'Zoom meeting creation failed' };
-    return {
-      roomUrl: result.joinUrl,
-      hostRoomUrl: result.hostStartUrl || result.joinUrl,
-      roomName: result.meetingId,
-      password: result.password,
-    };
+
+    // Fallback: the platform's Server-to-Server Zoom account, so bookings
+    // still get a real meeting when the tenant hasn't connected their own.
+    if (!zoomAccountCredentials()) {
+      return { error: zoomCredentials() ? 'Zoom not connected' : 'Zoom app not configured' };
+    }
+    try {
+      const token = await getZoomAccountAccessToken();
+      const host = await getZoomS2sHost();
+      const result: ZoomMeetingResult = await createZoomMeetingWithToken(
+        token,
+        host.userId,
+        { topic, startTime, duration, timezone, agenda }
+      );
+      if (!result.success) return { error: result.error || 'Zoom meeting creation failed' };
+      return {
+        roomUrl: result.joinUrl,
+        hostRoomUrl: result.hostStartUrl || result.joinUrl,
+        roomName: result.meetingId,
+        password: result.password,
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Zoom account meeting failed' };
+    }
   }
 
   // Teams
@@ -142,6 +166,8 @@ export interface VideoConnectionStatus {
   accountEmail?: string;
   accountDisplayName?: string;
   error?: string;
+  /** True when the platform's Server-to-Server Zoom account is available. */
+  platformManaged?: boolean;
 }
 
 /**
@@ -196,6 +222,18 @@ export async function getVideoConnectionsStatus(
       connected: true,
       accountEmail: row.accountEmail || undefined,
       accountDisplayName: row.accountDisplayName || undefined,
+    };
+  }
+
+  // When the platform has a Server-to-Server Zoom account configured, Zoom is
+  // available to every tenant without a personal connection (meetings are
+  // created on the platform account).
+  if (!rows.some((r) => r.provider === 'zoom') && zoomAccountCredentials()) {
+    status.zoom = {
+      connected: true,
+      platformManaged: true,
+      accountDisplayName: process.env.ZOOM_HOST_EMAIL || 'Cuenta de Zoom de Anytimebot',
+      accountEmail: process.env.ZOOM_HOST_EMAIL || undefined,
     };
   }
 
