@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { isValidUsername } from '@/lib/utils';
+import { LogoUploader } from '@/components/dashboard/booking-pages/logo-uploader';
 import { Save, Loader2, Globe, Calendar, Clock, Copy, Plus, Trash2, Wand2 } from 'lucide-react';
 import {
   Select,
@@ -435,16 +436,11 @@ export function EditBookingPageForm({ bookingPage }: EditBookingPageFormProps) {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="logo-url">URL del logotipo (opcional)</Label>
-                <Input
-                  id="logo-url"
-                  placeholder="https://tu-dominio.com/logo.png"
+                <Label htmlFor="logo-url">Logotipo (opcional)</Label>
+                <LogoUploader
                   value={formData.logoUrl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, logoUrl: e.target.value }))}
+                  onChange={(logoUrl) => setFormData(prev => ({ ...prev, logoUrl }))}
                 />
-                <p className="text-xs text-gray-500">
-                  Si lo dejas vacío se usa el logotipo de Anytimebot.
-                </p>
               </div>
             </div>
 

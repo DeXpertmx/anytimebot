@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail } from 'lucide-react';
+import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail, HardDrive } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -104,6 +104,25 @@ export default function SettingsPage() {
   const [clearingEmail, setClearingEmail] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [testEmailTo, setTestEmailTo] = useState('');
+  const [storageStatus, setStorageStatus] = useState<{
+    configured: boolean;
+    stored: boolean;
+    source: string;
+    endpoint: string;
+    bucket: string;
+    region: string;
+  } | null>(null);
+  const [storageForm, setStorageForm] = useState({
+    endpoint: '',
+    accessKey: '',
+    secretKey: '',
+    bucket: '',
+    region: '',
+    forcePathStyle: true,
+  });
+  const [savingStorage, setSavingStorage] = useState(false);
+  const [clearingStorage, setClearingStorage] = useState(false);
+  const [testingStorage, setTestingStorage] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location?.origin) {
@@ -120,6 +139,11 @@ export default function SettingsPage() {
     fetch('/api/admin/email-credentials')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setEmailStatus(data))
+      .catch(() => undefined);
+
+    fetch('/api/admin/storage-credentials')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setStorageStatus(data))
       .catch(() => undefined);
   }, []);
 
@@ -303,6 +327,92 @@ export default function SettingsPage() {
       toast.error('Failed to clear email credentials');
     } finally {
       setClearingEmail(false);
+    }
+  };
+
+  const refreshStorageStatus = async () => {
+    const data = await fetch('/api/admin/storage-credentials')
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (data) setStorageStatus(data);
+  };
+
+  const handleSaveStorage = async () => {
+    if (!storageForm.endpoint.trim()) {
+      toast.error('Enter the storage endpoint URL');
+      return;
+    }
+    setSavingStorage(true);
+    try {
+      const response = await fetch('/api/admin/storage-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...storageForm,
+          endpoint: storageForm.endpoint.trim(),
+          accessKey: storageForm.accessKey.trim(),
+          secretKey: storageForm.secretKey.trim(),
+          bucket: storageForm.bucket.trim(),
+          region: storageForm.region.trim(),
+          forcePathStyle: storageForm.forcePathStyle,
+        }),
+      });
+      if (response.ok) {
+        toast.success('Storage credentials saved — logo uploads are now enabled');
+        setStorageForm({ endpoint: '', accessKey: '', secretKey: '', bucket: '', region: '', forcePathStyle: true });
+        await refreshStorageStatus();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to save storage credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to save storage credentials');
+    } finally {
+      setSavingStorage(false);
+    }
+  };
+
+  const handleTestStorage = async () => {
+    setTestingStorage(true);
+    try {
+      const response = await fetch('/api/admin/storage-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: true }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(`Storage connection OK (bucket: ${data.bucket})`);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Storage connection failed');
+      }
+    } catch (error) {
+      toast.error('Storage connection failed');
+    } finally {
+      setTestingStorage(false);
+    }
+  };
+
+  const handleClearStorage = async () => {
+    setClearingStorage(true);
+    try {
+      const response = await fetch('/api/admin/storage-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clear: true }),
+      });
+      if (response.ok) {
+        toast.success('Saved storage credentials cleared (env vars still apply)');
+        await refreshStorageStatus();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to clear storage credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to clear storage credentials');
+    } finally {
+      setClearingStorage(false);
     }
   };
 
@@ -668,6 +778,123 @@ export default function SettingsPage() {
             key at resend.com and verify the domain anytimebot.app (add the DNS records
             Resend provides). Emails are sent from
             <code className="mx-1">noreply@anytimebot.app</code> by default.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <HardDrive className="h-5 w-5" />
+            File storage (MinIO / S3)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Used to host uploaded images (booking-page logos). Point it at any
+            S3-compatible service (self-hosted MinIO, AWS S3, …). Saved images are
+            served through Anytimebot so the storage can stay private. Configure it
+            here without touching environment variables or redeploying.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/40 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Status</p>
+              {storageStatus ? (
+                <p className="text-sm">
+                  {storageStatus.configured ? (
+                    <span className="text-emerald-600">
+                      Configured{' '}
+                      ({storageStatus.source === 'database' ? 'stored in database' : 'environment variables'})
+                      {storageStatus.bucket ? ` — bucket: ${storageStatus.bucket}` : ''}
+                    </span>
+                  ) : (
+                    <span className="text-amber-600">Not configured — logo uploads are disabled</span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Checking...</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label className="text-xs">Endpoint URL</Label>
+              <Input
+                placeholder="https://minio.example.com"
+                value={storageForm.endpoint}
+                onChange={(e) => setStorageForm({ ...storageForm, endpoint: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Access key</Label>
+              <Input
+                placeholder="Access key"
+                value={storageForm.accessKey}
+                onChange={(e) => setStorageForm({ ...storageForm, accessKey: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Secret key</Label>
+              <Input
+                type="password"
+                placeholder="Leave blank to keep the saved secret"
+                value={storageForm.secretKey}
+                onChange={(e) => setStorageForm({ ...storageForm, secretKey: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Bucket</Label>
+              <Input
+                placeholder="anytimebot-uploads"
+                value={storageForm.bucket}
+                onChange={(e) => setStorageForm({ ...storageForm, bucket: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Region (optional)</Label>
+              <Input
+                placeholder="us-east-1"
+                value={storageForm.region}
+                onChange={(e) => setStorageForm({ ...storageForm, region: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={storageForm.forcePathStyle}
+              onChange={(e) => setStorageForm({ ...storageForm, forcePathStyle: e.target.checked })}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Path-style requests (required for MinIO and self-hosted S3)
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={savingStorage} onClick={handleSaveStorage}>
+              <KeyRound className="h-4 w-4 mr-1" />
+              {savingStorage ? 'Saving...' : 'Save storage credentials'}
+            </Button>
+            {storageStatus?.configured && (
+              <Button size="sm" variant="secondary" disabled={testingStorage} onClick={handleTestStorage}>
+                <FlaskConical className="h-4 w-4 mr-1" />
+                {testingStorage ? 'Testing...' : 'Test connection'}
+              </Button>
+            )}
+            {storageStatus?.stored && (
+              <Button size="sm" variant="outline" disabled={clearingStorage} onClick={handleClearStorage}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Env fallbacks: MINIO_ENDPOINT / S3_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY,
+            MINIO_BUCKET, MINIO_REGION and MINIO_FORCE_PATH_STYLE. Stored values take
+            precedence. The secret is never returned by the API.
           </p>
         </CardContent>
       </Card>

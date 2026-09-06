@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { generateSlug, isValidUsername } from '@/lib/utils';
+import { LogoUploader } from '@/components/dashboard/booking-pages/logo-uploader';
 import { Loader2 } from 'lucide-react';
 
 interface CreateBookingPageDialogProps {
@@ -251,16 +252,11 @@ export function CreateBookingPageDialog({ children }: CreateBookingPageDialogPro
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="logo-url">URL del logotipo (opcional)</Label>
-              <Input
-                id="logo-url"
-                placeholder="https://tu-dominio.com/logo.png"
+              <Label htmlFor="logo-url">Logotipo (opcional)</Label>
+              <LogoUploader
                 value={formData.logoUrl}
-                onChange={(e) => setFormData(prev => ({ ...prev, logoUrl: e.target.value }))}
+                onChange={(logoUrl) => setFormData(prev => ({ ...prev, logoUrl }))}
               />
-              <p className="text-xs text-gray-500">
-                Si lo dejas vacío se usa el logotipo de Anytimebot.
-              </p>
             </div>
           </div>
           
