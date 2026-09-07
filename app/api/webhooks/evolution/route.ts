@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { sendWhatsAppMessage } from '@/lib/evolution-api';
 import { publishBotMessage } from '@/lib/convex-server';
 import { generateBotResponse } from '@/lib/bot-response';
+import { dispatchVolkernMessageEvent } from '@/lib/volkern';
 
 // Simple GET endpoint to verify webhook is accessible
 export async function GET() {
@@ -257,6 +258,15 @@ export async function POST(req: Request) {
     } else {
       console.error('❌ Missing WhatsApp connection credentials');
     }
+
+    // Sync the conversation turn to Volkern CRM (best-effort): the inbound
+    // message plus the generated bot response, so Volkern keeps the thread.
+    await dispatchVolkernMessageEvent(user.id, {
+      botOwner: user.username || user.email || user.id,
+      userMessage: messageText,
+      botResponse,
+      timestamp: key?.timestamp ? Number(key.timestamp) * 1000 : Date.now(),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

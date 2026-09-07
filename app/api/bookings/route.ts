@@ -19,6 +19,7 @@ import { upsertCustomerFromBooking } from '@/lib/crm';
 import { findCustomersByGuestEmails, attachCustomersToBookings } from '@/lib/customer-match';
 import { notifyBookingCreated } from '@/lib/push-notifications';
 import { dispatchWebhookEvent, buildBookingPayload, buildMeetingPayload } from '@/lib/webhooks';
+import { dispatchVolkernBookingEvent } from '@/lib/volkern';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
 
 export const dynamic = 'force-dynamic';
@@ -830,6 +831,20 @@ export async function POST(request: NextRequest) {
       'booking.created',
       bookingPayload,
     );
+
+    // Sync to Volkern CRM (best-effort): create/update lead + appointment.
+    await dispatchVolkernBookingEvent(booking.eventType.bookingPage.userId, 'BOOKING_CREATED', {
+      id: booking.id,
+      guestName: booking.guestName,
+      guestEmail: booking.guestEmail,
+      guestPhone: booking.guestPhone,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      timezone: booking.timezone,
+      eventTypeName: eventType.name,
+      formData: booking.formData || undefined,
+      meetingUrl: booking.meetingUrl,
+    });
 
     const seriesInfo = series && rule
       ? {

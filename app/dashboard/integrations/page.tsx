@@ -12,10 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import {
   Loader2, CheckCircle2, XCircle, MessageCircle, QrCode, RefreshCw, Trash2, Zap,
   Smartphone, Bot, ShieldCheck, Sparkles, ClipboardList, Phone, CreditCard, Video,
+  Database,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { StripeConnectCard } from '@/components/dashboard/settings/stripe-connect-card';
 import { VideoConnections } from '@/components/dashboard/integrations/video-connections';
+import { VolkernCard } from '@/components/dashboard/integrations/volkern-card';
 
 type ConnStatus = 'not_created' | 'connecting' | 'connected' | 'error' | 'loading';
 
@@ -33,7 +35,7 @@ export default function IntegrationsPage() {
   const [showingQr, setShowingQr] = useState(false);
 
   // Twilio state (kept as-is)
-  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio' | 'payments' | 'video'>('whatsapp');
+  const [activeProvider, setActiveProvider] = useState<'whatsapp' | 'twilio' | 'payments' | 'video' | 'volkern'>('whatsapp');
   const [twilioConfig, setTwilioConfig] = useState({ accountSid: '', authToken: '', phoneNumber: '' });
   const [twilioStatus, setTwilioStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown');
   const [twilioKey, setTwilioKey] = useState(0);
@@ -289,7 +291,7 @@ export default function IntegrationsPage() {
       </Alert>
 
       <Tabs value={activeProvider} onValueChange={(v) => setActiveProvider(v as any)} className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-2 sm:grid-cols-4">
+        <TabsList className="grid w-full max-w-3xl grid-cols-2 sm:grid-cols-5">
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
             WhatsApp
@@ -307,6 +309,10 @@ export default function IntegrationsPage() {
           <TabsTrigger value="video" className="flex items-center gap-2">
             <Video className="h-4 w-4" />
             Videollamadas
+          </TabsTrigger>
+          <TabsTrigger value="volkern" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Volkern CRM
           </TabsTrigger>
         </TabsList>
 
@@ -520,6 +526,10 @@ export default function IntegrationsPage() {
         {/* Videollamadas tab (Zoom / Microsoft Teams) */}
         <TabsContent value="video">
           <VideoConnections />
+        </TabsContent>
+        {/* Volkern CRM tab */}
+        <TabsContent value="volkern">
+          <VolkernCard />
         </TabsContent>
       </Tabs>
     </div>

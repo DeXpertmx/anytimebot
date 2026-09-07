@@ -134,6 +134,7 @@ model User {
   auditLogs           AdminAuditLog[]
   timeOffs            TimeOff[]
   integrationConnections IntegrationConnection[]
+  volkernIntegration  VolkernIntegration?
   videoMeetingLogs    VideoMeetingLog[]
   customers           Customer[]
   supportTickets      SupportTicket[]
@@ -1125,6 +1126,34 @@ model VideoMeetingLog {
   @@index([provider])
   @@index([createdAt])
   @@map("video_meeting_logs")
+}
+
+model VolkernIntegration {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+
+  // Volkern CRM connection details
+  baseUrl          String  @default("https://volkern.app") @map("base_url")
+  username         String // Anytimebot username so Volkern can resolve the tenant
+  webhookSecret    String? @map("webhook_secret") // HMAC secret shared with Volkern
+  activo           Boolean @default(true)
+
+  // Sync toggles
+  sincronizarCitas    Boolean @default(true) @map("sincronizar_citas")
+  sincronizarMensajes Boolean @default(true) @map("sincronizar_mensajes")
+
+  // Stats
+  totalCitasSincronizadas   Int      @default(0) @map("total_citas_sincronizadas")
+  totalMensajesSincronizados Int     @default(0) @map("total_mensajes_sincronizados")
+  ultimaSincronizacion      DateTime? @map("ultima_sincronizacion")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("volkern_integrations")
 }
 
 model IntegrationConnection {

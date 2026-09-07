@@ -5,6 +5,7 @@ import { sendBookingCancellation } from '@/lib/email';
 import { verifyBookingToken } from '@/lib/booking-tokens';
 import { notifyAdminBookingCancelled } from '@/lib/system-whatsapp';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
+import { dispatchVolkernBookingEvent } from '@/lib/volkern';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +97,24 @@ export async function POST(
       booking.eventType.bookingPage.userId,
       'booking.cancelled',
       buildBookingPayload('booking.cancelled', { ...booking, status: updatedBooking.status }),
+    );
+
+    // Sync to Volkern CRM (best-effort): mark the appointment cancelled.
+    await dispatchVolkernBookingEvent(
+      booking.eventType.bookingPage.userId,
+      'BOOKING_CANCELLED',
+      {
+        id: booking.id,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        guestPhone: booking.guestPhone,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        timezone: booking.timezone,
+        eventTypeName: booking.eventType.name,
+        meetingUrl: booking.meetingUrl,
+      },
+      { cancelledAt: new Date() },
     );
 
     return NextResponse.json({

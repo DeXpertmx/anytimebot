@@ -5,6 +5,7 @@ import { addMinutes } from '@/lib/utils';
 import { sendBookingReschedule } from '@/lib/email';
 import { verifyBookingToken, generateBookingToken } from '@/lib/booking-tokens';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
+import { dispatchVolkernBookingEvent } from '@/lib/volkern';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
 
 export const dynamic = 'force-dynamic';
@@ -196,6 +197,28 @@ export async function POST(
       updatedBooking.eventType.bookingPage.userId,
       'booking.rescheduled',
       buildBookingPayload('booking.rescheduled', updatedBooking),
+    );
+
+    // Sync to Volkern CRM (best-effort): move the appointment to the new slot.
+    await dispatchVolkernBookingEvent(
+      updatedBooking.eventType.bookingPage.userId,
+      'BOOKING_RESCHEDULED',
+      {
+        id: updatedBooking.id,
+        guestName: updatedBooking.guestName,
+        guestEmail: updatedBooking.guestEmail,
+        guestPhone: updatedBooking.guestPhone,
+        startTime: updatedBooking.startTime,
+        endTime: updatedBooking.endTime,
+        timezone: updatedBooking.timezone,
+        eventTypeName: updatedBooking.eventType.name,
+        meetingUrl: updatedBooking.meetingUrl,
+      },
+      {
+        oldStartTime,
+        newStartTime: updatedBooking.startTime,
+        newEndTime: updatedBooking.endTime,
+      },
     );
 
     return NextResponse.json({
