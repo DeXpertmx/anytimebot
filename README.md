@@ -14,7 +14,8 @@ Next-generation scheduling SaaS built with Next.js, PostgreSQL, and modern integ
 - 📊 Analytics and insights
 - 💰 Stripe payment integration
 - 📱 Twilio WhatsApp integration
-- 🎥 Video meetings with Daily.co
+- 🎥 Video meetings with Daily.co, Zoom and Microsoft Teams
+  ([Zoom/Entra setup guide](./docs/VIDEO_CONNECTIONS_SETUP.md))
 - 📧 Email notifications with Resend
 - 🌍 Multi-language support (English & Spanish)
 
@@ -136,7 +137,8 @@ SaaS de programación de citas de nueva generación construido con Next.js, Post
 - 📊 Analíticas e informes
 - 💰 Integración de pagos con Stripe
 - 📱 Integración de WhatsApp con Twilio
-- 🎥 Videollamadas con Daily.co
+- 🎥 Videollamadas con Daily.co, Zoom y Microsoft Teams
+  ([guía de configuración de Zoom/Entra](./docs/VIDEO_CONNECTIONS_SETUP.md))
 - 📧 Notificaciones por email con Resend
 - 🌍 Soporte multi-idioma (inglés y español)
 
@@ -167,6 +169,12 @@ cp .env.example .env
 ```
 
 4. Actualiza `.env` con tus credenciales
+
+> 🔒 **Seguridad de base de datos:** lee [`docs/DATABASE_RECOVERY.md`](docs/DATABASE_RECOVERY.md)
+> antes de tocar la base. Está **prohibido** usar la URL de producción como
+> shadow database (`prisma migrate diff --shadow-database-url`), reset o db
+> push — usa siempre [`scripts/db-diff-safe.sh`](scripts/db-diff-safe.sh) o una
+> base desechable real.
 
 5. Ejecuta las migraciones de la base de datos:
 ```bash

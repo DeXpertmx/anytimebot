@@ -13,6 +13,10 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      // Google verifies the email address. This lets an existing account
+      // (including the pre-created admin account) link its Google identity
+      // instead of failing with AccountNotLinkedError on first login.
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: 'openid email profile https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
