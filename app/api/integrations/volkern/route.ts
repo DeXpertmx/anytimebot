@@ -29,6 +29,7 @@ export async function GET() {
         ? {
             baseUrl: integration.baseUrl,
             username: integration.username,
+            hasApiKey: !!integration.apiKey,
             hasWebhookSecret: !!integration.webhookSecret,
             activo: integration.activo,
             sincronizarCitas: integration.sincronizarCitas,
@@ -47,7 +48,7 @@ export async function GET() {
   }
 }
 
-// POST /api/integrations/volkern — create/update the integration config
+// POST /api/integrations/volkern — create/update the integration config (REST API key)
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -64,12 +65,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.trim().replace(/\/$/, '') : 'https://volkern.app';
+    const baseUrl = typeof body.baseUrl === 'string' && body.baseUrl.trim()
+      ? body.baseUrl.trim().replace(/\/$/, '')
+      : 'https://volkern.app';
     const username = typeof body.username === 'string' && body.username.trim()
       ? body.username.trim()
       : (user.username || user.id);
-    const webhookSecret = typeof body.webhookSecret === 'string' && body.webhookSecret.trim()
-      ? body.webhookSecret.trim()
+
+    // The Volkern tenant API key (x-api-key). Empty clears it.
+    const apiKey = typeof body.apiKey === 'string' && body.apiKey.trim()
+      ? body.apiKey.trim()
       : null;
 
     // Validate baseUrl is http(s)
@@ -80,11 +85,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Keep legacy webhook secret field if the client sends one (back-compat)
+    const webhookSecret = typeof body.webhookSecret === 'string' && body.webhookSecret.trim()
+      ? body.webhookSecret.trim()
+      : null;
+
     const integration = await prisma.volkernIntegration.upsert({
       where: { userId: user.id },
       update: {
         baseUrl,
         username,
+        apiKey,
         webhookSecret,
         activo: body.activo !== false,
         sincronizarCitas: body.sincronizarCitas !== false,
@@ -94,6 +105,7 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         baseUrl,
         username,
+        apiKey,
         webhookSecret,
         activo: body.activo !== false,
         sincronizarCitas: body.sincronizarCitas !== false,
@@ -106,6 +118,7 @@ export async function POST(req: NextRequest) {
       integration: {
         baseUrl: integration.baseUrl,
         username: integration.username,
+        hasApiKey: !!integration.apiKey,
         hasWebhookSecret: !!integration.webhookSecret,
         activo: integration.activo,
         sincronizarCitas: integration.sincronizarCitas,

@@ -1,19 +1,17 @@
-import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { signVolkernPayload } from '@/lib/volkern';
 
 export const dynamic = 'force-dynamic';
 
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 12_000;
 
 /**
  * POST /api/integrations/volkern/test
- * Sends a signed ping event to the configured Volkern webhook receiver so the
- * user can validate the endpoint (URL + HMAC secret) without creating a real
- * booking or bot message. Not persisted anywhere on the Anytimebot side.
+ * Validates the configured Volkern REST API key by calling the public API
+ * (GET /api/leads?limit=1 with x-api-key). Reports the HTTP status so the user
+ * can confirm the key and the tenant are correct. Does not create any record.
  */
 export async function POST(_request: NextRequest) {
   try {
@@ -39,48 +37,46 @@ export async function POST(_request: NextRequest) {
         { status: 400 },
       );
     }
-
-    const baseUrl = integration.baseUrl.replace(/\/$/, '');
-    const payload = {
-      event: 'ping',
-      created_at: new Date().toISOString(),
-      data: {
-        message:
-          'Test event from Anytimebot. If you received this with a valid signature, your Volkern webhook is configured correctly.',
-      },
-    };
-    const rawBody = JSON.stringify(payload);
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'Anytimebot-Webhooks/1.0',
-      'x-webhook-id': `test_${crypto.randomUUID()}`,
-      'x-webhook-event': 'ping',
-    };
-    if (integration.webhookSecret) {
-      headers['x-webhook-signature'] = signVolkernPayload(integration.webhookSecret, rawBody);
+    if (!integration.apiKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'No hay API key configurada. Crea una API key en tu cuenta de Volkern (Configuración → API) y guárdala aquí.',
+        },
+        { status: 400 },
+      );
     }
 
+    const baseUrl = integration.baseUrl.replace(/\/$/, '');
     const startedAt = Date.now();
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      const response = await fetch(`${baseUrl}/api/webhooks/anytimebot`, {
-        method: 'POST',
-        headers,
-        body: rawBody,
+      const response = await fetch(`${baseUrl}/api/leads?limit=1`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': integration.apiKey,
+          'User-Agent': 'Anytimebot-Volkern/1.0',
+        },
         signal: controller.signal,
       });
       clearTimeout(timer);
       const durationMs = Date.now() - startedAt;
       const bodyPreview = (await response.text().catch(() => '')).slice(0, 300);
       const ok = response.status >= 200 && response.status < 300;
+
       return NextResponse.json({
         success: ok,
         status: response.status,
         durationMs,
         bodyPreview: bodyPreview || undefined,
-        signed: !!integration.webhookSecret,
+        message: ok
+          ? 'API key válida: Volkern responde correctamente para tu tenant.'
+          : response.status === 401
+            ? 'API key inválida o sin permisos (leads:read). Verifica la key en Volkern → Configuración → API.'
+            : `Volkern respondió con estado ${response.status}.`,
       });
     } catch (netError) {
       const isAbort = netError instanceof Error && netError.name === 'AbortError';
@@ -95,7 +91,7 @@ export async function POST(_request: NextRequest) {
       });
     }
   } catch (error) {
-    console.error('Error sending Volkern test event:', error);
+    console.error('Error testing Volkern integration:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

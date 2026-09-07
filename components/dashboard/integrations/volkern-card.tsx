@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Database, Trash2, RefreshCw, Send } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Database, Trash2, RefreshCw, Send, KeyRound } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface VolkernConfig {
@@ -15,12 +15,10 @@ interface VolkernConfig {
   integration: {
     baseUrl: string;
     username: string;
-    hasWebhookSecret: boolean;
+    hasApiKey: boolean;
     activo: boolean;
     sincronizarCitas: boolean;
-    sincronizarMensajes: boolean;
     totalCitasSincronizadas: number;
-    totalMensajesSincronizados: number;
     ultimaSincronizacion: string | null;
   } | null;
   defaultUsername: string;
@@ -31,10 +29,8 @@ export function VolkernCard() {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<VolkernConfig | null>(null);
   const [baseUrl, setBaseUrl] = useState('https://volkern.app');
-  const [username, setUsername] = useState('');
-  const [webhookSecret, setWebhookSecret] = useState('');
+  const [apiKey, setApiKey] = useState('');
   const [syncCitas, setSyncCitas] = useState(true);
-  const [syncMensajes, setSyncMensajes] = useState(true);
   const [testing, setTesting] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
 
@@ -47,11 +43,7 @@ export function VolkernCard() {
         setConfig(data);
         if (data.integration) {
           setBaseUrl(data.integration.baseUrl);
-          setUsername(data.integration.username);
           setSyncCitas(data.integration.sincronizarCitas);
-          setSyncMensajes(data.integration.sincronizarMensajes);
-        } else {
-          setUsername(data.defaultUsername || '');
         }
       }
     } catch {
@@ -66,6 +58,10 @@ export function VolkernCard() {
   }, [load]);
 
   const save = async () => {
+    if (!apiKey.trim()) {
+      toast.error('Introduce la API key de tu cuenta de Volkern');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/integrations/volkern', {
@@ -73,17 +69,15 @@ export function VolkernCard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           baseUrl,
-          username,
-          webhookSecret: webhookSecret || undefined,
+          apiKey: apiKey.trim(),
           activo: true,
           sincronizarCitas: syncCitas,
-          sincronizarMensajes: syncMensajes,
         }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success('Integración con Volkern CRM guardada');
-        setWebhookSecret('');
+        setApiKey('');
         await load();
       } else {
         toast.error(data.error || 'Error al guardar');
@@ -103,8 +97,7 @@ export function VolkernCard() {
         toast.success('Integración desconectada');
         setConfig(null);
         setBaseUrl('https://volkern.app');
-        setUsername('');
-        setWebhookSecret('');
+        setApiKey('');
       }
     } catch {
       toast.error('Error al desconectar');
@@ -114,11 +107,9 @@ export function VolkernCard() {
   const testConnection = async () => {
     setTesting(true);
     try {
-      // The Volkern webhook receiver answers 200 on a GET, so a reachability
-      // check confirms the URL is live without creating any records.
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10_000);
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/webhooks/anytimebot`, {
+      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/health`, {
         method: 'GET',
         signal: controller.signal,
       });
@@ -146,17 +137,13 @@ export function VolkernCard() {
       const data = await res.json();
       if (res.ok && data.success) {
         toast.success(
-          `Evento de prueba recibido (HTTP ${data.status} en ${data.durationMs}ms)` +
-            (data.signed ? ' con firma HMAC válida' : ' (sin secret configurado)'),
+          `API key válida (HTTP ${data.status} en ${data.durationMs}ms). Volkern responde para tu tenant.`,
         );
       } else {
-        toast.error(
-          data.error ||
-            (data.status ? `Volkern respondió con estado ${data.status}` : 'Error al enviar el evento de prueba'),
-        );
+        toast.error(data.message || data.error || 'Error al validar la API key');
       }
     } catch {
-      toast.error('Error al enviar el evento de prueba');
+      toast.error('Error al validar la API key');
     } finally {
       setSendingTest(false);
     }
@@ -172,7 +159,7 @@ export function VolkernCard() {
     );
   }
 
-  const connected = !!config?.integration;
+  const connected = !!config?.integration?.hasApiKey;
 
   return (
     <Card>
@@ -194,7 +181,7 @@ export function VolkernCard() {
                 )}
               </CardTitle>
               <CardDescription>
-                Sincroniza reservas y mensajes del bot con tu CRM Volkern
+                Sincroniza tus reservas con tu CRM Volkern (API REST)
               </CardDescription>
             </div>
           </div>
@@ -205,8 +192,7 @@ export function VolkernCard() {
           <Alert className="border-blue-200 bg-blue-50">
             <AlertDescription className="text-sm text-blue-800">
               <div className="flex flex-wrap gap-x-6 gap-y-1">
-                <span><strong>Citas sincronizadas:</strong> {config.integration.totalCitasSincronizadas}</span>
-                <span><strong>Mensajes sincronizados:</strong> {config.integration.totalMensajesSincronizados}</span>
+                <span><strong>Reservas sincronizadas:</strong> {config.integration.totalCitasSincronizadas}</span>
                 {config.integration.ultimaSincronizacion && (
                   <span><strong>Última sincronización:</strong> {new Date(config.integration.ultimaSincronizacion).toLocaleString()}</span>
                 )}
@@ -224,34 +210,26 @@ export function VolkernCard() {
             onChange={(e) => setBaseUrl(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Instancia de Volkern a la que se enviarán las reservas y mensajes.
+            Instancia de Volkern a la que se enviarán las reservas.
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="volkern-username">Username de Anytimebot</Label>
-          <Input
-            id="volkern-username"
-            placeholder="tu-usuario"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+          <Label htmlFor="volkern-apikey">API key de Volkern</Label>
+          <div className="relative">
+            <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="volkern-apikey"
+              type="password"
+              className="pl-9"
+              placeholder={connected ? '•••••••••••• (guardada) — introduce una nueva para rotarla' : 'vk_prod_…'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
-            El username con el que Volkern identifica tu cuenta. Se envía en cada webhook.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="volkern-secret">Webhook Secret (opcional)</Label>
-          <Input
-            id="volkern-secret"
-            type="password"
-            placeholder={config?.integration?.hasWebhookSecret ? '•••••••• (guardado)' : 'Secret compartido con Volkern'}
-            value={webhookSecret}
-            onChange={(e) => setWebhookSecret(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Firma HMAC de los webhooks. Debe coincidir con el configurado en Volkern (Integraciones → Anytimebot).
+            Cada reserva se crea en <strong>tu propio tenant</strong> de Volkern usando esta API key.
+            Genérala en tu cuenta Volkern: <strong>Configuración → API</strong> (permisos de leads y citas).
           </p>
         </div>
 
@@ -265,21 +243,12 @@ export function VolkernCard() {
             />
             Sincronizar reservas (crear/cancelar/reprogramar citas)
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={syncMensajes}
-              onChange={(e) => setSyncMensajes(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            Sincronizar mensajes del bot
-          </label>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={save} disabled={saving || !baseUrl || !username}>
+          <Button onClick={save} disabled={saving || !baseUrl || !apiKey.trim()}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-            Guardar Configuración
+            Guardar API key
           </Button>
           <Button variant="outline" onClick={testConnection} disabled={testing || !baseUrl}>
             {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -288,7 +257,7 @@ export function VolkernCard() {
           {connected && (
             <Button variant="outline" onClick={sendTestEvent} disabled={sendingTest || !baseUrl}>
               {sendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              Enviar Evento de Prueba
+              Validar API key
             </Button>
           )}
           {connected && (
@@ -303,9 +272,22 @@ export function VolkernCard() {
           <Alert className="border-amber-200 bg-amber-50">
             <XCircle className="h-5 w-5 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              Para activar la sincronización: crea la integración en Volkern (Integraciones → Anytimebot) con tu
-              username y el mismo webhook secret, y configura la URL de tu instancia aquí. Las reservas y
-              conversaciones del bot se sincronizarán automáticamente.
+              Para activar la sincronización de reservas:
+              <ol className="mt-1 list-decimal space-y-1 pl-4">
+                <li>Inicia sesión en tu cuenta de Volkern.</li>
+                <li>Ve a <strong>Configuración → API</strong> y crea una API key con permisos de <em>leads</em> y <em>citas</em>.</li>
+                <li>Pega aquí la API key (empieza por <code>vk_…</code>) y guarda.</li>
+              </ol>
+              Las reservas nuevas, cancelaciones y reprogramaciones se sincronizarán con tu tenant de Volkern.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {connected && (
+          <Alert className="border-slate-200 bg-slate-50">
+            <AlertDescription className="text-xs text-slate-600">
+              La sincronización de mensajes del bot está pausada: la API pública de Volkern aún no expone un
+              endpoint para crear mensajes. Cuando esté disponible se reactivará automáticamente.
             </AlertDescription>
           </Alert>
         )}
