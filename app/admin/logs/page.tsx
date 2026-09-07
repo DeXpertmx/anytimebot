@@ -234,6 +234,21 @@ export default function AdminLogsPage() {
   );
 }
 
+const ALL_PROVIDERS = '__all__';
+const ALL_STATUSES = '__all__';
+
+const PROVIDER_OPTIONS = [
+  { value: ALL_PROVIDERS, label: 'Todos los proveedores' },
+  { value: 'zoom', label: 'Zoom' },
+  { value: 'teams', label: 'Microsoft Teams' },
+];
+
+const STATUS_OPTIONS = [
+  { value: ALL_STATUSES, label: 'Todos los estados' },
+  { value: 'success', label: 'Creadas' },
+  { value: 'failed', label: 'Fallaron' },
+];
+
 function VideoMeetingLogsSection() {
   const [logs, setLogs] = useState<MeetingLogEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -241,6 +256,8 @@ function VideoMeetingLogsSection() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState('');
+  const [status, setStatus] = useState('');
 
   const fetchLogs = useCallback(async (reset: boolean, cursor?: string) => {
     if (reset) setLoading(true);
@@ -248,6 +265,8 @@ function VideoMeetingLogsSection() {
     try {
       setError(null);
       const params = new URLSearchParams({ limit: '50' });
+      if (provider) params.set('provider', provider);
+      if (status) params.set('success', status === 'success' ? 'true' : 'false');
       if (cursor) params.set('cursor', cursor);
       const response = await fetch(`/api/admin/video-meeting-logs?${params.toString()}`);
       const data = await response.json().catch(() => ({}));
@@ -263,7 +282,7 @@ function VideoMeetingLogsSection() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [provider, status]);
 
   useEffect(() => {
     fetchLogs(true);
@@ -276,9 +295,40 @@ function VideoMeetingLogsSection() {
           <Video className="h-5 w-5 text-indigo-600" />
           Reuniones Zoom / Teams
         </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Creación o fallo de reuniones automáticas al reservar ({total} {total === 1 ? 'registro' : 'registros'}).
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Creación o fallo de reuniones automáticas al reservar ({total} {total === 1 ? 'registro' : 'registros'}).
+          </p>
+          <div className="flex items-center gap-2">
+            <Select value={provider || ALL_PROVIDERS} onValueChange={(v) => setProvider(v === ALL_PROVIDERS ? '' : v)}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Todos los proveedores" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVIDER_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={status || ALL_STATUSES} onValueChange={(v) => setStatus(v === ALL_STATUSES ? '' : v)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Todos los estados" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" onClick={() => fetchLogs(true)} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {error && !loading && (

@@ -9,6 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -55,6 +62,7 @@ export function WebhooksManager() {
   const [creating, setCreating] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
+  const [testEvent, setTestEvent] = useState<'ping' | 'meeting.created' | 'meeting.failed'>('ping');
   const [historyOf, setHistoryOf] = useState<WebhookEndpointRecord | null>(null);
   const [history, setHistory] = useState<DeliveryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -186,7 +194,11 @@ export function WebhooksManager() {
   const handleTest = async (endpoint: WebhookEndpointRecord) => {
     setTesting(endpoint.id);
     try {
-      const res = await fetch(`/api/webhooks/manage/${endpoint.id}/test`, { method: 'POST' });
+      const res = await fetch(`/api/webhooks/manage/${endpoint.id}/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: testEvent }),
+      });
       const data = await res.json();
       if (data.success) {
         toast({
@@ -281,6 +293,16 @@ export function WebhooksManager() {
                     <History className="h-4 w-4 mr-1" />
                     {t('webhooks.history')}
                   </Button>
+                  <Select value={testEvent} onValueChange={(v) => setTestEvent(v as 'ping' | 'meeting.created' | 'meeting.failed')}>
+                    <SelectTrigger className="w-44 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ping">{t('webhooks.testEventPing')}</SelectItem>
+                      <SelectItem value="meeting.created">{t('webhooks.testEventMeetingCreated')}</SelectItem>
+                      <SelectItem value="meeting.failed">{t('webhooks.testEventMeetingFailed')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     size="sm"

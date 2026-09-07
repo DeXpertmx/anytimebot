@@ -3,17 +3,20 @@ import { getServerSession } from 'next-auth';
 import crypto from 'crypto';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { signPayload } from '@/lib/webhooks';
+import { signPayload, buildMeetingPayload } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
 const TIMEOUT_MS = 10_000;
 
+type TestEvent = 'ping' | 'meeting.created' | 'meeting.failed';
+
 /**
  * POST /api/webhooks/manage/[id]/test
- * Sends a `ping` event to the endpoint so the user can verify their receiver
- * before real booking events start flowing. Signed exactly like real events;
- * not persisted in the delivery log (it is a ping, not a booking event).
+ * Sends a test event to the endpoint so the user can verify their receiver
+ * without creating a real booking. Body: { event?: 'ping' | 'meeting.created'
+ * | 'meeting.failed' } (default 'ping'). Signed exactly like real events and
+ * NOT persisted in the delivery log (it is a test, not a real event).
  */
 export async function POST(
   request: NextRequest,
@@ -34,16 +37,42 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Webhook not found' }, { status: 404 });
     }
 
-    const payload = {
-      event: 'ping',
-      created_at: new Date().toISOString(),
-      data: {
-        message:
-          'Test event from Anytimebot. If you received this with a valid signature, your webhook is configured correctly.',
-      },
-    };
+    const body = await request.json().catch(() => ({}));
+    const event: TestEvent =
+      body.event === 'meeting.created' || body.event === 'meeting.failed' ? body.event : 'ping';
+
+    // Build a realistic payload for the chosen event so the receiver can
+    // validate parsing and signature handling against the real shape.
+    const sampleBookingId = `test_${crypto.randomBytes(6).toString('hex')}`;
+    let payload: Record<string, unknown>;
+    if (event === 'meeting.created') {
+      payload = buildMeetingPayload('meeting.created', {
+        bookingId: sampleBookingId,
+        provider: 'zoom',
+        success: true,
+        roomUrl: 'https://zoom.us/j/1234567890',
+        meetingId: '1234567890',
+      });
+    } else if (event === 'meeting.failed') {
+      payload = buildMeetingPayload('meeting.failed', {
+        bookingId: sampleBookingId,
+        provider: 'zoom',
+        success: false,
+        error: 'Zoom app not configured (test event)',
+      });
+    } else {
+      payload = {
+        event: 'ping',
+        created_at: new Date().toISOString(),
+        data: {
+          message:
+            'Test event from Anytimebot. If you received this with a valid signature, your webhook is configured correctly.',
+        },
+      };
+    }
     const rawBody = JSON.stringify(payload);
-    const deliveryId = `ping_${crypto.randomBytes(12).toString('hex')}`;
+
+    const deliveryId = `test_${crypto.randomBytes(12).toString('hex')}`;
 
     const startedAt = Date.now();
     try {
@@ -54,7 +83,7 @@ export async function POST(
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'Anytimebot-Webhooks/1.0',
-          'X-Anytimebot-Event': 'ping',
+          'X-Anytimebot-Event': event,
           'X-Anytimebot-Signature': signPayload(endpoint.secret, rawBody),
           'X-Anytimebot-Delivery-Id': deliveryId,
         },
