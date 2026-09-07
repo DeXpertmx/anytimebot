@@ -9,11 +9,15 @@ const TIMEOUT_MS = 12_000;
 
 /**
  * POST /api/integrations/volkern/test
- * Validates the configured Volkern REST API key by calling the public API
- * (GET /api/leads?limit=1 with x-api-key). Reports the HTTP status so the user
- * can confirm the key and the tenant are correct. Does not create any record.
+ *
+ * mode: 'ping' -> reachability check against the configured instance
+ *                 (GET {baseUrl}/api/health, no credentials).
+ * mode: 'key'  (default) -> validates the stored Volkern REST API key by
+ *                 calling the public API (GET /api/leads?limit=1 with x-api-key).
+ *
+ * Both run server-side (no browser CORS) and never create any record.
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -51,15 +55,26 @@ export async function POST(_request: NextRequest) {
     const baseUrl = integration.baseUrl.replace(/\/$/, '');
     const startedAt = Date.now();
     try {
+      let mode = 'key';
+      try {
+        const body = await request.json();
+        if (body && (body.mode === 'ping' || body.mode === 'key')) mode = body.mode;
+      } catch {
+        // body vacío -> modo por defecto (key)
+      }
+
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      const response = await fetch(`${baseUrl}/api/leads?limit=1`, {
+      const url = mode === 'ping' ? `${baseUrl}/api/health` : `${baseUrl}/api/leads?limit=1`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Anytimebot-Volkern/1.0',
+      };
+      if (mode !== 'ping') headers['x-api-key'] = integration.apiKey ?? '';
+
+      const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': integration.apiKey,
-          'User-Agent': 'Anytimebot-Volkern/1.0',
-        },
+        headers,
         signal: controller.signal,
       });
       clearTimeout(timer);
@@ -67,16 +82,24 @@ export async function POST(_request: NextRequest) {
       const bodyPreview = (await response.text().catch(() => '')).slice(0, 300);
       const ok = response.status >= 200 && response.status < 300;
 
+      const message =
+        mode === 'ping'
+          ? ok
+            ? 'Conexión correcta: tu instancia de Volkern responde.'
+            : `La instancia de Volkern respondió con estado ${response.status}.`
+          : ok
+            ? 'API key válida: Volkern responde correctamente para tu tenant.'
+            : response.status === 401
+              ? 'API key inválida o sin permisos (leads:read). Verifica la key en Volkern → Configuración → API.'
+              : `Volkern respondió con estado ${response.status}.`;
+
       return NextResponse.json({
         success: ok,
+        mode,
         status: response.status,
         durationMs,
         bodyPreview: bodyPreview || undefined,
-        message: ok
-          ? 'API key válida: Volkern responde correctamente para tu tenant.'
-          : response.status === 401
-            ? 'API key inválida o sin permisos (leads:read). Verifica la key en Volkern → Configuración → API.'
-            : `Volkern respondió con estado ${response.status}.`,
+        message,
       });
     } catch (netError) {
       const isAbort = netError instanceof Error && netError.name === 'AbortError';

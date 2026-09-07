@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, XCircle, Database, Trash2, RefreshCw, Send, KeyRound } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface VolkernConfig {
   configured: boolean;
@@ -24,7 +24,10 @@ interface VolkernConfig {
   defaultUsername: string;
 }
 
+type TestResult = { ok: boolean; text: string };
+
 export function VolkernCard() {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<VolkernConfig | null>(null);
@@ -33,6 +36,16 @@ export function VolkernCard() {
   const [syncCitas, setSyncCitas] = useState(true);
   const [testing, setTesting] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [result, setResult] = useState<TestResult | null>(null);
+
+  const showResult = (ok: boolean, text: string) => {
+    setResult({ ok, text });
+    if (ok) {
+      toast({ title: text });
+    } else {
+      toast({ title: text, variant: 'destructive' });
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,9 +58,11 @@ export function VolkernCard() {
           setBaseUrl(data.integration.baseUrl);
           setSyncCitas(data.integration.sincronizarCitas);
         }
+      } else {
+        showResult(false, 'No se pudo cargar la configuración de Volkern');
       }
     } catch {
-      toast.error('No se pudo cargar la configuración de Volkern');
+      showResult(false, 'No se pudo cargar la configuración de Volkern');
     } finally {
       setLoading(false);
     }
@@ -55,14 +70,16 @@ export function VolkernCard() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const save = async () => {
     if (!apiKey.trim()) {
-      toast.error('Introduce la API key de tu cuenta de Volkern');
+      showResult(false, 'Introduce la API key de tu cuenta de Volkern');
       return;
     }
     setSaving(true);
+    setResult(null);
     try {
       const res = await fetch('/api/integrations/volkern', {
         method: 'POST',
@@ -76,14 +93,14 @@ export function VolkernCard() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        toast.success('Integración con Volkern CRM guardada');
+        showResult(true, 'Integración con Volkern CRM guardada');
         setApiKey('');
         await load();
       } else {
-        toast.error(data.error || 'Error al guardar');
+        showResult(false, data.error || 'Error al guardar la configuración');
       }
     } catch {
-      toast.error('Error al guardar la configuración');
+      showResult(false, 'Error al guardar la configuración');
     } finally {
       setSaving(false);
     }
@@ -94,56 +111,57 @@ export function VolkernCard() {
     try {
       const res = await fetch('/api/integrations/volkern', { method: 'DELETE' });
       if (res.ok) {
-        toast.success('Integración desconectada');
+        showResult(true, 'Integración desconectada');
         setConfig(null);
         setBaseUrl('https://volkern.app');
         setApiKey('');
+        setResult(null);
+      } else {
+        showResult(false, 'Error al desconectar la integración');
       }
     } catch {
-      toast.error('Error al desconectar');
+      showResult(false, 'Error al desconectar la integración');
     }
   };
 
   const testConnection = async () => {
     setTesting(true);
+    setResult(null);
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10_000);
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/health`, {
-        method: 'GET',
-        signal: controller.signal,
+      const res = await fetch('/api/integrations/volkern/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'ping' }),
       });
-      clearTimeout(timer);
-      if (res.ok) {
-        toast.success('Volkern CRM responde correctamente');
-      } else {
-        toast.error(`Volkern respondió con estado ${res.status}`);
-      }
+      const data = await res.json();
+      const text =
+        data.message ||
+        (res.ok
+          ? 'Conexión correcta: tu instancia de Volkern responde.'
+          : data.error || `La instancia de Volkern respondió con estado ${data.status}`);
+      showResult(res.ok && data.success !== false, text);
     } catch {
-      toast.error('No se pudo alcanzar la URL de Volkern');
+      showResult(false, 'No se pudo alcanzar la instancia de Volkern');
     } finally {
       setTesting(false);
     }
   };
 
-  const sendTestEvent = async () => {
+  const validateApiKey = async () => {
     setSendingTest(true);
+    setResult(null);
     try {
       const res = await fetch('/api/integrations/volkern/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ mode: 'key' }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(
-          `API key válida (HTTP ${data.status} en ${data.durationMs}ms). Volkern responde para tu tenant.`,
-        );
-      } else {
-        toast.error(data.message || data.error || 'Error al validar la API key');
-      }
+      const ok = res.ok && data.success;
+      const text = data.message || data.error || 'Error al validar la API key';
+      showResult(ok, ok && data.durationMs ? `${text} (HTTP ${data.status} en ${data.durationMs}ms)` : text);
     } catch {
-      toast.error('Error al validar la API key');
+      showResult(false, 'Error al validar la API key');
     } finally {
       setSendingTest(false);
     }
@@ -250,12 +268,12 @@ export function VolkernCard() {
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
             Guardar API key
           </Button>
-          <Button variant="outline" onClick={testConnection} disabled={testing || !baseUrl}>
+          <Button variant="outline" onClick={testConnection} disabled={testing || sendingTest}>
             {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Probar Conexión
           </Button>
           {connected && (
-            <Button variant="outline" onClick={sendTestEvent} disabled={sendingTest || !baseUrl}>
+            <Button variant="outline" onClick={validateApiKey} disabled={sendingTest || testing}>
               {sendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Validar API key
             </Button>
@@ -267,6 +285,19 @@ export function VolkernCard() {
             </Button>
           )}
         </div>
+
+        {result && (
+          <Alert className={result.ok ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+            {result.ok ? (
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+            ) : (
+              <XCircle className="h-5 w-5 text-red-600" />
+            )}
+            <AlertDescription className={`text-sm ${result.ok ? 'text-green-800' : 'text-red-800'}`}>
+              {result.text}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {!connected && (
           <Alert className="border-amber-200 bg-amber-50">
