@@ -432,6 +432,9 @@ model Campaign {
   name      String
   subject   String
   htmlBody  String   @db.Text // HTML template with {{nombre}}/{{codigo}} placeholders
+  // Delivery channel: EMAIL (default, existing campaigns) or WHATSAPP
+  // (plain-text body sent from the system WhatsApp number).
+  channel   CampaignChannel @default(EMAIL) @map("channel")
   audience  Json     @map("audience") // { mode: 'all' | 'tags', tags: string[] }
   couponCode String? @map("coupon_code") // snapshot of the code attached at send time
   status    CampaignStatus @default(DRAFT)
@@ -450,11 +453,13 @@ model Campaign {
   @@map("campaigns")
 }
 
-// Per-recipient log of a campaign send (deduped by email).
+// Per-recipient log of a campaign send (deduped by email or phone).
 model CampaignRecipient {
   id         String                  @id @default(cuid())
   campaignId String                  @map("campaign_id")
   email      String
+  // WhatsApp destination for WHATSAPP campaigns (E.164-ish digits).
+  phone      String?
   customerId String?                 @map("customer_id")
   status     CampaignRecipientStatus @default(PENDING)
   error      String?                 @db.Text
@@ -467,6 +472,11 @@ model CampaignRecipient {
   @@unique([campaignId, email])
   @@index([campaignId, status])
   @@map("campaign_recipients")
+}
+
+enum CampaignChannel {
+  EMAIL
+  WHATSAPP
 }
 
 // Doodle-style availability poll: the host proposes several concrete

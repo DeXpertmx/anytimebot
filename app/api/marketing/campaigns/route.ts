@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     const name = (body.name as string)?.trim();
     const subject = (body.subject as string)?.trim();
     const htmlBody = body.htmlBody as string;
+    const channel = body.channel === 'WHATSAPP' ? 'WHATSAPP' : 'EMAIL';
 
     if (!name || !subject || !htmlBody) {
       return NextResponse.json(
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
         name,
         subject,
         htmlBody,
+        channel,
         audience: audience as any,
         couponCode: body.couponCode ? normalizeCouponCode(body.couponCode) : null,
         status: 'DRAFT',

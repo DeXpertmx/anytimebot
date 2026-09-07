@@ -11,6 +11,7 @@ import {
   couponUsable,
   findRedeemableCoupon,
   segmentCustomers,
+  selectWhatsAppRecipients,
   resolveAudienceCustomers,
   renderCampaignContent,
   couponDisplay,
@@ -99,6 +100,17 @@ test('segmentCustomers: tags mode keeps customers carrying any selected tag', ()
   assert.deepEqual(res.map((c) => c.email), ['a@x.com', 'c@x.com']);
   const empty = segmentCustomers(customers, { mode: 'tags', tags: [] });
   assert.deepEqual(empty, []);
+});
+
+test('selectWhatsAppRecipients keeps only customers with a usable phone', () => {
+  const rows = [
+    { id: '1', email: 'a@x.com', phone: '+34 600 123 456' },
+    { id: '2', email: 'b@x.com', phone: null },
+    { id: '3', email: 'c@x.com', phone: 'abc' }, // no digits -> not usable
+    { id: '4', email: 'd@x.com', phone: '12345678' }, // exactly 8 digits -> ok
+  ] as any;
+  const res = selectWhatsAppRecipients(rows);
+  assert.deepEqual(res.map((c) => c.email), ['a@x.com', 'd@x.com']);
 });
 
 test('resolveAudienceCustomers queries by user and dedupes emails', async () => {

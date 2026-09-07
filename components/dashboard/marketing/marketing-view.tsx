@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
-import { Megaphone, Ticket, Plus, Trash2, Send, Pencil, Users, Eye } from 'lucide-react';
+import { Megaphone, Ticket, Plus, Trash2, Send, Pencil, Users, Eye, AlertTriangle } from 'lucide-react';
 
 interface Coupon {
   id: string;
@@ -46,6 +47,7 @@ interface Campaign {
   name: string;
   subject: string;
   htmlBody: string;
+  channel: 'EMAIL' | 'WHATSAPP';
   audience: { mode: 'all' | 'tags'; tags?: string[] };
   couponCode: string | null;
   status: 'DRAFT' | 'SENDING' | 'SENT' | 'CANCELLED';
@@ -61,10 +63,14 @@ interface MarketingData {
   coupons: Coupon[];
   campaigns: Campaign[];
   tags: string[];
+  emailConfigured?: boolean;
+  whatsappConnected?: boolean;
 }
 
 export function MarketingView() {
   const { t } = useTranslation('translation');
+  const { data: session } = useSession();
+  const isAdmin = ((session?.user as any)?.role || '') === 'ADMIN';
   const [data, setData] = useState<MarketingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -164,6 +170,7 @@ export function MarketingView() {
   const [campaignForm, setCampaignForm] = useState({
     name: '',
     subject: '',
+    channel: 'EMAIL' as 'EMAIL' | 'WHATSAPP',
     audienceMode: 'all' as 'all' | 'tags',
     audienceTags: [] as string[],
     couponCode: '',
@@ -175,6 +182,7 @@ export function MarketingView() {
     setCampaignForm({
       name: '',
       subject: '',
+      channel: 'EMAIL',
       audienceMode: 'all',
       audienceTags: [],
       couponCode: '',
@@ -189,6 +197,7 @@ export function MarketingView() {
     setCampaignForm({
       name: campaign.name,
       subject: campaign.subject,
+      channel: campaign.channel === 'WHATSAPP' ? 'WHATSAPP' : 'EMAIL',
       audienceMode: campaign.audience?.mode === 'tags' ? 'tags' : 'all',
       audienceTags: campaign.audience?.tags || [],
       couponCode: campaign.couponCode || '',
@@ -216,6 +225,7 @@ export function MarketingView() {
       const payload = {
         name: campaignForm.name,
         subject: campaignForm.subject,
+        channel: campaignForm.channel,
         htmlBody: campaignForm.htmlBody,
         couponCode: campaignForm.couponCode || undefined,
         audience: {
@@ -293,7 +303,10 @@ export function MarketingView() {
           t('marketing.sentSummary', {
             sent: body.data?.sent ?? 0,
             failed: body.data?.failed ?? 0,
-          }),
+          }) +
+            (body.data?.skippedNoPhone > 0
+              ? ` · ${t('marketing.skippedNoPhone', { count: body.data.skippedNoPhone })}`
+              : ''),
         );
       }
       setSendTarget(null);
@@ -345,8 +358,44 @@ export function MarketingView() {
     return <div className="py-24 text-center text-slate-500">{t('marketing.loadError')}</div>;
   }
 
+  const showEmailWarning = data.emailConfigured === false;
+  const showWhatsappWarning = data.whatsappConnected === false;
+  const showAnyWarning = showEmailWarning || showWhatsappWarning;
+
   return (
     <div className="space-y-6">
+      {showAnyWarning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0 text-sm">
+              <p className="font-semibold text-amber-800">{t('marketing.deliveryWarningTitle')}</p>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-amber-700">
+                {showEmailWarning && <li>{t('marketing.emailNotConfigured')}</li>}
+                {showWhatsappWarning && <li>{t('marketing.whatsappNotConnected')}</li>}
+              </ul>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {showEmailWarning && (
+                  <a
+                    href="mailto:support@anytimebot.app"
+                    className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                  >
+                    {t('marketing.configureEmail')}
+                  </a>
+                )}
+                {showWhatsappWarning && isAdmin && (
+                  <a
+                    href="/admin/whatsapp"
+                    className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                  >
+                    {t('marketing.connectWhatsapp')}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -398,6 +447,18 @@ export function MarketingView() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-slate-800">{campaign.name}</p>
+                          <Badge
+                            variant="outline"
+                            className={
+                              campaign.channel === 'WHATSAPP'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'border-sky-200 bg-sky-50 text-sky-700'
+                            }
+                          >
+                            {campaign.channel === 'WHATSAPP'
+                              ? t('marketing.channelWhatsapp')
+                              : t('marketing.channelEmail')}
+                          </Badge>
                           {statusBadge(campaign.status)}
                           {campaign.couponCode && (
                             <Badge variant="outline" className="text-indigo-600">
@@ -611,6 +672,49 @@ export function MarketingView() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="mb-1 block text-xs text-slate-500">{t('marketing.channel')}</Label>
+                <Select
+                  value={campaignForm.channel}
+                  onValueChange={(v) =>
+                    setCampaignForm({ ...campaignForm, channel: v as 'EMAIL' | 'WHATSAPP' })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EMAIL">{t('marketing.channelEmail')}</SelectItem>
+                    <SelectItem value="WHATSAPP">{t('marketing.channelWhatsapp')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {campaignForm.channel === 'WHATSAPP' && (
+                  <p className="mt-1 text-xs text-amber-600">{t('marketing.whatsappHint')}</p>
+                )}
+              </div>
+              <div>
+                <Label className="mb-1 block text-xs text-slate-500">{t('marketing.attachCoupon')}</Label>
+                <Select
+                  value={campaignForm.couponCode || 'none'}
+                  onValueChange={(v) =>
+                    setCampaignForm({ ...campaignForm, couponCode: v === 'none' ? '' : v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{t('marketing.couponNone')}</SelectItem>
+                    {data.coupons.map((c) => (
+                      <SelectItem key={c.id} value={c.code}>
+                        {c.code} · {couponDisplay(c)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div>
               <Label className="mb-1 block text-xs text-slate-500">{t('marketing.audience')}</Label>
               <Select
@@ -653,27 +757,7 @@ export function MarketingView() {
                 </div>
               </div>
             )}
-            <div>
-              <Label className="mb-1 block text-xs text-slate-500">{t('marketing.attachCoupon')}</Label>
-              <Select
-                value={campaignForm.couponCode || 'none'}
-                onValueChange={(v) =>
-                  setCampaignForm({ ...campaignForm, couponCode: v === 'none' ? '' : v })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('marketing.couponNone')}</SelectItem>
-                  {data.coupons.map((c) => (
-                    <SelectItem key={c.id} value={c.code}>
-                      {c.code} · {couponDisplay(c)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div>
               <Label className="mb-1 block text-xs text-slate-500">{t('marketing.body')}</Label>
               <Textarea

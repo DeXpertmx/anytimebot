@@ -67,6 +67,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (!body.htmlBody) return NextResponse.json({ success: false, error: 'Body is required' }, { status: 400 });
       data.htmlBody = body.htmlBody;
     }
+    if (body.channel !== undefined) {
+      // PATCH already rejects non-draft campaigns; just normalize the value.
+      data.channel = body.channel === 'WHATSAPP' ? 'WHATSAPP' : 'EMAIL';
+    }
     if (body.audience !== undefined) {
       const raw = body.audience as Record<string, unknown>;
       const mode = raw?.mode === 'tags' ? 'tags' : 'all';

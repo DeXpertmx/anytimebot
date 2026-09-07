@@ -104,6 +104,7 @@ export interface CustomerLike {
   id: string;
   email: string;
   name?: string | null;
+  phone?: string | null;
   tags?: string[];
   marketingOptOut?: boolean;
 }
@@ -150,9 +151,19 @@ export async function resolveAudienceCustomers(
   const { db } = resolveDeps(deps);
   const customers = (await db.customer.findMany({
     where: { userId },
-    select: { id: true, email: true, name: true, tags: true, marketingOptOut: true },
+    select: { id: true, email: true, name: true, phone: true, tags: true, marketingOptOut: true },
   })) as CustomerLike[];
   return dedupeByEmail(segmentCustomers(customers, audience));
+}
+
+/**
+ * Recipients reachable by WhatsApp: audience customers that actually have a
+ * phone number. WhatsApp campaigns must never fall back to email silently —
+ * contacts without a phone are simply not addressed (the send route reports
+ * the skipped count so the owner can complete their CRM data).
+ */
+export function selectWhatsAppRecipients(customers: CustomerLike[]): CustomerLike[] {
+  return customers.filter((c) => (c.phone || '').replace(/[^0-9]/g, '').length >= 8);
 }
 
 /** Personalized email subject/body ({{nombre}}, {{email}}, {{codigo}}). */

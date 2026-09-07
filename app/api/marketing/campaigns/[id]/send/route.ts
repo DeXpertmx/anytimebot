@@ -3,8 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
+import { sendSystemWhatsAppMessage } from '@/lib/system-whatsapp';
 import {
   resolveAudienceCustomers,
+  selectWhatsAppRecipients,
   renderCampaignContent,
   signMarketingToken,
 } from '@/lib/marketing';
@@ -63,8 +65,14 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
     }
 
     // Resolve the audience (opt-outs excluded) and ensure recipient rows.
-    const customers = await resolveAudienceCustomers(userId, campaign.audience as any);
+    const allCustomers = await resolveAudienceCustomers(userId, campaign.audience as any);
     const code = campaign.couponCode || '';
+    const isWhatsApp = (campaign.channel as string) === 'WHATSAPP';
+
+    // WhatsApp campaigns only address contacts with a usable phone; contacts
+    // without one are skipped (never silently converted to email).
+    const customers = isWhatsApp ? selectWhatsAppRecipients(allCustomers) : allCustomers;
+    const skippedNoPhone = isWhatsApp ? allCustomers.length - customers.length : 0;
 
     if (campaign.status === 'DRAFT') {
       await prisma.campaign.update({
@@ -78,6 +86,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
         data: customers.map((c) => ({
           campaignId: campaign.id,
           email: c.email,
+          phone: isWhatsApp ? c.phone : null,
           customerId: c.id,
         })),
         skipDuplicates: true,
@@ -101,11 +110,28 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
         codigo: code,
         codigo_cupon: code,
       };
-      const subject = renderCampaignContent(campaign.subject, vars);
-      const body =
-        renderCampaignContent(campaign.htmlBody, vars) + unsubscribeHtml(userId, recipient.email);
 
-      const ok = await sendEmail({ to: recipient.email, subject, html: body });
+      let ok = false;
+      if (isWhatsApp) {
+        // Plain-text WhatsApp message (HTML stripped, no unsubscribe link —
+        // the reply STOP flow is handled at the WhatsApp level).
+        const text = renderCampaignContent(campaign.htmlBody, vars)
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+        ok = await sendSystemWhatsAppMessage(recipient.phone || '', text);
+      } else {
+        const subject = renderCampaignContent(campaign.subject, vars);
+        const body =
+          renderCampaignContent(campaign.htmlBody, vars) + unsubscribeHtml(userId, recipient.email);
+        ok = await sendEmail({ to: recipient.email, subject, html: body });
+      }
       if (ok) {
         sent++;
         await prisma.campaignRecipient.update({
@@ -116,7 +142,12 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
         failed++;
         await prisma.campaignRecipient.update({
           where: { id: recipient.id },
-          data: { status: 'FAILED', error: 'Mail provider rejected the message' },
+          data: {
+            status: 'FAILED',
+            error: isWhatsApp
+              ? 'WhatsApp delivery failed (system number not connected or provider rejected)'
+              : 'Mail provider rejected the message',
+          },
         });
       }
       // Persist progress on every email so a serverless timeout never loses it.
@@ -151,6 +182,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
         recipients: total,
         sent: total - remainingFailed,
         failed: remainingFailed,
+        skippedNoPhone,
       },
     });
   } catch (error) {

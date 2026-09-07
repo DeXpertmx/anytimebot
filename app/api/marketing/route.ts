@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { isEmailConfigured } from '@/lib/email-config';
+import { getSystemWhatsAppStatus } from '@/lib/system-whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +42,22 @@ export async function GET() {
     }
     const tags = [...tagSet].sort((a, b) => a.localeCompare(b));
 
-    return NextResponse.json({ success: true, data: { coupons, campaigns, tags } });
+    // Delivery-channel readiness, so the UI can warn before a send fails.
+    const [emailConfigured, whatsappStatus] = await Promise.all([
+      isEmailConfigured().catch(() => false),
+      getSystemWhatsAppStatus().catch(() => null),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        coupons,
+        campaigns,
+        tags,
+        emailConfigured,
+        whatsappConnected: Boolean(whatsappStatus?.connected),
+      },
+    });
   } catch (error) {
     console.error('Error loading marketing data:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
