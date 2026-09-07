@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Database, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Database, Trash2, RefreshCw, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface VolkernConfig {
@@ -36,6 +36,7 @@ export function VolkernCard() {
   const [syncCitas, setSyncCitas] = useState(true);
   const [syncMensajes, setSyncMensajes] = useState(true);
   const [testing, setTesting] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,6 +132,33 @@ export function VolkernCard() {
       toast.error('No se pudo alcanzar la URL de Volkern');
     } finally {
       setTesting(false);
+    }
+  };
+
+  const sendTestEvent = async () => {
+    setSendingTest(true);
+    try {
+      const res = await fetch('/api/integrations/volkern/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(
+          `Evento de prueba recibido (HTTP ${data.status} en ${data.durationMs}ms)` +
+            (data.signed ? ' con firma HMAC válida' : ' (sin secret configurado)'),
+        );
+      } else {
+        toast.error(
+          data.error ||
+            (data.status ? `Volkern respondió con estado ${data.status}` : 'Error al enviar el evento de prueba'),
+        );
+      }
+    } catch {
+      toast.error('Error al enviar el evento de prueba');
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -257,6 +285,12 @@ export function VolkernCard() {
             {testing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Probar Conexión
           </Button>
+          {connected && (
+            <Button variant="outline" onClick={sendTestEvent} disabled={sendingTest || !baseUrl}>
+              {sendingTest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Enviar Evento de Prueba
+            </Button>
+          )}
           {connected && (
             <Button variant="destructive" onClick={disconnect}>
               <Trash2 className="mr-2 h-4 w-4" />
