@@ -29,7 +29,7 @@ import { getEventTypeColors } from '@/lib/utils';
 import { Loader2, Palette } from 'lucide-react';
 import { TeamAssignmentSelector } from './team-assignment-selector';
 import { ResourceMultiSelect } from './resource-multi-select';
-import { SedeSelect } from './sede-select';
+import { SedeMultiSelect } from './sede-select';
 
 interface CreateEventTypeDialogProps {
   children: React.ReactNode;
@@ -51,7 +51,6 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
     duration: '30',
     bufferTime: '5',
     location: 'video',
-    locationId: '',
     videoLink: '',
     videoProvider: 'GOOGLE_MEET',
     color: '#6366f1',
@@ -64,6 +63,8 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
     assignmentMode: 'individual',
   });
   const [allowedResourceIds, setAllowedResourceIds] = useState<string[]>([]);
+  // Branches where the event is offered (first = default sede).
+  const [sedeIds, setSedeIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -118,6 +119,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           bufferTime: parseInt(formData.bufferTime),
           price: Math.round((parseFloat(formData.price) || 0) * 100),
           allowedResourceIds,
+          locationIds: sedeIds,
         }),
       });
 
@@ -135,7 +137,6 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           duration: '30',
           bufferTime: '5',
           location: 'video',
-          locationId: '',
           videoLink: '',
           videoProvider: 'GOOGLE_MEET',
           color: '#6366f1',
@@ -148,6 +149,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           assignmentMode: 'individual',
         });
         setAllowedResourceIds([]);
+        setSedeIds([]);
         window.dispatchEvent(new Event('event-types-changed'));
         router.refresh();
       } else {
@@ -318,10 +320,7 @@ export function CreateEventTypeDialog({ children, defaultCurrency = 'eur' }: Cre
           </div>
 
           {formData.location === 'in-person' && (
-            <SedeSelect
-              value={formData.locationId || ''}
-              onChange={(locationId) => setFormData(prev => ({ ...prev, locationId }))}
-            />
+            <SedeMultiSelect value={sedeIds} onChange={setSedeIds} />
           )}
 
           {formData.location === 'video' && (

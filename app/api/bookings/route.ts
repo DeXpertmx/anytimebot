@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { isValidEmail, isValidPhone, addMinutes } from '@/lib/utils';
 import { sendBookingConfirmationWithTemplate, sendHostBookingApprovalRequest } from '@/lib/email';
+import { bookingVenueText } from '@/lib/booking-venue';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability, listCalendarEvents } from '@/lib/google-calendar';
@@ -21,6 +22,13 @@ import { notifyBookingCreated } from '@/lib/push-notifications';
 import { dispatchWebhookEvent, buildBookingPayload, buildMeetingPayload } from '@/lib/webhooks';
 import { dispatchVolkernBookingEvent } from '@/lib/volkern';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
+import {
+  buildServiceItems,
+  totalDuration,
+  maxBuffer,
+  anyRequiresConfirmation,
+  combinedName,
+} from '@/lib/multi-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,6 +121,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       eventTypeId,
+      eventTypeIds,
       guestName,
       guestEmail,
       guestPhone,
@@ -121,6 +130,7 @@ export async function POST(request: NextRequest) {
       formData = {},
       routingFormResponses = {},
       recurrence,
+      locationId = null,
     } = body;
 
     // Record the data subject's explicit consent to process their data for
@@ -162,9 +172,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get event type with booking page
-    const eventType = await prisma.eventType.findUnique({
-      where: { id: eventTypeId },
+    // Get the event type(s). Multi-service bookings pass an array and combine
+    // the selected services into ONE consecutive block (total = sum of the
+    // durations); the FIRST service is the primary eventTypeId used everywhere
+    // else in this flow (team, resources, emails, calendar).
+    const serviceIds =
+      Array.isArray(eventTypeIds) && eventTypeIds.length > 0
+        ? eventTypeIds
+        : eventTypeId
+          ? [eventTypeId]
+          : [];
+    if (serviceIds.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Event type not found' },
+        { status: 404 }
+      );
+    }
+
+    const eventTypes = await prisma.eventType.findMany({
+      where: { id: { in: serviceIds } },
       include: {
         bookingPage: true,
         formFields: true,
@@ -188,21 +214,69 @@ export async function POST(request: NextRequest) {
           },
         },
         defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+        // Branches where the event is offered (multi-sede picker).
+        locations: {
+          include: {
+            location: { select: { id: true, name: true, address: true, timezone: true } },
+          },
+        },
       },
     });
 
-    if (!eventType) {
+    if (eventTypes.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Event type not found' },
         { status: 404 }
       );
     }
 
+    const eventType = eventTypes[0];
+    const isMultiService = eventTypes.length > 1;
+    if (isMultiService) {
+      const samePage = eventTypes.every((et) => et.bookingPageId === eventType.bookingPageId);
+      if (!samePage) {
+        return NextResponse.json(
+          { success: false, error: 'Los servicios deben pertenecer a la misma página de reservas' },
+          { status: 400 }
+        );
+      }
+    }
+    const serviceItems = isMultiService
+      ? buildServiceItems(eventTypes)
+      : null;
+    const blockDuration = isMultiService
+      ? totalDuration(eventTypes)
+      : eventType.duration;
+    const blockBuffer = isMultiService
+      ? maxBuffer(eventTypes)
+      : eventType.bufferTime;
+
     if (!eventType.bookingPage.isActive) {
       return NextResponse.json(
         { success: false, error: 'Booking page is not active' },
         { status: 400 }
       );
+    }
+
+    // ─── Branch (sucursal) resolution ───
+    // When the guest picked a sede it must be one the event is offered in (or
+    // the legacy default). When nothing was sent, the first offered branch (or
+    // the legacy default) is used so single-branch events keep the old venue.
+    const offeredLocations = eventType.locations.map((l) => l.location);
+    let chosenBranch: { id: string; name: string; address: string | null } | null = null;
+    if (locationId) {
+      chosenBranch =
+        offeredLocations.find((l) => l.id === locationId) ||
+        (eventType.defaultLocation?.id === locationId ? eventType.defaultLocation : null) ||
+        null;
+      if (!chosenBranch) {
+        return NextResponse.json(
+          { success: false, error: 'Sucursal no disponible para este evento' },
+          { status: 400 }
+        );
+      }
+    } else {
+      chosenBranch = offeredLocations[0] ?? eventType.defaultLocation ?? null;
     }
 
     // Server-side validation of required custom form fields
@@ -238,7 +312,11 @@ export async function POST(request: NextRequest) {
 
     // Resources (rooms/chairs) + recurring series: not supported yet — a
     // series would need per-occurrence resource picking. Phase C of the design.
-    const resourceMode = eventType.allowedResources.length > 0;
+    // Multi-service: every selected service must be resource-based, and the
+    // combined block must fit on ONE resource allowed by ALL of them.
+    const resourceMode = isMultiService
+      ? eventTypes.every((et) => et.allowedResources.length > 0)
+      : eventType.allowedResources.length > 0;
     if (rule && resourceMode) {
       return NextResponse.json(
         { success: false, error: 'Recurring bookings are not available for events with resources yet' },
@@ -253,15 +331,24 @@ export async function POST(request: NextRequest) {
       phone: guestPhone,
     });
 
-    // Calculate end time
+    // Calculate end time (combined block when several services were selected)
     const bookingStartTime = new Date(startTime);
-    const bookingEndTime = addMinutes(bookingStartTime, eventType.duration);
+    const bookingEndTime = addMinutes(bookingStartTime, blockDuration);
 
     // Expand the recurrence rule into concrete occurrence starts. The first
     // occurrence is the user-picked slot, exactly as a single booking.
     const occurrences = rule
       ? expandRecurrence(rule, { firstStart: bookingStartTime })
       : [bookingStartTime];
+
+    // Block recurrence for combined multi-service series for now (each
+    // occurrence would need per-service resource/availability re-check).
+    if (rule && isMultiService) {
+      return NextResponse.json(
+        { success: false, error: 'Las series recurrentes aún no están disponibles para reservas con varios servicios' },
+        { status: 400 }
+      );
+    }
 
     // Guard: the whole series must stay inside the booking horizon.
     if (occurrences.length > 1) {
@@ -277,7 +364,7 @@ export async function POST(request: NextRequest) {
     // Block bookings that fall inside the owner's time off (vacations /
     // absences) — checked for every occurrence of the series.
     for (const occ of occurrences) {
-      const occEnd = addMinutes(occ, eventType.duration);
+      const occEnd = addMinutes(occ, blockDuration);
       const blockingTimeOff = await prisma.timeOff.findFirst({
         where: {
           userId: eventType.bookingPage.userId,
@@ -300,16 +387,25 @@ export async function POST(request: NextRequest) {
     let pickedResource: { resource: { id: string; name: string; location?: { id: string; name: string | null; address: string | null } | null } } | null = null;
     if (resourceMode) {
       const bookingStartTime0 = new Date(startTime);
-      const occEnd = addMinutes(bookingStartTime0, eventType.duration);
+      const occEnd = addMinutes(bookingStartTime0, blockDuration);
+      // Combined block: resources allowed by EVERY selected service.
+      const resourceSets = eventTypes.map((et) => et.allowedResources.map((er) => er.resource));
+      let intersection = resourceSets[0] ?? [];
+      for (const set of resourceSets.slice(1)) {
+        const ids = new Set(set.map((r) => r.id));
+        intersection = intersection.filter((r) => ids.has(r.id));
+      }
       const pick = await pickResourceForSlot({
         eventTypeId,
         bookingPageId: eventType.bookingPageId,
         userId: eventType.bookingPage.userId,
         slotStart: bookingStartTime0,
         slotEnd: occEnd,
-        bufferMinutes: eventType.bufferTime,
-        allowedResources: eventType.allowedResources.map((er) => er.resource),
+        bufferMinutes: blockBuffer,
+        allowedResources: intersection,
         preferredId: (body as any).resourceId ?? null,
+        // Multi-sede: only assign chairs/rooms of the chosen branch.
+        locationId: locationId || (offeredLocations.length === 1 ? offeredLocations[0].id : null),
       });
       if (!pick) {
         return NextResponse.json(
@@ -325,7 +421,7 @@ export async function POST(request: NextRequest) {
     // overlaps, whatever event type it came from. Skipped in resource mode
     // (capacity per resource above is the binding constraint).
     for (const occ of occurrences) {
-      const occEnd = addMinutes(occ, eventType.duration);
+      const occEnd = addMinutes(occ, blockDuration);
       const conflictingBooking = resourceMode
         ? null
         : await prisma.booking.findFirst({
@@ -367,7 +463,7 @@ export async function POST(request: NextRequest) {
         const assignment = await assignTeamMember({
           eventTypeId,
           startTime: assignmentStart,
-          endTime: addMinutes(assignmentStart, eventType.duration),
+          endTime: addMinutes(assignmentStart, blockDuration),
           formData,
           routingFormResponses: Object.keys(routingFormResponses).length > 0 ? routingFormResponses : undefined,
         });
@@ -412,9 +508,12 @@ export async function POST(request: NextRequest) {
       guestEmail,
       guestPhone,
       timezone,
-      status: (eventType.requiresConfirmation ? 'PENDING' : 'CONFIRMED') as 'PENDING' | 'CONFIRMED',
+      status: ((isMultiService ? anyRequiresConfirmation(eventTypes) : eventType.requiresConfirmation)
+        ? 'PENDING'
+        : 'CONFIRMED') as 'PENDING' | 'CONFIRMED',
       formData,
       assignedMemberId,
+      ...(serviceItems ? { serviceItems: serviceItems as any } : {}),
       // Resource/location snapshot. Resource-mode events store the assigned
       // room/chair (+ its sede); in-person events without resources store the
       // default sede of the event type (its address is the "where").
@@ -422,15 +521,15 @@ export async function POST(request: NextRequest) {
         ? {
             resourceId: pickedResource.resource.id,
             resourceName: pickedResource.resource.name,
-            locationId: pickedResource.resource.location?.id ?? null,
-            locationName: pickedResource.resource.location?.name ?? null,
-            locationAddress: pickedResource.resource.location?.address ?? null,
+            locationId: pickedResource.resource.location?.id ?? chosenBranch?.id ?? null,
+            locationName: pickedResource.resource.location?.name ?? chosenBranch?.name ?? null,
+            locationAddress: pickedResource.resource.location?.address ?? chosenBranch?.address ?? null,
           }
-        : eventType.defaultLocation
+        : chosenBranch
           ? {
-              locationId: eventType.defaultLocation.id,
-              locationName: eventType.defaultLocation.name,
-              locationAddress: eventType.defaultLocation.address,
+              locationId: chosenBranch.id,
+              locationName: chosenBranch.name,
+              locationAddress: chosenBranch.address,
             }
           : {}),
     };
@@ -458,7 +557,7 @@ export async function POST(request: NextRequest) {
           ...baseBookingData,
           seriesId: series.id,
           startTime: occ,
-          endTime: addMinutes(occ, eventType.duration),
+          endTime: addMinutes(occ, blockDuration),
         })),
       });
     }
@@ -607,7 +706,7 @@ export async function POST(request: NextRequest) {
     if (bookingOwner?.calendarSyncEnabled && bookingOwner.accounts.length > 0 && bookingOwner.accounts[0].access_token) {
       try {
         const seriesLastEnd = series
-          ? addMinutes(occurrences[occurrences.length - 1], eventType.duration)
+          ? addMinutes(occurrences[occurrences.length - 1], blockDuration)
           : bookingEndTime;
 
         // Check calendar availability first (single call covering the span)
@@ -630,11 +729,11 @@ export async function POST(request: NextRequest) {
 
           for (let i = 0; i < occurrences.length; i++) {
             const occ = occurrences[i];
-            const occEnd = addMinutes(occ, eventType.duration);
+            const occEnd = addMinutes(occ, blockDuration);
             const occBookingId = occurrenceBookings[i]?.id ?? booking.id;
 
             const calendarEvent = await createCalendarEvent(bookingOwner.id, {
-              summary: `${eventType.name} - ${guestName}`,
+              summary: `${isMultiService ? combinedName(eventTypes) : eventType.name} - ${guestName}`,
               description: `Booking with ${guestName}\nEmail: ${guestEmail}${guestPhone ? `\nPhone: ${guestPhone}` : ''}`,
               location: eventType.location === 'video' && eventType.videoLink ? eventType.videoLink : eventType.location,
               conferenceData: eventType.videoProvider === 'GOOGLE_MEET' ? {
@@ -733,16 +832,20 @@ export async function POST(request: NextRequest) {
           userId: booking.eventType.bookingPage.userId,
           to: guestEmail,
           guestName,
-          eventTitle: eventType.name,
+          eventTitle: isMultiService ? combinedName(eventTypes) : eventType.name,
           startTime: bookingStartTime,
-          duration: eventType.duration,
+          duration: blockDuration,
           location: eventType.location,
+          venue: bookingVenueText(booking),
           videoLink: eventType.videoLink || undefined,
           timezone,
           bookingId: booking.id,
           cancelToken,
           rescheduleToken,
           meetingPageUrl,
+          ...(serviceItems
+            ? { serviceItems: serviceItems.map((s) => ({ name: s.name, duration: s.duration })) }
+            : {}),
         });
       } catch (emailError) {
         console.error('Failed to send confirmation email:', emailError);

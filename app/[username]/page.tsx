@@ -30,7 +30,11 @@ export default async function UserPage({ params }: UserPageProps) {
       bookingPages: {
         where: { isActive: true },
         include: {
-          eventTypes: true,
+          eventTypes: {
+            include: {
+              defaultLocation: true,
+            },
+          },
         },
       },
     },
@@ -47,6 +51,33 @@ export default async function UserPage({ params }: UserPageProps) {
       case 'in-person': return 'In person';
       default: return 'In person';
     }
+  };
+
+  // Full physical venue shown for in-person events: the sede name, plus its
+  // address below when the event type has a default sede configured.
+  const venueRow = (et: {
+    location: string;
+    defaultLocation?: { name: string; address?: string | null } | null;
+  }) => {
+    if (et.location === 'in-person' && et.defaultLocation) {
+      return (
+        <div className="text-sm text-gray-600">
+          <div className="flex items-center">
+            <MapPin className="h-4 w-4 mr-2 text-indigo-500 shrink-0" />
+            <span className="font-medium text-gray-800">{et.defaultLocation.name}</span>
+          </div>
+          {et.defaultLocation.address && (
+            <p className="ml-6 mt-0.5 text-xs text-gray-500">{et.defaultLocation.address}</p>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center text-sm text-gray-600">
+        {getLocationIcon(et.location)}
+        <span className="ml-2">{getLocationLabel(et.location)}</span>
+      </div>
+    );
   };
 
   const getLocationIcon = (location: string) => {
@@ -228,10 +259,7 @@ export default async function UserPage({ params }: UserPageProps) {
                     <Clock className="h-4 w-4 mr-2 text-indigo-500" />
                     {et.duration} min
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    {getLocationIcon(et.location)}
-                    <span className="ml-2">{getLocationLabel(et.location)}</span>
-                  </div>
+                  {venueRow(et)}
                 </div>
 
                 <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">

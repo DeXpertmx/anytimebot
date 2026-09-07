@@ -177,7 +177,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                 <h4 className="font-semibold text-gray-900 mb-3">
                   Tipos de eventos disponibles
                 </h4>
-                {bookingPage.eventTypes.map((eventType: EventType & { formFields: BookingFormField[] }) => (
+                {bookingPage.eventTypes.map((eventType: EventType & { formFields: BookingFormField[]; defaultLocation?: { name: string; address: string | null } | null }) => (
                   <div
                     key={eventType.id}
                     className="p-3 border-l-4 bg-gray-50 rounded"
@@ -192,10 +192,21 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                     </div>
                     <div className="flex items-center text-sm text-gray-600 mt-1">
                       {getLocationIcon(eventType.location)}
-                      <span className="ml-1 capitalize">
-                        {eventType.location}
-                      </span>
+                      {eventType.location === 'in-person' && eventType.defaultLocation ? (
+                        <span className="ml-1 font-medium text-gray-800 capitalize">
+                          {eventType.defaultLocation.name}
+                        </span>
+                      ) : (
+                        <span className="ml-1 capitalize">
+                          {eventType.location}
+                        </span>
+                      )}
                     </div>
+                    {eventType.location === 'in-person' && eventType.defaultLocation?.address && (
+                      <p className="ml-5 mt-0.5 text-xs text-gray-500">
+                        {eventType.defaultLocation.address}
+                      </p>
+                    )}
                     {eventType.collectPayment && eventType.price > 0 && (
                       <div className="flex items-center text-sm font-semibold text-emerald-600 mt-2">
                         <span>{(eventType.price / 100).toFixed(2)} {eventType.currency.toUpperCase()}

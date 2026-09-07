@@ -4,6 +4,7 @@ import { authenticateApiKey } from '@/lib/api-auth';
 import { rateLimitHeaders } from '@/lib/rate-limit';
 import { isValidEmail, addMinutes } from '@/lib/utils';
 import { sendBookingConfirmationWithTemplate, sendHostBookingApprovalRequest } from '@/lib/email';
+import { bookingVenueText } from '@/lib/booking-venue';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability } from '@/lib/google-calendar';
@@ -401,6 +402,7 @@ export async function POST(request: NextRequest) {
         startTime: bookingStartTime,
         duration: eventType.duration,
         location: eventType.location,
+        venue: bookingVenueText(booking),
         videoLink: eventType.videoLink || undefined,
         timezone,
         bookingId: booking.id,

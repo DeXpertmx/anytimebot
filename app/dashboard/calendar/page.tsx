@@ -23,6 +23,8 @@ interface Booking {
   locationName?: string | null;
   locationAddress?: string | null;
   eventType: { name: string; color?: string };
+  /** Combined services (multi-service bookings): show "Corte + Barba". */
+  serviceItems?: Array<{ name: string; duration: number }> | null;
   /** CRM customer matched by guest email (photo shown in the modal). */
   customer?: { name?: string | null; email?: string; photo?: string | null; company?: string | null; phone?: string | null } | null;
 }
@@ -91,6 +93,11 @@ export default function CalendarPage() {
   const [notesSaving, setNotesSaving] = useState(false);
 
   const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
+
+  const eventLabel = (b: Booking) =>
+    b.serviceItems && b.serviceItems.length > 1
+      ? b.serviceItems.map((s) => s.name).join(' + ')
+      : b.eventType.name;
 
   const load = async () => {
     setLoading(true);
@@ -493,7 +500,7 @@ export default function CalendarPage() {
             <div className="space-y-4 px-6 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tipo de evento</p>
-                <p className="mt-1 font-semibold text-slate-800">{selectedBooking.eventType.name}</p>
+                <p className="mt-1 font-semibold text-slate-800">{eventLabel(selectedBooking)}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Horario</p>
@@ -664,7 +671,7 @@ export default function CalendarPage() {
                           item.id === selectedBooking.id ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'bg-slate-50'
                         }`}
                       >
-                        <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{item.eventType.name}</span>
+                        <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{eventLabel(item)}</span>
                         <span className="shrink-0 text-xs text-slate-500">
                           {new Date(item.startTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>

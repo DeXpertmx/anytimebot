@@ -44,22 +44,33 @@ export default async function BookingsPage() {
     redirect('/auth/signin');
   }
 
-  // Flatten all bookings from all event types
+  // Flatten all bookings from all event types. Multi-service bookings keep a
+  // serviceItems list; their label shows the combined name ("Corte + Barba").
   const allBookings = user.bookingPages.flatMap((page) =>
     page.eventTypes.flatMap((eventType) =>
-      eventType.bookings.map((booking) => ({
-        ...booking,
-        eventType: {
-          name: eventType.name,
-          duration: eventType.duration,
-          location: eventType.location,
-          videoLink: eventType.videoLink,
-        },
-        bookingPage: {
-          title: page.title,
-          slug: page.slug,
-        },
-      }))
+      eventType.bookings.map((booking) => {
+        const items = (booking as any).serviceItems as
+          | Array<{ name: string; duration: number }>
+          | null
+          | undefined;
+        const label =
+          items && items.length > 1
+            ? items.map((s) => s.name).join(' + ')
+            : eventType.name;
+        return {
+          ...booking,
+          eventType: {
+            name: label,
+            duration: eventType.duration,
+            location: eventType.location,
+            videoLink: eventType.videoLink,
+          },
+          bookingPage: {
+            title: page.title,
+            slug: page.slug,
+          },
+        };
+      })
     )
   );
 

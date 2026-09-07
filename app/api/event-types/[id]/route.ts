@@ -31,6 +31,11 @@ export async function GET(
         formFields: true,
         bookingPage: true,
         defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+        locations: {
+          include: {
+            location: { select: { id: true, name: true, address: true, timezone: true } },
+          },
+        },
         allowedResources: {
           include: {
             resource: {
@@ -112,6 +117,7 @@ export async function PUT(
       enableTranscription,
       allowedResourceIds,
       locationId,
+      locationIds,
     } = body;
 
     // Check if event type belongs to user
@@ -155,29 +161,61 @@ export async function PUT(
     if (enableLiveAI !== undefined) updateData.enableLiveAI = enableLiveAI;
     if (enableRecording !== undefined) updateData.enableRecording = enableRecording;
     if (enableTranscription !== undefined) updateData.enableTranscription = enableTranscription;
-    // Default sede (Phase B): ''/null clears it; otherwise must be owned+active.
-    if ('locationId' in body) {
-      let resolvedLocationId: string | null = null;
-      if (body.locationId) {
-        const ownedLocation = await prisma.location.findFirst({
-          where: { id: String(body.locationId), userId: (session.user as any).id, isActive: true },
+    // Sedes where the event is offered (multi-sede). The payload carries the
+    // list as `locationIds` (editor). The single `locationId` remains supported
+    // for legacy callers — the list, when present, wins and its first entry is
+    // the default sede (EventType.locationId).
+    const rawLocationIds: string[] | undefined =
+      body.locationIds !== undefined || 'locationId' in body
+        ? Array.from(
+            new Set<string>(
+              (
+                Array.isArray(body.locationIds)
+                  ? body.locationIds.filter(Boolean)
+                  : body.locationId
+                    ? [body.locationId]
+                    : []
+              )
+            )
+          ).map((id) => String(id))
+        : undefined;
+    if (rawLocationIds !== undefined) {
+      if (rawLocationIds.length > 0) {
+        const owned = await prisma.location.findMany({
+          where: { id: { in: rawLocationIds }, userId: (session.user as any).id, isActive: true },
           select: { id: true },
         });
-        if (!ownedLocation) {
+        if (owned.length !== rawLocationIds.length) {
           return NextResponse.json(
-            { success: false, error: 'Sede no encontrada o inactiva' },
+            { success: false, error: 'Una o más sucursales no existen o están inactivas' },
             { status: 400 }
           );
         }
-        resolvedLocationId = ownedLocation.id;
       }
-      updateData.locationId = resolvedLocationId;
+      updateData.locationId = rawLocationIds[0] || null;
     }
 
     const eventType = await prisma.eventType.update({
       where: { id: params.id },
       data: updateData,
     });
+
+    // Replace the branch set when the payload carries it.
+    if (rawLocationIds !== undefined) {
+      await prisma.$transaction([
+        prisma.eventTypeLocation.deleteMany({ where: { eventTypeId: params.id } }),
+        ...(rawLocationIds.length > 0
+          ? [
+              prisma.eventTypeLocation.createMany({
+                data: rawLocationIds.map((locId: string) => ({
+                  eventTypeId: params.id,
+                  locationId: locId,
+                })),
+              }),
+            ]
+          : []),
+      ]);
+    }
 
     // Update form fields - delete existing and create new ones
     if (formFields) {
@@ -233,6 +271,11 @@ export async function PUT(
         formFields: true,
         bookingPage: true,
         defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+        locations: {
+          include: {
+            location: { select: { id: true, name: true, address: true, timezone: true } },
+          },
+        },
         allowedResources: {
           include: {
             resource: {

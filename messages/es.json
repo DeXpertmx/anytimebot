@@ -310,6 +310,10 @@
     "sedeLabel": "Sede (opcional)",
     "noSede": "Sin sede — sin dirección fija",
     "sedeHint": "Para eventos presenciales: se usará su dirección en la confirmación y su zona horaria para la disponibilidad.",
+    "sedesLabel": "Sucursales donde se ofrece",
+    "sedesHint": "Con una sede el evento se agenda ahí; con dos o más, el cliente elige la sucursal al reservar.",
+    "sedesEmpty": "Aún no hay sucursales. Créalas en Configuración → Ubicaciones.",
+    "defaultSede": "Por defecto",
     "videoAutoHint": "Si tienes conectada tu cuenta de Zoom o Teams en Integraciones, el enlace de la videollamada se creará automáticamente al reservar. Si no, pega aquí el enlace manual."
   },
   "apiKeys": {
@@ -371,6 +375,9 @@
     "updateFailed": "No se pudo actualizar el webhook",
     "deleteFailed": "No se pudo eliminar el webhook",
     "test": "Enviar evento de prueba",
+    "testEventPing": "Ping (verificación)",
+    "testEventMeetingCreated": "Reunión creada (meeting.created)",
+    "testEventMeetingFailed": "Reunión fallida (meeting.failed)",
     "testOk": "Evento de prueba entregado (HTTP {{status}}, {{ms}} ms)",
     "testOkDesc": "Tu endpoint respondió correctamente. Verifica en tu servidor que la firma X-Anytimebot-Signature sea válida.",
     "testFail": "El evento de prueba no llegó",
@@ -399,7 +406,7 @@
     "editTitle": "Editar cliente",
     "name": "Nombre",
     "company": "Empresa",
-        "photo": "Foto",
+    "photo": "Foto",
     "email": "Email",
     "phone": "Teléfono",
     "notes": "Notas",
@@ -564,7 +571,15 @@
     "paymentSessionFailed": "No se pudo iniciar la sesión de pago",
     "bookingCreateFailed": "No se pudo crear la reserva",
     "assignedSpace": "Tu espacio asignado",
-    "bookAnother": "Agendar otra reunión"
+    "bookAnother": "Agendar otra reunión",
+    "chooseBranch": "Elige sucursal",
+    "chooseBranchHint": "Selecciona la sucursal donde quieres tu cita.",
+    "chooseBranchToContinue": "Selecciona una sucursal para ver los horarios disponibles.",
+    "selectServices": "Elige uno o más servicios",
+    "selectedTotal": "Total: {duration} min",
+    "servicesSummary": "Servicios seleccionados",
+    "noServicesSelected": "Selecciona al menos un servicio",
+    "combineServicesHint": "Puedes combinar varios servicios en una sola cita. La duración total se suma."
   },
   "pricing": {
     "eyebrow": "Planes para cada etapa",

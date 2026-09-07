@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import { ResourceMultiSelect } from './resource-multi-select';
-import { SedeSelect } from './sede-select';
+import { SedeMultiSelect } from './sede-select';
 
 interface FormField {
   id?: string;
@@ -54,6 +54,8 @@ interface EditEventTypeFormProps {
     currency?: string;
     allowedResources?: Array<{ resource: { id: string } }>;
     defaultLocation?: { id: string } | null;
+    // Branches where the event is offered (multi-sede). First = default.
+    locations?: Array<{ locationId: string }>;
   };
   bookingPages: Array<{
     id: string;
@@ -85,7 +87,6 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
     duration: eventType.duration,
     bufferTime: eventType.bufferTime,
     location: eventType.location,
-    locationId: eventType.defaultLocation?.id || '',
     videoLink: eventType.videoLink || '',
     color: eventType.color,
     requiresConfirmation: eventType.requiresConfirmation,
@@ -103,6 +104,13 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
   const [formFields, setFormFields] = useState<FormField[]>(eventType.formFields);
   const [allowedResourceIds, setAllowedResourceIds] = useState<string[]>(
     eventType.allowedResources?.map((ar) => ar.resource.id) || []
+  );
+  // Branches where the event is offered (first = default sede). Falls back to
+  // the legacy default sede so existing events stay unchanged until edited.
+  const [sedeIds, setSedeIds] = useState<string[]>(
+    eventType.locations?.map((l) => l.locationId) ||
+      (eventType.defaultLocation?.id ? [eventType.defaultLocation.id] : []) ||
+      []
   );
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -183,6 +191,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           price: Math.round((parseFloat(formData.price as any) || 0) * 100),
           formFields,
           allowedResourceIds,
+          locationIds: sedeIds,
         }),
       });
 
@@ -312,10 +321,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
           </div>
 
           {formData.location === 'in-person' && (
-            <SedeSelect
-              value={formData.locationId || ''}
-              onChange={(locationId) => setFormData({ ...formData, locationId })}
-            />
+            <SedeMultiSelect value={sedeIds} onChange={setSedeIds} />
           )}
 
           {formData.location === 'video' && (

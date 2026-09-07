@@ -9,6 +9,7 @@ import {
   sendBookingConfirmationWithTemplate,
   sendPostMeetingSummary,
 } from '@/lib/email';
+import { bookingVenueText } from '@/lib/booking-venue';
 import {
   sendBookingConfirmation as sendWhatsAppBookingConfirmation,
   sendMeetingSummary as sendWhatsAppMeetingSummary,
@@ -289,6 +290,7 @@ export async function PUT(
           startTime: updatedBooking.startTime,
           duration: updatedBooking.eventType.duration,
           location: updatedBooking.eventType.location,
+          venue: bookingVenueText(updatedBooking),
           videoLink: (updatedBooking as any).meetingUrl || updatedBooking.eventType.videoLink || undefined,
           timezone: updatedBooking.timezone,
           bookingId: updatedBooking.id,

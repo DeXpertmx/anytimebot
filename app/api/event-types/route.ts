@@ -36,6 +36,11 @@ export async function GET(request: NextRequest) {
         formFields: true,
         bookingPage: true,
         defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+        locations: {
+          include: {
+            location: { select: { id: true, name: true, address: true, timezone: true } },
+          },
+        },
         allowedResources: {
           include: {
             resource: {
@@ -121,6 +126,7 @@ export async function POST(request: NextRequest) {
       enableRouting = false,
       allowedResourceIds = [],
       locationId = null,
+      locationIds = [],
     } = body;
 
     // Validation
@@ -163,21 +169,29 @@ export async function POST(request: NextRequest) {
       allowedResources = owned.map((r) => ({ resourceId: r.id }));
     }
 
-    // Default sede (Phase B): must belong to the user and be active.
-    let defaultLocationId: string | null = null;
-    if (locationId) {
-      const ownedLocation = await prisma.location.findFirst({
-        where: { id: String(locationId), userId: (session.user as any).id, isActive: true },
+    // Sedes where the event is offered (multi-sede picker). The editor sends
+    // `locationIds`; the single `locationId` is kept for legacy callers. All of
+    // them must belong to the user and be active; the first one is the default.
+    const rawLocationIds = Array.from(
+      new Set(
+        (Array.isArray(locationIds) ? locationIds.filter(Boolean) : locationId ? [String(locationId)] : []).map(String)
+      )
+    );
+    let ownedLocationIds: string[] = [];
+    if (rawLocationIds.length > 0) {
+      const ownedLocations = await prisma.location.findMany({
+        where: { id: { in: rawLocationIds }, userId: (session.user as any).id, isActive: true },
         select: { id: true },
       });
-      if (!ownedLocation) {
+      if (ownedLocations.length !== rawLocationIds.length) {
         return NextResponse.json(
-          { success: false, error: 'Sede no encontrada o inactiva' },
+          { success: false, error: 'Una o más sucursales no existen o están inactivas' },
           { status: 400 }
         );
       }
-      defaultLocationId = ownedLocation.id;
+      ownedLocationIds = ownedLocations.map((l) => l.id);
     }
+    const defaultLocationId = ownedLocationIds[0] || null;
 
     // Create event type (with its allowed resources when any are given)
     const eventType = await prisma.eventType.create({
@@ -211,6 +225,16 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Offer the event in its configured branches.
+    if (ownedLocationIds.length > 0) {
+      await prisma.eventTypeLocation.createMany({
+        data: ownedLocationIds.map((locationIdValue: string) => ({
+          eventTypeId: eventType.id,
+          locationId: locationIdValue,
+        })),
+      });
+    }
+
     // Create form fields if provided
     if (formFields?.length > 0) {
       await prisma.bookingFormField.createMany({
@@ -232,6 +256,11 @@ export async function POST(request: NextRequest) {
         formFields: true,
         bookingPage: true,
         defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+        locations: {
+          include: {
+            location: { select: { id: true, name: true, address: true, timezone: true } },
+          },
+        },
         allowedResources: {
           include: {
             resource: {

@@ -31,6 +31,7 @@ export default async function EditEventTypePage({ params }: Props) {
       bookingPage: true,
       formFields: true,
       defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+      locations: { select: { locationId: true } },
       allowedResources: {
         include: {
           resource: {

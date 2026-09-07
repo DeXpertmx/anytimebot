@@ -125,16 +125,20 @@ export async function sendBookingConfirmation(data: {
   duration: number;
   location: string;
   videoLink?: string;
+  /** Optional physical venue (sede / room+address) shown instead of the raw type. */
+  venue?: string;
   timezone?: string;
   bookingId?: string;
   cancelToken?: string;
   rescheduleToken?: string;
   meetingPageUrl?: string;
+  /** Combined services (multi-service bookings) listed in the email. */
+  serviceItems?: Array<{ name: string; duration: number }>;
   /** Host identity shown in the greeting (avatar + name of the booking owner). */
   hostName?: string | null;
   hostAvatar?: string | null;
 }): Promise<boolean> {
-  const { to, guestName, eventTitle, startTime, duration, location, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl, hostName, hostAvatar } = data;
+  const { to, guestName, eventTitle, startTime, duration, location, venue, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl, serviceItems, hostName, hostAvatar } = data;
   
   const formattedDate = formatDateWithTimezone(startTime, timezone);
 
@@ -175,11 +179,18 @@ export async function sendBookingConfirmation(data: {
           
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
             <h2 style="margin-top: 0; color: white; font-size: 24px;">${eventTitle}</h2>
+            ${
+              serviceItems && serviceItems.length > 1
+                ? `<div style="margin: 10px 0;"><p style="margin: 0 0 4px; color: #e0e7ff; font-size: 13px;"><strong>Servicios incluidos:</strong></p>${serviceItems
+                    .map((s) => `<p style="margin: 2px 0; font-size: 14px;">• ${s.name} (${s.duration} min)</p>`)
+                    .join('')}</div>`
+                : ''
+            }
             <div style="margin: 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3);">
               <p style="margin: 8px 0;"><strong>📅 Cuándo:</strong> ${formattedDate}</p>
               <p style="margin: 8px 0;"><strong>⏱️ Duración:</strong> ${duration} minutos</p>
               <p style="margin: 8px 0;"><strong>🌍 Zona horaria:</strong> ${timezone}</p>
-              <p style="margin: 8px 0;"><strong>📍 Ubicación:</strong> ${location}</p>
+              <p style="margin: 8px 0;"><strong>📍 Ubicación:</strong> ${venue || location}</p>
               ${videoLink ? `<p style="margin: 8px 0;"><strong>🎥 Enlace de video:</strong> <a href="${videoLink}" style="color: #FFD700; text-decoration: underline;">${videoLink}</a></p>` : ''}
             </div>
           </div>
@@ -251,14 +262,18 @@ export async function sendBookingConfirmationWithTemplate(data: {
   duration: number;
   location: string;
   videoLink?: string;
+  /** Optional physical venue (sede / room+address) shown instead of the raw type. */
+  venue?: string;
   timezone?: string;
   bookingId?: string;
   cancelToken?: string;
   rescheduleToken?: string;
   meetingPageUrl?: string;
+  /** Combined services (multi-service bookings) listed in the email. */
+  serviceItems?: Array<{ name: string; duration: number }>;
 }): Promise<boolean> {
-  const { userId, to, guestName, eventTitle, startTime, duration, location, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl } = data;
-
+  const { userId, to, guestName, eventTitle, startTime, duration, location, venue, videoLink, timezone = 'UTC', bookingId, cancelToken, rescheduleToken, meetingPageUrl, serviceItems } = data;
+  
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
 
   // Resolve the host identity (avatar + name) so confirmations show who the
@@ -279,6 +294,7 @@ export async function sendBookingConfirmationWithTemplate(data: {
       startTime: formattedDate,
       duration: duration.toString(),
       location,
+      venue: venue || location,
       videoLink: videoLink || '',
       timezone,
       cancelUrl,
@@ -288,6 +304,11 @@ export async function sendBookingConfirmationWithTemplate(data: {
       // Host identity for custom templates ({{hostName}} / {{hostAvatar}})
       hostName,
       hostAvatar: hostAvatarUrl,
+      // Combined services as a readable list (templates can use {{serviceList}})
+      serviceList:
+        serviceItems && serviceItems.length > 1
+          ? serviceItems.map((s) => `• ${s.name} (${s.duration} min)`).join('<br/>')
+          : '',
     };
     
     const html = replaceTemplateVariables(template.htmlBody, variables);
@@ -699,6 +720,8 @@ export async function sendBookingReminder(data: {
   startTime: Date;
   videoLink?: string;
   location?: string;
+  /** Optional physical venue (sede / room+address) shown instead of the raw type. */
+  venue?: string;
   timezone?: string;
   cancelToken?: string;
   rescheduleToken?: string;
@@ -706,7 +729,7 @@ export async function sendBookingReminder(data: {
   hostName?: string | null;
   hostAvatar?: string | null;
 }): Promise<boolean> {
-  const { to, guestName, eventTitle, startTime, videoLink, location, timezone = 'UTC', cancelToken, rescheduleToken, hostName, hostAvatar } = data;
+  const { to, guestName, eventTitle, startTime, videoLink, location, venue, timezone = 'UTC', cancelToken, rescheduleToken, hostName, hostAvatar } = data;
   
   const formattedDate = formatDateWithTimezone(startTime, timezone);
 
@@ -746,7 +769,7 @@ export async function sendBookingReminder(data: {
             <div style="margin: 15px 0; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3);">
               <p style="margin: 8px 0;"><strong>📅 Cuándo:</strong> ${formattedDate}</p>
               <p style="margin: 8px 0;"><strong>🌍 Zona horaria:</strong> ${timezone}</p>
-              ${location ? `<p style="margin: 8px 0;"><strong>📍 Ubicación:</strong> ${location}</p>` : ''}
+              ${(venue || location) ? `<p style="margin: 8px 0;"><strong>📍 Ubicación:</strong> ${venue || location}</p>` : ''}
               ${videoLink ? `<p style="margin: 15px 0 0 0;"><strong>🎥 Enlace de video:</strong><br><a href="${videoLink}" style="color: #FFD700; text-decoration: underline; font-size: 15px; word-break: break-all;">${videoLink}</a></p>` : ''}
             </div>
           </div>
@@ -808,12 +831,14 @@ export async function sendBookingReminderWithTemplate(data: {
   startTime: Date;
   videoLink?: string;
   location?: string;
+  /** Optional physical venue (sede / room+address) shown instead of the raw type. */
+  venue?: string;
   timezone?: string;
   cancelToken?: string;
   rescheduleToken?: string;
   hoursBefore?: number;
 }): Promise<boolean> {
-  const { userId, to, guestName, eventTitle, startTime, videoLink, location, timezone = 'UTC', cancelToken, rescheduleToken, hoursBefore = 24 } = data;
+  const { userId, to, guestName, eventTitle, startTime, videoLink, location, venue, timezone = 'UTC', cancelToken, rescheduleToken, hoursBefore = 24 } = data;
   
   // Resolve the host identity (avatar + name) so reminders show who booked it.
   const { hostName, hostAvatarUrl } = await resolveHostIdentity(userId);
@@ -833,6 +858,7 @@ export async function sendBookingReminderWithTemplate(data: {
       eventTitle,
       startTime: formattedDate,
       location: location || '',
+      venue: venue || location || '',
       videoLink: videoLink || '',
       timezone,
       cancelUrl,

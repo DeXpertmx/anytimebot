@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendBookingReminderWithTemplate } from '@/lib/email';
+import { bookingVenueText } from '@/lib/booking-venue';
 import { generateBookingToken } from '@/lib/booking-tokens';
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
             startTime: booking.startTime,
             videoLink: (booking as any).meetingUrl || booking.eventType.videoLink || undefined,
             location: booking.eventType.location,
+            venue: bookingVenueText(booking),
             timezone: booking.timezone,
             cancelToken,
             rescheduleToken,

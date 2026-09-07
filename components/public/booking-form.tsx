@@ -41,7 +41,29 @@ interface EventType {
     options: string[];
     placeholder?: string | null;
   }>;
+  // Branches where the event is offered (multi-sede).
+  locations?: Array<{
+    location?: {
+      id: string;
+      name: string;
+      address?: string | null;
+      city?: string | null;
+      timezone?: string | null;
+    } | null;
+  }>;
 }
+
+interface Branch {
+  id: string;
+  name: string;
+  address?: string | null;
+  timezone?: string | null;
+}
+
+const branchesOf = (eventType?: EventType | null): Branch[] =>
+  (eventType?.locations || [])
+    .map((l) => l.location)
+    .filter((l): l is Branch => !!l && !!l.id);
 
 interface Availability {
   dayOfWeek: number;
@@ -82,11 +104,25 @@ export function BookingForm({
   const { toast } = useToast();
   const { t, i18n: i18nInstance } = useTranslation();
   const brandColor = bookingPage.brandColor || '#6366f1';
-  const [selectedEventType, setSelectedEventType] = useState<EventType | null>(
-    (preselectedEventId && eventTypes.find((e) => e.id === preselectedEventId)) ||
+  // Multi-service: the guest can combine several services into ONE block.
+  // The first one is the primary; durations are summed for the slot search.
+  const [selectedEventTypes, setSelectedEventTypes] = useState<EventType[]>(() => {
+    const initial =
+      (preselectedEventId && eventTypes.find((e) => e.id === preselectedEventId)) ||
       eventTypes[0] ||
-      null
-  );
+      null;
+    return initial ? [initial] : [];
+  });
+  const primaryEventType = selectedEventTypes[0] ?? null;
+  const blockDuration = selectedEventTypes.reduce((acc, et) => acc + et.duration, 0);
+  const blockTotalPrice = selectedEventTypes
+    .filter((et) => et.collectPayment && et.price > 0)
+    .reduce((acc, et) => acc + et.price, 0);
+  const anyPaid = selectedEventTypes.some((et) => et.collectPayment && et.price > 0);
+  const blockName = selectedEventTypes.map((et) => et.name).join(' + ');
+  // Chosen branch (sucursal) for in-person events offered in several sedes.
+  // Single-branch events preselect their only sede automatically.
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -157,9 +193,11 @@ export function BookingForm({
   // For yearly memberships, compute the annual total and the savings vs. the
   // monthly alternative. Prefers a real monthly event with the same name on
   // the same booking page; falls back to the prorated equivalent (price / 12).
-  const yearlySavings = selectedEventType
-    ? computeAnnualSavings(eventTypes, selectedEventType)
-    : null;
+  // Only applies to a single selected service.
+  const yearlySavings =
+    selectedEventTypes.length === 1
+      ? computeAnnualSavings(eventTypes, selectedEventTypes[0])
+      : null;
 
   // date-fns locale follows the UI language (Spanish by default, English second)
   const dateLocale = i18nInstance.language?.startsWith('en') ? enUS : esLocale;
@@ -197,10 +235,38 @@ export function BookingForm({
     format(addDays(new Date(2024, 0, 1), i), 'EEE', { locale: dateLocale })
   );
 
+  // Branches: a combined block can only be booked at a sede where EVERY
+  // selected service is offered (intersection). Video-only selections have
+  // no branch picker.
+  const offeredBranches = (() => {
+    const inPerson = selectedEventTypes.filter((et) => et.location === 'in-person');
+    if (inPerson.length === 0) return [];
+    const lists = inPerson.map((et) => branchesOf(et));
+    let inter = lists[0];
+    for (const list of lists.slice(1)) {
+      const ids = new Set(list.map((b) => b.id));
+      inter = inter.filter((b) => ids.has(b.id));
+    }
+    return inter;
+  })();
+  const needsBranchPick = offeredBranches.length > 1;
+  const canPickDate = !needsBranchPick || !!selectedLocationId;
+
+  // When the selection changes, preselect its only branch (single-sede
+  // events) or clear the previous pick (multi-sede events require an explicit
+  // choice).
+  useEffect(() => {
+    const branches = offeredBranches;
+    setSelectedLocationId(branches.length === 1 ? branches[0].id : '');
+    setSelectedDate(null);
+    setSelectedTime('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventTypes]);
+
   // Fetch available time slots for selected date
   useEffect(() => {
     const fetchAvailableSlots = async () => {
-      if (!selectedDate || !selectedEventType) {
+      if (!selectedDate || selectedEventTypes.length === 0 || !canPickDate) {
         setAvailableSlots([]);
         return;
       }
@@ -210,10 +276,12 @@ export function BookingForm({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            eventTypeId: selectedEventType.id,
+            eventTypeIds: selectedEventTypes.map((et) => et.id),
             date: format(selectedDate, 'yyyy-MM-dd'),
             // The guest's own timezone: slots come back already shifted to it.
             timezone: userTimezone,
+            // Branch picked by the guest (multi-sede events).
+            locationId: selectedLocationId || null,
           }),
         });
 
@@ -233,22 +301,22 @@ export function BookingForm({
     };
 
     fetchAvailableSlots();
-  }, [selectedDate, selectedEventType, userTimezone]);
+  }, [selectedDate, selectedEventTypes, selectedLocationId, canPickDate, userTimezone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedEventType || !selectedDate || !selectedTime) {
+    if (selectedEventTypes.length === 0 || !selectedDate || !selectedTime) {
       toast({
         title: 'Missing Information',
-        description: 'Please select an event type, date, and time.',
+        description: 'Please select a service, date, and time.',
         variant: 'destructive',
       });
       return;
     }
 
-    // Validate required custom form fields
-    const missingRequired = (selectedEventType.formFields || []).filter(
+    // Validate required custom form fields (primary service)
+    const missingRequired = (primaryEventType?.formFields || []).filter(
       (f) => f.required && (formData[f.id] === undefined || formData[f.id] === '' || formData[f.id] === false)
     );
     if (missingRequired.length > 0) {
@@ -267,18 +335,19 @@ export function BookingForm({
         `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`
       );
 
-      // Check if payment is required
-      if (selectedEventType.collectPayment && selectedEventType.price > 0) {
+      // Check if payment is required (any selected service must be paid)
+      if (anyPaid) {
         // Redirect to Stripe Checkout
         const paymentResponse = await fetch('/api/bookings/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            eventTypeId: selectedEventType.id,
+            eventTypeIds: selectedEventTypes.map((et) => et.id),
             guestName: formData.guestName,
             guestEmail: formData.guestEmail,
             startTime: startTime.toISOString(),
             timezone: userTimezone,
+            locationId: selectedLocationId || null,
           }),
         });
 
@@ -303,20 +372,21 @@ export function BookingForm({
 
       // Regular booking (no payment required)
       const endTime = new Date(
-        startTime.getTime() + selectedEventType.duration * 60000
+        startTime.getTime() + blockDuration * 60000
       );
 
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventTypeId: selectedEventType.id,
+          eventTypeIds: selectedEventTypes.map((et) => et.id),
           guestName: formData.guestName,
           guestEmail: formData.guestEmail,
           guestPhone: formData.guestPhone || null,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           timezone: userTimezone,
+          locationId: selectedLocationId || null,
           formData: formData,
           ...(repeatFreq
             ? {
@@ -336,7 +406,7 @@ export function BookingForm({
         const seriesInfo = result?.series;
         setConfirmedBooking({
           id: result.data?.id ?? '',
-          eventName: selectedEventType.name,
+          eventName: blockName,
           startDate: startTime,
           seriesCount: seriesInfo?.occurrences ?? null,
           seriesSummary: seriesInfo?.summary ?? null,
@@ -487,37 +557,120 @@ export function BookingForm({
       {/* ---------- Step 1: Fecha ---------- */}
       {step === 1 && (
         <>
-      {/* Event Type Selection */}
-      {eventTypes.length > 1 && (
+      {/* Service Selection — multi-select: several services combine into one
+          block (durations are summed, e.g. haircut + beard as a single slot). */}
+      {eventTypes.length > 0 && (
         <div>
-          <Label htmlFor="eventType">Event Type</Label>
-          <Select
-            value={selectedEventType?.id || ''}
-            onValueChange={(value) => {
-              const eventType = eventTypes.find((et) => et.id === value);
-              setSelectedEventType(eventType || null);
-              setSelectedDate(null);
-              setSelectedTime('');
-            }}
-          >
-            <SelectTrigger id="eventType">
-              <SelectValue placeholder="Select an event type" />
-            </SelectTrigger>
-            <SelectContent>
-              {eventTypes.map((eventType) => {
-                const savings = computeAnnualSavings(eventTypes, eventType)?.percent;
-                return (
-                  <SelectItem key={eventType.id} value={eventType.id}>
-                    {eventType.name} ({eventType.duration} min)
-                    {eventType.collectPayment && eventType.price > 0
-                      ? ` · ${(eventType.price / 100).toFixed(2)} ${eventType.currency.toUpperCase()} ${intervalLabel(eventType.paymentInterval)}`
-                      : ''}
-                    {savings ? ` · ${t('bookingForm.savePercent', { percent: savings })}` : ''}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          <Label className="mb-1 block">{t('bookingForm.selectServices')}</Label>
+          <p className="mb-3 text-xs text-slate-500">
+            {t('bookingForm.combineServicesHint')}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {eventTypes.map((eventType) => {
+              const active = selectedEventTypes.some((et) => et.id === eventType.id);
+              const savings = computeAnnualSavings(eventTypes, eventType)?.percent;
+              return (
+                <button
+                  key={eventType.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedEventTypes((prev) => {
+                      const exists = prev.some((et) => et.id === eventType.id);
+                      const next = exists
+                        ? prev.filter((et) => et.id !== eventType.id)
+                        : [...prev, eventType];
+                      // Keep at least one service selected
+                      return next.length > 0 ? next : prev;
+                    });
+                    setSelectedDate(null);
+                    setSelectedTime('');
+                  }}
+                  style={active ? { borderColor: brandColor, backgroundColor: `${brandColor}0d` } : undefined}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    active
+                      ? 'shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-semibold text-gray-900">
+                      {eventType.name}
+                    </span>
+                    {active && <Check className="h-4 w-4" style={{ color: brandColor }} />}
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
+                    <span>{eventType.duration} min</span>
+                    {eventType.collectPayment && eventType.price > 0 && (
+                      <span>
+                        · {(eventType.price / 100).toFixed(2)} {eventType.currency.toUpperCase()}{' '}
+                        {intervalLabel(eventType.paymentInterval)}
+                      </span>
+                    )}
+                    {savings && (
+                      <span className="font-medium text-emerald-600">
+                        · {t('bookingForm.savePercent', { percent: savings })}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {selectedEventTypes.length > 1 && (
+            <p className="mt-2 text-xs font-medium" style={{ color: brandColor }}>
+              {t('bookingForm.selectedTotal', { duration: blockDuration })}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Branch selection — same event offered in several sedes (multi-sede) */}
+      {needsBranchPick && (
+        <div className="rounded-xl border border-slate-200 p-4">
+          <Label className="mb-1 block">{t('bookingForm.chooseBranch')}</Label>
+          <p className="mb-3 text-xs text-slate-500">
+            {t('bookingForm.chooseBranchHint')}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {offeredBranches.map((branch) => {
+              const active = selectedLocationId === branch.id;
+              return (
+                <button
+                  key={branch.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationId(branch.id);
+                    setSelectedTime('');
+                  }}
+                  style={active ? { borderColor: brandColor, backgroundColor: `${brandColor}0d` } : undefined}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    active
+                      ? 'shadow-sm'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-semibold text-gray-900">
+                      <MapPin className="h-4 w-4 shrink-0" style={{ color: brandColor }} />
+                      {branch.name}
+                    </span>
+                    {active && <Check className="h-4 w-4" style={{ color: brandColor }} />}
+                  </span>
+                  {branch.address && (
+                    <span className="mt-1 block text-xs text-gray-500">
+                      {branch.address}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {!canPickDate && (
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-amber-600">
+              <Clock className="h-3.5 w-3.5" />
+              {t('bookingForm.chooseBranchToContinue')}
+            </p>
+          )}
         </div>
       )}
 
@@ -579,7 +732,7 @@ export function BookingForm({
               const isPast = date < today && !isSameDay(date, today);
               const isSelected = selectedDate && isSameDay(date, selectedDate);
               const isToday = isSameDay(date, today);
-              const isDisabled = !available || isPast;
+              const isDisabled = !available || isPast || !canPickDate;
               return (
                 <button
                   key={date.toISOString()}
@@ -706,9 +859,9 @@ export function BookingForm({
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-800">
               <span className="font-semibold">
-                {selectedEventType?.name} ({selectedEventType?.duration} min)
-                {selectedEventType?.collectPayment && selectedEventType.price > 0
-                  ? ` · ${(selectedEventType.price / 100).toFixed(2)} ${selectedEventType.currency.toUpperCase()}`
+                {blockName} ({blockDuration} min)
+                {anyPaid
+                  ? ` · ${(blockTotalPrice / 100).toFixed(2)} ${selectedEventTypes[0]?.currency.toUpperCase() || ''}`
                   : ''}
               </span>
               <span className="capitalize text-gray-600">
@@ -795,8 +948,8 @@ export function BookingForm({
             </p>
           </div>
 
-          {/* Custom Form Fields */}
-          {selectedEventType?.formFields.map((field) => (
+          {/* Custom Form Fields (primary service) */}
+          {primaryEventType?.formFields.map((field) => (
             <div key={field.id}>
               <Label htmlFor={field.id}>
                 {field.label}
@@ -884,9 +1037,11 @@ export function BookingForm({
             </div>
           ))}
 
-          {/* Repeat options — hide entirely for paid one-time events (a
-              Checkout session covers exactly one occurrence). */}
-          {!(selectedEventType?.collectPayment && selectedEventType.price > 0 && selectedEventType.paymentInterval === 'ONE_TIME') && (
+          {/* Repeat options — single services only (combined multi-service
+              blocks cannot repeat yet), and hidden for paid one-time events
+              (a Checkout session covers exactly one occurrence). */}
+          {selectedEventTypes.length === 1 &&
+            !(primaryEventType?.collectPayment && primaryEventType.price > 0 && primaryEventType.paymentInterval === 'ONE_TIME') && (
             <div className="rounded-xl border border-gray-200 p-4">
               <Label className="text-sm font-medium">
                 {t('bookingForm.repeatTitle')}
@@ -938,27 +1093,27 @@ export function BookingForm({
             </div>
           )}
 
-          {/* Price Display */}
-          {selectedEventType?.collectPayment && selectedEventType.price > 0 && (
+          {/* Price Display — total of every paid selected service */}
+          {anyPaid && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <span className="text-emerald-700 font-medium">
-                  {selectedEventType.paymentInterval === 'MONTH'
+                  {selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'MONTH'
                     ? t('bookingForm.paymentMonthly')
-                    : selectedEventType.paymentInterval === 'YEAR'
+                    : selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'YEAR'
                       ? t('bookingForm.paymentYearly')
                       : t('bookingForm.paymentRequired')}
                 </span>
                 <span className="text-emerald-800 font-bold text-lg">
-                  {(selectedEventType.price / 100).toFixed(2)} {selectedEventType.currency.toUpperCase()}
-                  {selectedEventType.paymentInterval === 'MONTH'
+                  {(blockTotalPrice / 100).toFixed(2)} {selectedEventTypes[0]?.currency.toUpperCase()}
+                  {selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'MONTH'
                     ? ` / ${t('bookingForm.perMonth')}`
-                    : selectedEventType.paymentInterval === 'YEAR'
+                    : selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'YEAR'
                       ? ` / ${t('bookingForm.perYear')}`
                       : ''}
                 </span>
               </div>
-              {selectedEventType.paymentInterval === 'YEAR' && yearlySavings && (
+              {selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'YEAR' && yearlySavings && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
                     {t('bookingForm.savePercent', { percent: yearlySavings.percent })}
@@ -969,15 +1124,17 @@ export function BookingForm({
                 </div>
               )}
               <p className="text-sm text-emerald-600 mt-1">
-                {selectedEventType.paymentInterval === 'MONTH' || selectedEventType.paymentInterval === 'YEAR'
+                {selectedEventTypes.length === 1 &&
+                (primaryEventType?.paymentInterval === 'MONTH' || primaryEventType?.paymentInterval === 'YEAR')
                   ? t('bookingForm.subscriptionNote', {
-                      interval: selectedEventType.paymentInterval === 'YEAR'
+                      interval: primaryEventType?.paymentInterval === 'YEAR'
                         ? t('bookingForm.perYear')
                         : t('bookingForm.perMonth'),
                     })
                   : t('bookingForm.securePaymentNote')}
               </p>
-              {selectedEventType.paymentInterval === 'MONTH' || selectedEventType.paymentInterval === 'YEAR' ? (
+              {selectedEventTypes.length === 1 &&
+              (primaryEventType?.paymentInterval === 'MONTH' || primaryEventType?.paymentInterval === 'YEAR') ? (
                 <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -997,8 +1154,8 @@ export function BookingForm({
           >
             {isLoading
               ? 'Procesando...'
-              : selectedEventType?.collectPayment && selectedEventType.price > 0
-                ? `${t('bookingForm.continueToPayment')} · ${(selectedEventType.price / 100).toFixed(2)} ${selectedEventType.currency.toUpperCase()}`
+              : anyPaid
+                ? `${t('bookingForm.continueToPayment')} · ${(blockTotalPrice / 100).toFixed(2)} ${selectedEventTypes[0]?.currency.toUpperCase() || ''}`
                 : t('bookingForm.confirmBooking')}
           </Button>
         </div>

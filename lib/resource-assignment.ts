@@ -58,6 +58,9 @@ export async function pickResourceForSlot(opts: {
   allowedResources: PickResourceLike[];
   preferredId?: string | null;
   excludeBookingId?: string | null; // booking being rescheduled (ignore its own overlap)
+  // Multi-sede: restrict the pool to resources of this branch (floating
+  // resources without a sede are always eligible). Null = no restriction.
+  locationId?: string | null;
 }): Promise<PickResult | null> {
   const {
     eventTypeId,
@@ -69,9 +72,15 @@ export async function pickResourceForSlot(opts: {
     allowedResources,
     preferredId,
     excludeBookingId,
+    locationId = null,
   } = opts;
 
-  const active = allowedResources.filter((r) => r.isActive);
+  let active = allowedResources.filter((r) => r.isActive);
+  if (locationId) {
+    active = active.filter(
+      (r) => !r.location || r.location.id === locationId
+    );
+  }
   if (active.length === 0) return null;
 
   const excludeFilter = excludeBookingId ? { id: { not: excludeBookingId } } : {};

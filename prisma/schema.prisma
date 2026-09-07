@@ -482,9 +482,28 @@ model EventType {
   formFields          BookingFormField[]
   routingResponses    RoutingFormResponse[]
   memberSubscriptions MemberSubscription[]
+  // Branches where this event is offered (multi-sede). The default sede is
+  // the first one (also mirrored in EventType.locationId for legacy flows).
+  locations           EventTypeLocation[]
 
   @@index([locationId])
   @@map("event_types")
+}
+
+// Join: an event type can be offered in several sedes (branches). The guest
+// picks the branch on the public page when there is more than one; each sede
+// keeps its own address and timezone, and resource-based events restrict the
+// assignable room/chair pool to the chosen branch.
+model EventTypeLocation {
+  eventTypeId String @map("event_type_id")
+  locationId  String @map("location_id")
+
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([eventTypeId, locationId])
+  @@index([locationId])
+  @@map("event_type_locations")
 }
 
 model Availability {
@@ -526,6 +545,7 @@ model Location {
   resources         Resource[]
   bookings          Booking[]
   defaultEventTypes EventType[] @relation("EventTypeDefaultLocation")
+  eventTypeLinks    EventTypeLocation[]
 
   @@index([userId, isActive])
   @@map("locations")
@@ -592,6 +612,11 @@ model Booking {
   // Host notes / post-meeting summary (internal)
   notes       String?   @db.Text
   completedAt DateTime? @map("completed_at") // When the host marked the appointment as finished
+
+  // Multi-service bookings: the list of services combined into one block
+  // (e.g. haircut + beard as a single consecutive appointment). Null for
+  // regular single-service bookings.
+  serviceItems Json? @map("service_items")
 
   // Team Assignment
   assignedMemberId String? @map("assigned_member_id") // Which team member is assigned
@@ -1099,6 +1124,7 @@ model EmailTemplate {
   @@unique([userId, type])
   @@map("email_templates")
 }
+
 /**
  * Per-user OAuth connections for external video providers (Zoom, Microsoft
  * Teams). Each tenant authorizes with their own account; the platform only
@@ -1179,4 +1205,3 @@ model IntegrationConnection {
   @@index([provider])
   @@map("integration_connections")
 }
-

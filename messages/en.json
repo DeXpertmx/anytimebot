@@ -310,6 +310,10 @@
     "sedeLabel": "Location (optional)",
     "noSede": "No location — no fixed address",
     "sedeHint": "For in-person events: its address is shown on the confirmation and its timezone drives availability.",
+    "sedesLabel": "Branches where it is offered",
+    "sedesHint": "With one branch the event is booked there; with two or more, guests pick the branch when booking.",
+    "sedesEmpty": "No branches yet. Create them in Settings → Locations.",
+    "defaultSede": "Default",
     "videoAutoHint": "If you have Zoom or Teams connected in Integraciones, the meeting link is created automatically when booking. Otherwise, paste the link here."
   },
   "apiKeys": {
@@ -371,6 +375,9 @@
     "updateFailed": "Failed to update webhook",
     "deleteFailed": "Failed to delete webhook",
     "test": "Send test event",
+    "testEventPing": "Ping (verification)",
+    "testEventMeetingCreated": "Meeting created (meeting.created)",
+    "testEventMeetingFailed": "Meeting failed (meeting.failed)",
     "testOk": "Test event delivered (HTTP {{status}}, {{ms}} ms)",
     "testOkDesc": "Your endpoint responded correctly. Check your server received a valid X-Anytimebot-Signature.",
     "testFail": "Test event did not arrive",
@@ -399,7 +406,7 @@
     "editTitle": "Edit customer",
     "name": "Name",
     "company": "Company",
-        "photo": "Photo",
+    "photo": "Photo",
     "email": "Email",
     "phone": "Phone",
     "notes": "Notes",
@@ -564,7 +571,15 @@
     "paymentSessionFailed": "Failed to create payment session",
     "bookingCreateFailed": "Failed to create booking",
     "assignedSpace": "Your assigned space",
-    "bookAnother": "Book another meeting"
+    "bookAnother": "Book another meeting",
+    "chooseBranch": "Choose a branch",
+    "chooseBranchHint": "Select the branch where you want your appointment.",
+    "chooseBranchToContinue": "Select a branch to see available times.",
+    "selectServices": "Choose one or more services",
+    "selectedTotal": "Total: {duration} min",
+    "servicesSummary": "Selected services",
+    "noServicesSelected": "Select at least one service",
+    "combineServicesHint": "Combine several services in one appointment. The total duration is added up."
   },
   "pricing": {
     "eyebrow": "Plans for every stage",

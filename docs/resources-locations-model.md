@@ -313,8 +313,16 @@ la particularidad de no usar un recurso que esté ocupado en alguna ocurrencia
   reservable, el editor permite elegir una sede; su dirección queda como
   snapshot en cada reserva (confirmación pública, detalle, emails) y su huso
   ancla la disponibilidad (mismo motor que los recursos).
-- Pendiente (opcional): `BookingPage.locationId` y el paso "elige sede" en la
-  página pública para ofrecer el mismo evento en varias sedes.
+- **Multi-sede: paso "elige sucursal"** (migración
+  `20260905100000_add_eventtype_locations`): el editor de tipo de evento elige
+  ahora un **conjunto** de sedes donde se ofrece (primera = por defecto). Cuando
+  hay dos o más, la página pública muestra el bloque "Elige sucursal" antes del
+  calendario: cada sede ancla la disponibilidad en su huso, los eventos con
+  recursos restringen el pool de salas/sillones a la sucursal elegida, y la
+  reserva guarda el snapshot de esa sede (confirmación, emails, detalle). El
+  pago con Stripe conserva la sucursal vía metadata del checkout.
+- Pendiente (opcional): `BookingPage.locationId` (una página de reserva completa
+  por sede).
 
 **Fase C — recursos del equipo:**
 - `TeamMember.resourceId` opcional ("Carlos trabaja en el Sillón 2") para que la

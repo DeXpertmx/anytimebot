@@ -10,6 +10,7 @@ import {
   type DayWindow,
   type EngineResource,
 } from '@/lib/availability-engine';
+import { totalDuration, maxBuffer, combinedName } from '@/lib/multi-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +29,18 @@ export const dynamic = 'force-dynamic';
  * When no timezone is sent the behaviour is byte-for-byte the previous one
  * (anchor = guest day = UTC-style wall clocks).
  */
-async function checkAvailability(eventTypeId: string, date: string, timezone: string | null) {
+async function checkAvailability(
+  eventTypeIds: string[],
+  date: string,
+  timezone: string | null,
+  requestedLocationId?: string | null,
+) {
   try {
-    // Get event type with booking page, availability and (optional) resources
-    const eventType = await prisma.eventType.findUnique({
-      where: { id: eventTypeId },
+    // Get the event types (services) with booking page, availability and
+    // (optional) resources. Multi-service bookings combine several services
+    // into one consecutive block: total duration = sum of every duration.
+    const eventTypes = await prisma.eventType.findMany({
+      where: { id: { in: eventTypeIds } },
       include: {
         bookingPage: {
           include: {
@@ -41,6 +49,12 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
           },
         },
         defaultLocation: { select: { id: true, name: true, address: true, timezone: true } },
+        // Branches where this event is offered (multi-sede picker).
+        locations: {
+          include: {
+            location: { select: { id: true, name: true, address: true, timezone: true } },
+          },
+        },
         allowedResources: {
           include: {
             resource: {
@@ -54,10 +68,21 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
       },
     });
 
-    if (!eventType) {
+    if (eventTypes.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Event type not found' },
         { status: 404 }
+      );
+    }
+
+    // Primary = first selected service; every service must live on the same
+    // booking page so the schedule/windows/slot interval stay consistent.
+    const eventType = eventTypes[0];
+    const samePage = eventTypes.every((et) => et.bookingPageId === eventType.bookingPageId);
+    if (!samePage) {
+      return NextResponse.json(
+        { success: false, error: 'Los servicios deben pertenecer a la misma página de reservas' },
+        { status: 400 }
       );
     }
 
@@ -68,15 +93,65 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
       );
     }
 
-    // The schedule anchor: the default sede's clock when the event type has
-    // one (Phase B), otherwise the owner's own clock, falling back to 'UTC'
+    // Combined block: sum of the selected services' durations, largest buffer.
+    const durationMinutes = totalDuration(eventTypes);
+    const bufferMinutes = maxBuffer(eventTypes);
+
+    // The schedule anchor: the sede's clock when the event type is offered in
+    // one (Phase B) — or, when the guest picked a branch, THAT branch's clock.
+    // Without any sede the owner's own clock is used, falling back to 'UTC'
     // (the legacy naive behaviour). Resources with own schedules may still
     // carry a different sede clock (resolved per resource in the engine).
-    const resourceMode = eventType.allowedResources.length > 0;
-    const allowedResources = eventType.allowedResources
-      .map((er) => er.resource)
-      .filter((r) => r.isActive);
-    const defaultSedeTz = eventType.defaultLocation?.timezone || null;
+    // Resources: a combined block must fit on ONE resource allowed by EVERY
+    // selected service (intersection). If any service ignores resources, the
+    // whole block is treated as a plain (non-resource) slot.
+    const allResourceBased = eventTypes.every((et) => et.allowedResources.length > 0);
+    const resourceMode = allResourceBased;
+
+    // Resolve the branch. The picker runs when the event is offered in several
+    // sedes; the requested id must be one of them (or the legacy default).
+    // Branches: only sedes where EVERY selected service is offered can host a
+    // combined booking (intersection). Legacy single-branch events fall back
+    // to the primary's default location.
+    const branchLists = eventTypes.map((et) => et.locations.map((l) => l.location));
+    let offered = branchLists[0];
+    for (const branches of branchLists.slice(1)) {
+      const ids = new Set(branches.map((b) => b.id));
+      offered = offered.filter((b) => ids.has(b.id));
+    }
+    const resolvedBranch =
+      (requestedLocationId &&
+        offered.find((l) => l.id === requestedLocationId)) ||
+      (requestedLocationId &&
+        offered.length === 0 &&
+        eventType.defaultLocation?.id === requestedLocationId
+        ? eventType.defaultLocation
+        : null) ||
+      null;
+
+    // Intersection of the resources allowed by every selected service.
+    const resourceSets = eventTypes.map((et) =>
+      et.allowedResources.map((er) => er.resource),
+    );
+    let allowedResources = resourceSets[0] ?? [];
+    for (const set of resourceSets.slice(1)) {
+      const ids = new Set(set.map((r) => r.id));
+      allowedResources = allowedResources.filter((r) => ids.has(r.id));
+    }
+    allowedResources = allowedResources.filter((r) => r.isActive);
+
+    // Resource-mode events offered in several sedes: only the resources of the
+    // chosen branch (plus floating resources without a sede) are candidates.
+    if (offered.length > 1 && resolvedBranch) {
+      allowedResources = allowedResources.filter(
+        (r) => !r.location || r.location.id === resolvedBranch.id
+      );
+    }
+
+    const defaultSedeTz =
+      (resolvedBranch?.timezone as string | null) ||
+      eventType.defaultLocation?.timezone ||
+      null;
     const anchorTz = defaultSedeTz || eventType.bookingPage.user.timezone || 'UTC';
 
     // A real second clock exists when the event is tied to a sede (default
@@ -168,7 +243,7 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
         }),
         prisma.booking.findMany({
           where: {
-            eventTypeId,
+            eventTypeId: { in: eventTypeIds },
             resourceId: null,
             status: { in: ['CONFIRMED', 'PENDING'] },
             startTime: { lte: range.end },
@@ -191,7 +266,7 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
     } else {
       existingBookings = await prisma.booking.findMany({
         where: {
-          eventTypeId,
+          eventTypeId: { in: eventTypeIds },
           status: { in: ['CONFIRMED', 'PENDING'] },
           startTime: { lte: range.end },
           endTime: { gte: range.start },
@@ -243,8 +318,8 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
       pageOpenWindows,
       resources: engineResources,
       slotInterval,
-      durationMinutes: eventType.duration,
-      bufferMinutes: eventType.bufferTime,
+      durationMinutes,
+      bufferMinutes,
       legacyOverlaps,
       overlapsByResource: bookingsByResource,
     });
@@ -254,17 +329,18 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
     const allSlots: { time: string; available: boolean; resourceId?: string | null }[] = [];
     for (const offer of offers) {
       const slotStart = offer.instant;
-      const slotEnd = addMinutes(slotStart, eventType.duration + eventType.bufferTime);
+      const slotEnd = addMinutes(slotStart, durationMinutes + bufferMinutes);
 
       let hasConflict = false;
 
-      // Non-resource mode: conflict against active bookings of this event type.
+      // Non-resource mode: conflict against active bookings of the selected
+      // services (any of them — a combined block must not overlap either).
       if (!resourceMode) {
         hasConflict = existingBookings.some((booking) => {
           const bookingStart = new Date(booking.startTime);
           const bookingEnd = new Date(booking.endTime);
           // Add buffer time to existing bookings
-          const bufferedEnd = addMinutes(bookingEnd, eventType.bufferTime);
+          const bufferedEnd = addMinutes(bookingEnd, bufferMinutes);
           return (
             (slotStart >= bookingStart && slotStart < bufferedEnd) ||
             (slotEnd > bookingStart && slotEnd <= bufferedEnd) ||
@@ -304,9 +380,9 @@ async function checkAvailability(eventTypeId: string, date: string, timezone: st
       date,
       dayOfWeek: weekdayOfYmd(date, rangeTz),
       eventType: {
-        name: eventType.name,
-        duration: eventType.duration,
-        bufferTime: eventType.bufferTime,
+        name: combinedName(eventTypes),
+        duration: durationMinutes,
+        bufferTime: bufferMinutes,
       },
     };
   } catch (error) {
@@ -322,6 +398,7 @@ export async function GET(request: NextRequest) {
     const eventTypeId = searchParams.get('eventTypeId');
     const date = searchParams.get('date');
     const timezone = searchParams.get('timezone') || null;
+    const locationId = searchParams.get('locationId') || null;
 
     if (!eventTypeId || !date) {
       return NextResponse.json(
@@ -330,7 +407,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await checkAvailability(eventTypeId, date, timezone);
+    const result = await checkAvailability([eventTypeId], date, timezone, locationId);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error checking availability (GET):', error);
@@ -345,16 +422,22 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventTypeId, date, timezone = null } = body;
+    const { eventTypeId, eventTypeIds, date, timezone = null, locationId = null } = body;
 
-    if (!eventTypeId || !date) {
+    const ids = Array.isArray(eventTypeIds) && eventTypeIds.length > 0
+      ? eventTypeIds
+      : eventTypeId
+        ? [eventTypeId]
+        : [];
+
+    if (ids.length === 0 || !date) {
       return NextResponse.json(
         { success: false, error: 'Event type ID and date are required' },
         { status: 400 }
       );
     }
 
-    const result = await checkAvailability(eventTypeId, date, timezone);
+    const result = await checkAvailability(ids, date, timezone, locationId);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error checking availability (POST):', error);

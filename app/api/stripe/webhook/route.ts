@@ -10,6 +10,7 @@ import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
 import { sendMembershipWelcome, sendMembershipOverdue } from '@/lib/email';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
+import { parseServiceItems } from '@/lib/multi-service';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -115,7 +116,11 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccountId: string | null = null) {
-  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId, tenantAccountId } = session.metadata || {};
+  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId, tenantAccountId, locationId, serviceItems: rawServiceItems } = session.metadata || {};
+  // Combined services (multi-service bookings): rebuild the list and the block
+  // end time from the compact metadata payload sent by create-payment.
+  const serviceItems = parseServiceItems(rawServiceItems as string | null);
+  const isMultiService = !!serviceItems && serviceItems.length > 1;
   let booking: any = null;
 
   if (!eventTypeId || !guestName || !guestEmail || !startTime || !userId) {
@@ -141,9 +146,27 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
       return;
     }
 
-    // Calculate end time
+    // Calculate end time. Multi-service blocks sum every service duration.
     const bookingStartTime = new Date(startTime);
-    const bookingEndTime = new Date(bookingStartTime.getTime() + eventType.duration * 60 * 1000);
+    const blockDuration = isMultiService
+      ? serviceItems!.reduce((acc, s) => acc + s.duration, 0)
+      : eventType.duration;
+    const bookingEndTime = new Date(bookingStartTime.getTime() + blockDuration * 60 * 1000);
+
+    // Branch snapshot: the guest picked a sede on the public page (multi-sede
+    // events). Resolve its name/address so the booking shows the real venue.
+    let locationSnapshot: { id?: string; name?: string; address?: string | null } = {};
+    if (locationId) {
+      try {
+        const loc = await prisma.location.findFirst({
+          where: { id: locationId, userId },
+          select: { id: true, name: true, address: true },
+        });
+        if (loc) locationSnapshot = loc;
+      } catch {
+        // Best-effort: missing sede must not break the payment confirmation.
+      }
+    }
 
     // The PaymentIntent ID lets the dashboard refund the booking later.
     const paymentIntentId =
@@ -164,6 +187,8 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
         startTime: bookingStartTime,
         endTime: bookingEndTime,
         timezone: timezone || 'UTC',
+        // Combined service list (multi-service bookings); null for single.
+        ...(isMultiService ? { serviceItems: serviceItems as any } : {}),
         status: 'CONFIRMED',
         paymentStatus: 'PAID',
         stripeSessionId: session.id,
@@ -172,6 +197,10 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
         paymentCurrency: session.currency || eventType.currency,
         paidAt: new Date(),
         stripeAccountId,
+        // Venue snapshot (sucursal elegida por el invitado).
+        locationId: locationSnapshot.id ?? null,
+        locationName: locationSnapshot.name ?? null,
+        locationAddress: locationSnapshot.address ?? null,
       },
       include: {
         eventType: {
