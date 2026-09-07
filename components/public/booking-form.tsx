@@ -113,6 +113,15 @@ export function BookingForm({
       null;
     return initial ? [initial] : [];
   });
+  // Marketing coupon: applied server-side (validated against the owner's
+  // coupons when the booking is submitted).
+  const [couponInput, setCouponInput] = useState('');
+  const [couponApplied, setCouponApplied] = useState<{
+    code: string;
+    discountCents: number;
+  } | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponChecking, setCouponChecking] = useState(false);
   const primaryEventType = selectedEventTypes[0] ?? null;
   const blockDuration = selectedEventTypes.reduce((acc, et) => acc + et.duration, 0);
   const blockTotalPrice = selectedEventTypes
@@ -120,6 +129,14 @@ export function BookingForm({
     .reduce((acc, et) => acc + et.price, 0);
   const anyPaid = selectedEventTypes.some((et) => et.collectPayment && et.price > 0);
   const blockName = selectedEventTypes.map((et) => et.name).join(' + ');
+  // Coupons apply to one-time paid bookings (never to monthly/yearly
+  // memberships, which have their own subscription pricing).
+  const isRecurringSelection =
+    selectedEventTypes.length === 1 &&
+    (primaryEventType?.paymentInterval === 'MONTH' || primaryEventType?.paymentInterval === 'YEAR');
+  const couponEligible = anyPaid && !isRecurringSelection;
+  const couponDiscountCents = couponApplied?.discountCents || 0;
+  const payableTotal = Math.max(0, blockTotalPrice - couponDiscountCents);
   // Chosen branch (sucursal) for in-person events offered in several sedes.
   // Single-branch events preselect their only sede automatically.
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
@@ -144,6 +161,9 @@ export function BookingForm({
     setStep(1);
     setRepeatFreq('');
     setRepeatCount(4);
+    setCouponApplied(null);
+    setCouponInput('');
+    setCouponError('');
     setFormData({
       guestName: '',
       guestEmail: '',
@@ -254,12 +274,15 @@ export function BookingForm({
 
   // When the selection changes, preselect its only branch (single-sede
   // events) or clear the previous pick (multi-sede events require an explicit
-  // choice).
+  // choice). A previously applied coupon must be re-validated because the
+  // total changed.
   useEffect(() => {
     const branches = offeredBranches;
     setSelectedLocationId(branches.length === 1 ? branches[0].id : '');
     setSelectedDate(null);
     setSelectedTime('');
+    setCouponApplied(null);
+    setCouponError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventTypes]);
 
@@ -303,6 +326,63 @@ export function BookingForm({
     fetchAvailableSlots();
   }, [selectedDate, selectedEventTypes, selectedLocationId, canPickDate, userTimezone]);
 
+  // Direct (free or fully-covered-by-coupon) booking: create the appointment
+  // without a Stripe Checkout session.
+  const createRegularBooking = async (startTime: Date, endTime: Date) => {
+    if (!selectedDate || !selectedTime) return false;
+    const response = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventTypeIds: selectedEventTypes.map((et) => et.id),
+        guestName: formData.guestName,
+        guestEmail: formData.guestEmail,
+        guestPhone: formData.guestPhone || null,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        timezone: userTimezone,
+        locationId: selectedLocationId || null,
+        formData: formData,
+        ...(repeatFreq
+          ? {
+              recurrence: {
+                freq: repeatFreq,
+                time: selectedTime,
+                byWeekday: selectedDate.getDay(),
+                count: repeatCount,
+              },
+            }
+          : {}),
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const seriesInfo = result?.series;
+      setConfirmedBooking({
+        id: result.data?.id ?? '',
+        eventName: blockName,
+        startDate: startTime,
+        seriesCount: seriesInfo?.occurrences ?? null,
+        seriesSummary: seriesInfo?.summary ?? null,
+        resourceName: result.data?.resourceName ?? null,
+        locationName: result.data?.locationName ?? null,
+        locationAddress: result.data?.locationAddress ?? null,
+      });
+      requestAnimationFrame(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return true;
+    }
+    const error = await response.json();
+    toast({
+      title: 'Booking Failed',
+      description: error.error || 'Failed to create booking',
+      variant: 'destructive',
+    });
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -335,9 +415,13 @@ export function BookingForm({
         `${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`
       );
 
-      // Check if payment is required (any selected service must be paid)
+      const endTime = new Date(
+        startTime.getTime() + blockDuration * 60000
+      );
+
+      // Payment required: a coupon (when applied) travels with the request so
+      // the discount is validated and applied server-side before Checkout.
       if (anyPaid) {
-        // Redirect to Stripe Checkout
         const paymentResponse = await fetch('/api/bookings/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -348,83 +432,38 @@ export function BookingForm({
             startTime: startTime.toISOString(),
             timezone: userTimezone,
             locationId: selectedLocationId || null,
+            ...(couponApplied ? { couponCode: couponApplied.code } : {}),
           }),
         });
 
-        if (paymentResponse.ok) {
-          const paymentData = await paymentResponse.json();
-          if (paymentData.data?.url) {
-            // Redirect to Stripe Checkout
-            window.location.href = paymentData.data.url;
-            return;
-          }
-        } else {
+        if (!paymentResponse.ok) {
           const error = await paymentResponse.json();
           toast({
             title: 'Payment Error',
             description: error.error || 'Failed to create payment session',
             variant: 'destructive',
           });
-          setIsLoading(false);
           return;
         }
+        const paymentData = await paymentResponse.json();
+        if (paymentData.data?.fullyCovered) {
+          // The coupon covered the full amount: create the booking as free.
+          toast({
+            title: t('bookingForm.couponFullyCovers'),
+            description: t('bookingForm.couponFullyCoversDesc'),
+          });
+          await createRegularBooking(startTime, endTime);
+          return;
+        }
+        if (paymentData.data?.url) {
+          window.location.href = paymentData.data.url;
+          return;
+        }
+        return;
       }
 
       // Regular booking (no payment required)
-      const endTime = new Date(
-        startTime.getTime() + blockDuration * 60000
-      );
-
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventTypeIds: selectedEventTypes.map((et) => et.id),
-          guestName: formData.guestName,
-          guestEmail: formData.guestEmail,
-          guestPhone: formData.guestPhone || null,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          timezone: userTimezone,
-          locationId: selectedLocationId || null,
-          formData: formData,
-          ...(repeatFreq
-            ? {
-                recurrence: {
-                  freq: repeatFreq,
-                  time: selectedTime,
-                  byWeekday: selectedDate.getDay(),
-                  count: repeatCount,
-                },
-              }
-            : {}),
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const seriesInfo = result?.series;
-        setConfirmedBooking({
-          id: result.data?.id ?? '',
-          eventName: blockName,
-          startDate: startTime,
-          seriesCount: seriesInfo?.occurrences ?? null,
-          seriesSummary: seriesInfo?.summary ?? null,
-          resourceName: result.data?.resourceName ?? null,
-          locationName: result.data?.locationName ?? null,
-          locationAddress: result.data?.locationAddress ?? null,
-        });
-        requestAnimationFrame(() => {
-          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-      } else {
-        const error = await response.json();
-        toast({
-          title: 'Booking Failed',
-          description: error.error || 'Failed to create booking',
-          variant: 'destructive',
-        });
-      }
+      await createRegularBooking(startTime, endTime);
     } catch (error) {
       console.error('Error creating booking:', error);
       toast({
@@ -436,6 +475,59 @@ export function BookingForm({
       setIsLoading(false);
     }
   };
+
+  // Validate + apply a promo code against the currently selected services.
+  const tryApplyCoupon = async (raw?: string) => {
+    const code = (raw ?? couponInput).trim();
+    if (!code || selectedEventTypes.length === 0) return;
+    setCouponChecking(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/bookings/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventTypeIds: selectedEventTypes.map((et) => et.id),
+          code,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCouponApplied({
+          code: data.data.code,
+          discountCents: data.data.discountCents,
+        });
+        setCouponInput(data.data.code);
+      } else {
+        setCouponApplied(null);
+        setCouponError(data?.error || 'Código no válido');
+      }
+    } catch {
+      setCouponApplied(null);
+      setCouponError('Error al validar el código');
+    } finally {
+      setCouponChecking(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCouponApplied(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
+  // Campaign links can prefill a coupon: https://…/?coupon=VERANO10
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('coupon');
+    if (code && selectedEventTypes.length > 0) {
+      setCouponInput(code);
+      void tryApplyCoupon(code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const money = (cents: number) =>
+    `${(cents / 100).toFixed(2)} ${selectedEventTypes[0]?.currency.toUpperCase() || ''}`;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
@@ -1105,7 +1197,7 @@ export function BookingForm({
                       : t('bookingForm.paymentRequired')}
                 </span>
                 <span className="text-emerald-800 font-bold text-lg">
-                  {(blockTotalPrice / 100).toFixed(2)} {selectedEventTypes[0]?.currency.toUpperCase()}
+                  {(payableTotal / 100).toFixed(2)} {selectedEventTypes[0]?.currency.toUpperCase()}
                   {selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'MONTH'
                     ? ` / ${t('bookingForm.perMonth')}`
                     : selectedEventTypes.length === 1 && primaryEventType?.paymentInterval === 'YEAR'
@@ -1143,6 +1235,43 @@ export function BookingForm({
                   {t('bookingForm.cancelAnytime')}
                 </p>
               ) : null}
+              {couponEligible && couponApplied && (
+                <div className="mt-3 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
+                  <span className="font-semibold">{t('bookingForm.couponApplied', { code: couponApplied.code })}</span>
+                  <span className="float-right font-semibold">− {money(couponApplied.discountCents)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Promo code (one-time paid bookings only) */}
+          {couponEligible && !couponApplied && (
+            <div className="rounded-lg border border-gray-200 p-3">
+              <p className="mb-2 text-xs font-medium text-gray-500">{t('bookingForm.couponTitle')}</p>
+              <div className="flex gap-2">
+                <Input
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  placeholder={t('bookingForm.couponPlaceholder')}
+                  className="flex-1 uppercase"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={couponChecking || !couponInput.trim()}
+                  onClick={() => void tryApplyCoupon()}
+                >
+                  {couponChecking ? '…' : t('bookingForm.couponApply')}
+                </Button>
+              </div>
+              {couponError && <p className="mt-1.5 text-xs font-medium text-red-600">{couponError}</p>}
+            </div>
+          )}
+          {couponEligible && couponApplied && (
+            <div className="flex justify-end">
+              <Button type="button" variant="ghost" size="sm" onClick={removeCoupon}>
+                {t('bookingForm.couponRemove')}
+              </Button>
             </div>
           )}
 
@@ -1155,7 +1284,7 @@ export function BookingForm({
             {isLoading
               ? 'Procesando...'
               : anyPaid
-                ? `${t('bookingForm.continueToPayment')} · ${(blockTotalPrice / 100).toFixed(2)} ${selectedEventTypes[0]?.currency.toUpperCase() || ''}`
+                ? `${t('bookingForm.continueToPayment')} · ${(payableTotal / 100).toFixed(2)} ${selectedEventTypes[0]?.currency.toUpperCase() || ''}`
                 : t('bookingForm.confirmBooking')}
           </Button>
         </div>

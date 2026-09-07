@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccountId: string | null = null) {
-  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId, tenantAccountId, locationId, serviceItems: rawServiceItems } = session.metadata || {};
+  const { eventTypeId, guestName, guestEmail, startTime, timezone, userId, tenantAccountId, locationId, serviceItems: rawServiceItems, couponCode, couponDiscount } = session.metadata || {};
   // Combined services (multi-service bookings): rebuild the list and the block
   // end time from the compact metadata payload sent by create-payment.
   const serviceItems = parseServiceItems(rawServiceItems as string | null);
@@ -201,6 +201,8 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
         locationId: locationSnapshot.id ?? null,
         locationName: locationSnapshot.name ?? null,
         locationAddress: locationSnapshot.address ?? null,
+        // Marketing coupon snapshot (code + cents discount applied at checkout).
+        ...(couponCode ? { couponCode, couponDiscount: couponDiscount ? Number(couponDiscount) || 0 : null } : {}),
       },
       include: {
         eventType: {
@@ -227,6 +229,19 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
       amount: session.amount_total ?? eventType.price,
       currency: session.currency ?? eventType.currency,
     });
+
+    // Count the coupon redemption (best-effort; coupon may have been deleted
+    // after the checkout session was created).
+    if (couponCode) {
+      try {
+        await prisma.coupon.updateMany({
+          where: { userId, code: couponCode },
+          data: { redemptions: { increment: 1 } },
+        });
+      } catch (redeemError) {
+        console.error('Failed to increment coupon redemptions:', redeemError);
+      }
+    }
 
     // TODO: Send confirmation email
     // TODO: Send WhatsApp notification

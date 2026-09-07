@@ -4,6 +4,11 @@ import { getStripe } from '@/lib/stripe';
 import { getStripeMode } from '@/lib/stripe-mode';
 import { getTenantStripeAccountId } from '@/lib/stripe-connect';
 import { buildServiceItems, totalPrice, compactServiceItems, type ServiceItem } from '@/lib/multi-service';
+import {
+  findRedeemableCoupon,
+  computeCouponDiscount,
+  normalizeCouponCode,
+} from '@/lib/marketing';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +112,36 @@ export async function POST(request: NextRequest) {
       (eventType.paymentInterval === 'MONTH' || eventType.paymentInterval === 'YEAR');
     const interval = eventType.paymentInterval === 'YEAR' ? 'year' : 'month';
 
+    // Marketing coupon: a valid code discounts the one-time total server-side
+    // (never trust a client-sent amount). Coupons do not apply to recurring
+    // memberships. When the discount covers the full amount the booking needs
+    // no payment, so we signal the public page to fall back to a free booking.
+    const couponCode = normalizeCouponCode(body.couponCode);
+    let discountCents = 0;
+    if (couponCode) {
+      if (isRecurring) {
+        return NextResponse.json(
+          { success: false, error: 'Los cupones no se aplican a suscripciones recurrentes' },
+          { status: 400 },
+        );
+      }
+      const { coupon, error } = await findRedeemableCoupon(user.id, couponCode);
+      if (!coupon || error) {
+        return NextResponse.json(
+          { success: false, error: 'El código de descuento no es válido' },
+          { status: 400 },
+        );
+      }
+      discountCents = computeCouponDiscount(coupon, total);
+      if (discountCents >= total) {
+        return NextResponse.json({
+          success: true,
+          data: { fullyCovered: true, url: null },
+        });
+      }
+    }
+    const payableTotal = total - discountCents;
+
     const sessionParams: any = {
       ...(!tenantAccountId && user.stripeCustomerId ? { customer: user.stripeCustomerId } : {}),
       payment_method_types: ['card'],
@@ -123,7 +158,7 @@ export async function POST(request: NextRequest) {
                 userId: user.id,
               },
             },
-            unit_amount: total,
+            unit_amount: payableTotal,
             ...(isRecurring ? { recurring: { interval, interval_count: 1 } } : {}),
           },
           quantity: 1,
@@ -183,6 +218,10 @@ export async function POST(request: NextRequest) {
         // webhook uses to rebuild the service list and end time.
         ...(isMultiService ? { serviceItems: compactServiceItems(serviceItems) } : {}),
         ...(isRecurring ? { membershipEvent: 'true' } : {}),
+        // Coupon snapshot so the webhook can stamp the booking and count the use.
+        ...(couponCode && discountCents > 0
+          ? { couponCode, couponDiscount: String(discountCents) }
+          : {}),
       },
     };
 

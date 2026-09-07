@@ -25,7 +25,10 @@ import {
   MessageSquareQuote,
   Wallet,
   BadgeCheck,
+  Receipt,
   Store,
+  Megaphone,
+  ListChecks,
 } from 'lucide-react';
 
 interface NavItem {
@@ -53,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { nameKey: 'calendar', href: '/dashboard/calendar', icon: CalendarDays },
       { nameKey: 'bookings', href: '/dashboard/bookings', icon: FileText },
+      { nameKey: 'polls', href: '/dashboard/polls', icon: ListChecks },
     ],
   },
   {
@@ -68,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
       { nameKey: 'customers', href: '/dashboard/customers', icon: UsersRound },
       { nameKey: 'teams', href: '/dashboard/teams', icon: Users },
       { nameKey: 'feedback', href: '/dashboard/feedback', icon: MessageSquareQuote },
+      { nameKey: 'marketing', href: '/dashboard/marketing', icon: Megaphone },
     ],
   },
   {
@@ -82,6 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: 'billing',
     items: [
       { nameKey: 'revenue', href: '/dashboard/revenue', icon: Wallet },
+      { nameKey: 'invoices', href: '/dashboard/invoices', icon: Receipt },
       { nameKey: 'memberships', href: '/dashboard/memberships', icon: BadgeCheck },
     ],
   },

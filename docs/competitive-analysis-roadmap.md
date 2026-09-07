@@ -167,10 +167,10 @@
 | # | Funcionalidad | Descripción | Competidores referentes |
 |---|---------------|-------------|------------------------|
 | 13 | **Pagos recurrentes/suscripciones** | Cobros periódicos para membresías | Fresha, AgendaPro |
-| 14 | **Encuestas de disponibilidad (voting)** | Elegir mejor horario entre múltiples participantes | Doodle, SimplyBook |
+| 14 | **Encuestas de disponibilidad (voting)** | Elegir mejor horario entre múltiples participantes | Doodle, SimplyBook | ✅ |
 | 15 | **Facturación automática** | Generación de facturas y seguimiento de pagos | Holded, AgendaPro |
 | 16 | **Inventario y productos** | Venta de productos/servicios adicionales | SimplyBook, AgendaPro |
-| 17 | **Marketing automatizado** | Campañas de email, promociones, cupones | Fresha, AgendaPro |
+| 17 | **Marketing automatizado** | Campañas de email, promociones, cupones | Fresha, AgendaPro | ✅ |
 | 18 | **Multi-idioma en páginas de reserva** | Selector de idioma para clientes internacionales | SimplyBook |
 | 19 | **Gestión de Ausencias/Vacaciones** | Bloquear días específicos por equipo/usuario | Calendly, Setmore |
 | 20 | **Reglas de asignación avanzadas** | Round Robin, peso, prioridad por categoría | Calendly |
@@ -220,7 +220,7 @@ Lo que **NINGÚN otro sistema ofrece** y nosotros sí:
 - [ ] App móvil nativa (React Native)
 - [ ] Múltiples calendarios por usuario
 - [ ] Formulario de intake/pre-questionnaire
-- [ ] Marketing automatizado
+- [x] Marketing automatizado ✅ (cupones con descuento al pagar + campañas de email a segmentos del CRM)
 
 ---
 

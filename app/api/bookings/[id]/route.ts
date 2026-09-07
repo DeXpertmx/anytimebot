@@ -24,6 +24,7 @@ import { findCustomersByGuestEmails, attachCustomerToBooking } from '@/lib/custo
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { getPublicAppUrl } from '@/lib/public-url';
 import { generateMeetingSummary } from '@/lib/meeting-summary';
+import { ensureInvoiceForCompletedBooking } from '@/lib/invoices';
 import { dispatchWebhookEvent, buildBookingPayload, type WebhookEvent } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
@@ -265,6 +266,13 @@ export async function PUT(
           console.error('Failed to send WhatsApp meeting summary:', whatsappError);
         }
       }
+    }
+
+    // Basic invoicing: when a paid booking is completed for the first time the
+    // system emits its invoice automatically (idempotent, best-effort — a
+    // failure here never breaks the finalization).
+    if (updatedBooking.paymentStatus === 'PAID') {
+      await ensureInvoiceForCompletedBooking(updatedBooking.id);
     }
 
     // When the host confirms a booking, notify the guest by email and WhatsApp

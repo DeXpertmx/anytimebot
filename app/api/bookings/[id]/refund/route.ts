@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
 import { getStripeMode } from '@/lib/stripe-mode';
 import { notifyAdminBookingRefunded } from '@/lib/system-whatsapp';
+import { cancelInvoiceForBooking } from '@/lib/invoices';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,6 +118,12 @@ export async function POST(
     } catch (notifyError) {
       // Best-effort; never fail the refund because the notification failed.
       console.error('Failed to notify admin of booking refund:', notifyError);
+    }
+
+    // If the booking had an invoice (issued when it was completed), mark it
+    // CANCELLED so the reversal is reflected in the accounting. Best-effort.
+    if (updatedBooking.paymentStatus === 'REFUNDED') {
+      await cancelInvoiceForBooking(updatedBooking.id);
     }
 
     return NextResponse.json({

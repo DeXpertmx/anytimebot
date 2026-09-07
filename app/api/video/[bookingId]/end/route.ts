@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getVideoSession, updateVideoSessionAfterMeeting } from '@/lib/video-session';
 import { prisma } from '@/lib/db';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
+import { ensureInvoiceForCompletedBooking } from '@/lib/invoices';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +54,10 @@ export async function POST(
       'booking.completed',
       buildBookingPayload('booking.completed', updatedBooking),
     );
+
+    // Basic invoicing: a paid booking finalized in-room also gets its invoice
+    // (idempotent and best-effort — never throws).
+    await ensureInvoiceForCompletedBooking(updatedBooking.id);
 
     return NextResponse.json({ videoSession: updated });
   } catch (error: any) {
