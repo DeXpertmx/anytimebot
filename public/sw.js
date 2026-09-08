@@ -1,6 +1,6 @@
 /* Anytimebot service worker — conservative: static assets cache-first,
    pages network-first with cache fallback. */
-const CACHE = 'anytimebot-v2';
+const CACHE = 'anytimebot-v3';
 const OFFLINE_URL = '/offline';
 const PRECACHE = [
   '/manifest.webmanifest',
