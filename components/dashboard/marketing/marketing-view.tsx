@@ -268,9 +268,15 @@ export function MarketingView() {
     } else toast.error(t('marketing.saveError'));
   };
 
-  // ---- Send dialog (with live audience estimate) ----
+  // ---- Send dialog (with live per-channel audience estimate) ----
   const [sendTarget, setSendTarget] = useState<Campaign | null>(null);
-  const [audienceInfo, setAudienceInfo] = useState<{ total: number; sample: string[] } | null>(null);
+  const [audienceInfo, setAudienceInfo] = useState<{
+    total: number;
+    email: number;
+    whatsapp: number;
+    skippedNoPhone: number;
+    sample: string[];
+  } | null>(null);
   const [audienceLoading, setAudienceLoading] = useState(false);
 
   const openSendDialog = async (campaign: Campaign) => {
@@ -791,19 +797,43 @@ export function MarketingView() {
             {audienceLoading ? (
               <p className="text-slate-400">{t('marketing.estimating')}</p>
             ) : audienceInfo ? (
-              <div className="flex items-start gap-3">
-                <Eye className="mt-0.5 h-4 w-4 text-indigo-500" />
-                <div>
-                  <p className="font-semibold text-slate-700">
-                    {audienceInfo.total} {t('marketing.customerCount')}
-                  </p>
-                  {audienceInfo.sample.length > 0 && (
-                    <p className="mt-1 text-xs text-slate-400">
-                      {audienceInfo.sample.join(' · ')}
-                      {audienceInfo.total > audienceInfo.sample.length ? '…' : ''}
-                    </p>
-                  )}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div
+                    className={`rounded-lg border p-3 ${
+                      sendTarget?.channel === 'EMAIL'
+                        ? 'border-indigo-300 bg-indigo-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-slate-500">{t('marketing.channelEmail')}</p>
+                    <p className="mt-0.5 text-xl font-bold text-slate-800">{audienceInfo.email}</p>
+                    <p className="text-xs text-slate-400">{t('marketing.willReceive')}</p>
+                  </div>
+                  <div
+                    className={`rounded-lg border p-3 ${
+                      sendTarget?.channel === 'WHATSAPP'
+                        ? 'border-emerald-300 bg-emerald-50'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <p className="text-xs font-medium text-slate-500">{t('marketing.channelWhatsapp')}</p>
+                    <p className="mt-0.5 text-xl font-bold text-slate-800">{audienceInfo.whatsapp}</p>
+                    <p className="text-xs text-slate-400">{t('marketing.willReceive')}</p>
+                  </div>
                 </div>
+                {audienceInfo.skippedNoPhone > 0 && (
+                  <p className="text-xs text-amber-600">
+                    {t('marketing.skippedNoPhone', { count: audienceInfo.skippedNoPhone })}
+                  </p>
+                )}
+                {audienceInfo.sample.length > 0 && (
+                  <p className="text-xs text-slate-400">
+                    <Eye className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
+                    {audienceInfo.sample.join(' · ')}
+                    {audienceInfo.total > audienceInfo.sample.length ? '…' : ''}
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-slate-400">{t('marketing.estimatingError')}</p>
@@ -815,7 +845,13 @@ export function MarketingView() {
             </Button>
             <Button
               type="button"
-              disabled={saving || (!!audienceInfo && audienceInfo.total === 0)}
+              disabled={
+                saving ||
+                (!!audienceInfo &&
+                  (sendTarget?.channel === 'WHATSAPP'
+                    ? audienceInfo.whatsapp === 0
+                    : audienceInfo.email === 0))
+              }
               onClick={sendCampaign}
             >
               {saving ? '…' : t('marketing.send')}

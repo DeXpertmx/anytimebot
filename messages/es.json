@@ -925,6 +925,7 @@
     "sentSummary": "Enviada: {sent} correctos, {failed} fallidos",
     "estimating": "Calculando audiencia…",
     "estimatingError": "No se pudo estimar la audiencia",
+    "willReceive": "recibirán la campaña",
     "customerCount": "clientes",
     "sent": "Enviados",
     "failed": "Fallidos",

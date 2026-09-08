@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { resolveAudienceCustomers } from '@/lib/marketing';
+import { resolveAudienceCustomers, selectWhatsAppRecipients } from '@/lib/marketing';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/marketing/campaigns/[id]/audience — live estimate of the campaign
-// audience (opt-outs excluded) so the owner sees who will receive it first.
+// audience (opt-outs excluded) split per delivery channel so the owner sees
+// exactly how many will actually receive it by email vs WhatsApp.
 export async function GET(_request: any, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
@@ -21,10 +22,14 @@ export async function GET(_request: any, { params }: { params: { id: string } })
     }
 
     const customers = await resolveAudienceCustomers(userId, campaign.audience as any);
+    const whatsappCustomers = selectWhatsAppRecipients(customers);
     return NextResponse.json({
       success: true,
       data: {
         total: customers.length,
+        email: customers.length,
+        whatsapp: whatsappCustomers.length,
+        skippedNoPhone: customers.length - whatsappCustomers.length,
         sample: customers.slice(0, 5).map((c) => c.name || c.email),
       },
     });
