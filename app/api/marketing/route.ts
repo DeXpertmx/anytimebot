@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { isEmailConfigured } from '@/lib/email-config';
-import { getSystemWhatsAppStatus } from '@/lib/system-whatsapp';
+import { getTwilioConfig } from '@/lib/twilio-whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,9 +43,11 @@ export async function GET() {
     const tags = [...tagSet].sort((a, b) => a.localeCompare(b));
 
     // Delivery-channel readiness, so the UI can warn before a send fails.
-    const [emailConfigured, whatsappStatus] = await Promise.all([
+    // WhatsApp marketing is Twilio-only (Evolution API is never used for
+    // campaigns — bulk sends from it can get the tenant's number blocked).
+    const [emailConfigured, twilio] = await Promise.all([
       isEmailConfigured().catch(() => false),
-      getSystemWhatsAppStatus().catch(() => null),
+      getTwilioConfig(userId).catch(() => ({ configured: false })),
     ]);
 
     return NextResponse.json({
@@ -55,7 +57,7 @@ export async function GET() {
         campaigns,
         tags,
         emailConfigured,
-        whatsappConnected: Boolean(whatsappStatus?.connected),
+        whatsappConnected: Boolean(twilio.configured),
       },
     });
   } catch (error) {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,8 +68,6 @@ interface MarketingData {
 
 export function MarketingView() {
   const { t } = useTranslation('translation');
-  const { data: session } = useSession();
-  const isAdmin = ((session?.user as any)?.role || '') === 'ADMIN';
   const [data, setData] = useState<MarketingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -389,9 +386,9 @@ export function MarketingView() {
                     {t('marketing.configureEmail')}
                   </a>
                 )}
-                {showWhatsappWarning && isAdmin && (
+                {showWhatsappWarning && (
                   <a
-                    href="/admin/whatsapp"
+                    href="/dashboard/integrations?tab=twilio"
                     className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
                   >
                     {t('marketing.connectWhatsapp')}
@@ -692,11 +689,20 @@ export function MarketingView() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="EMAIL">{t('marketing.channelEmail')}</SelectItem>
-                    <SelectItem value="WHATSAPP">{t('marketing.channelWhatsapp')}</SelectItem>
+                    <SelectItem
+                      value="WHATSAPP"
+                      disabled={data.whatsappConnected === false}
+                    >
+                      {t('marketing.channelWhatsapp')}
+                      {data.whatsappConnected === false && ` · ${t('marketing.whatsappNeedsTwilio')}`}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-                {campaignForm.channel === 'WHATSAPP' && (
+                {campaignForm.channel === 'WHATSAPP' && data.whatsappConnected === false && (
                   <p className="mt-1 text-xs text-amber-600">{t('marketing.whatsappHint')}</p>
+                )}
+                {campaignForm.channel === 'WHATSAPP' && data.whatsappConnected !== false && (
+                  <p className="mt-1 text-xs text-slate-400">{t('marketing.whatsappHintTwilio')}</p>
                 )}
               </div>
               <div>

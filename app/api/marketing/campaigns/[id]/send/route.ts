@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
-import { sendSystemWhatsAppMessage } from '@/lib/system-whatsapp';
+import { sendTwilioWhatsAppMessage, getTwilioConfig } from '@/lib/twilio-whatsapp';
 import {
   resolveAudienceCustomers,
   selectWhatsAppRecipients,
@@ -74,6 +74,23 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
     const customers = isWhatsApp ? selectWhatsAppRecipients(allCustomers) : allCustomers;
     const skippedNoPhone = isWhatsApp ? allCustomers.length - customers.length : 0;
 
+    // Marketing via WhatsApp is Twilio-only: Evolution API (a plain WhatsApp
+    // gateway) is never used for campaigns because bulk messaging from it can
+    // get the tenant's number blocked. Without Twilio the send is refused.
+    if (isWhatsApp) {
+      const twilio = await getTwilioConfig(userId);
+      if (!twilio.configured) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'WhatsApp campaigns require Twilio to be configured in Integrations — Evolution API is never used for marketing.',
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     if (campaign.status === 'DRAFT') {
       await prisma.campaign.update({
         where: { id: campaign.id },
@@ -125,7 +142,8 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
           .replace(/&gt;/g, '>')
           .replace(/\n{3,}/g, '\n\n')
           .trim();
-        ok = await sendSystemWhatsAppMessage(recipient.phone || '', text);
+        // Twilio-only — never Evolution API (see guard above).
+        ok = await sendTwilioWhatsAppMessage(userId, recipient.phone || '', text);
       } else {
         const subject = renderCampaignContent(campaign.subject, vars);
         const body =
@@ -145,7 +163,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
           data: {
             status: 'FAILED',
             error: isWhatsApp
-              ? 'WhatsApp delivery failed (system number not connected or provider rejected)'
+              ? 'WhatsApp delivery failed (Twilio not configured or provider rejected)'
               : 'Mail provider rejected the message',
           },
         });

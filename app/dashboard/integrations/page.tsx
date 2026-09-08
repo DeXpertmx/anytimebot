@@ -80,6 +80,7 @@ export default function IntegrationsPage() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     if (tab === 'video') setActiveProvider('video');
+    if (tab === 'twilio') setActiveProvider('twilio');
     const connected = params.get('connected');
     if (connected === 'zoom') toast.success('Zoom conectado correctamente');
     else if (connected === 'teams') toast.success('Microsoft Teams conectado correctamente');
