@@ -285,12 +285,30 @@ async function smokePayment(): Promise<void> {
     fail('payment/create', new Error('missing checkout url/sessionId'));
   }
   created.stripeSessionIds.push(payment.data.sessionId);
-  const isLive = payment.data.sessionId.startsWith('cs_live_');
-  if (isLive) {
-    // Session created against LIVE Stripe. It is expired immediately during
-    // cleanup and never completed — but flag it loudly in the output.
+  const sessionMode = payment.data.sessionId.startsWith('cs_test_') ? 'test'
+    : payment.data.sessionId.startsWith('cs_live_') ? 'live'
+    : 'unknown';
+
+  // Expected mode: EXPECT_STRIPE_MODE env var (defaults to 'test' — the smoke
+  // should never be able to touch real money by accident).
+  const expectedMode = (process.env.EXPECT_STRIPE_MODE || 'test') as 'test' | 'live';
+  if (sessionMode !== expectedMode) {
+    fail(
+      'payment/mode',
+      new Error(
+        `Stripe mode mismatch: checkout session is ${sessionMode.toUpperCase()} but expected ${expectedMode.toUpperCase()}. `
+        + (expectedMode === 'test'
+          ? 'Refusing to touch live payments — switch the mode in Admin → Stripe (or run with EXPECT_STRIPE_MODE=live to override).'
+          : 'Expected live but got a test session — check the active mode in Admin → Stripe.'),
+      ),
+    );
+  }
+  if (sessionMode === 'live') {
+    // Allowed only via explicit EXPECT_STRIPE_MODE=live. Session is expired
+    // immediately during cleanup and never completed.
     console.log('⚠ [payment] Stripe is in LIVE mode — session created and expired immediately, never completed');
   }
+  ok('payment/mode', `checkout session mode: ${sessionMode} (expected ${expectedMode})`);
   ok('payment/create', `checkout session ${payment.data.sessionId.slice(0, 24)}… (not completed)`);
 }
 
