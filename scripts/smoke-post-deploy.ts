@@ -223,11 +223,18 @@ async function smokeBooking(): Promise<void> {
 // Flow 3: PAYMENT (checkout session creation, never completed)
 // ---------------------------------------------------------------------------
 async function smokePayment(): Promise<void> {
-  const eventType = await prisma.eventType.findFirst({
-    where: { price: { gt: 0 }, collectPayment: true },
-    select: { id: true, name: true, price: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  // Prefer the permanent smoke event (scripts/setup-stripe-test-and-smoke-event.ts)
+  // so the flow stays deterministic once real paid events exist.
+  const eventType =
+    (await prisma.eventType.findFirst({
+      where: { name: 'Smoke Test Event', collectPayment: true, price: { gt: 0 } },
+      select: { id: true, name: true, price: true },
+    })) ??
+    (await prisma.eventType.findFirst({
+      where: { price: { gt: 0 }, collectPayment: true },
+      select: { id: true, name: true, price: true },
+      orderBy: { createdAt: 'asc' },
+    }));
   if (!eventType) {
     console.log('- [payment] skipped: no paid event type configured');
     return;
