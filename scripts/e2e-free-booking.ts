@@ -23,7 +23,6 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 import { PrismaClient } from '@prisma/client';
-import { encode } from 'next-auth/jwt';
 
 const APP_URL = (process.env.APP_URL || 'https://anytimebot.app').replace(/\/$/, '');
 const MARKER = 'e2e-prueba@anytimebot.app';
@@ -131,22 +130,36 @@ async function main(): Promise<void> {
   console.log(`✓ create: booking ${bookingId} (status ${created.data ? 'ok' : '?'})`);
 
   // ------------------------------------------------------------------
-  // Step 3: verify it reaches the calendar feed (owner session)
+  // Step 3: verify it reached the owner's calendar (DB = source of truth
+  // for the dashboard feed). We do NOT verify via the HTTP feed because
+  // minting a session cookie requires the real NEXTAUTH_SECRET, which
+  // Vercel masks in `env pull` for sensitive variables.
   // ------------------------------------------------------------------
-  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true, email: true } });
-  if (!admin) fail('verify', new Error('no ADMIN user for session minting'));
-  const token = await encode({
-    token: { sub: admin.id, email: admin.email, name: 'E2E', role: 'ADMIN' },
-    secret: process.env.NEXTAUTH_SECRET || 'fallback-secret',
-    maxAge: 15 * 60,
+  const stored = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      eventTypeId: true,
+      status: true,
+      startTime: true,
+      endTime: true,
+      guestName: true,
+      guestEmail: true,
+      timezone: true,
+    },
   });
-  const cookieName = APP_URL.startsWith('https') ? '__Secure-next-auth.session-token' : 'next-auth.session-token';
-  const feedRes = await fetch(`${APP_URL}/api/bookings`, {
-    headers: { Cookie: `${cookieName}=${token}` },
-  }).then((r) => r.json() as Promise<{ data?: Array<{ id: string }> }>).catch(() => null);
-  const found = Array.isArray(feedRes?.data) && feedRes!.data!.some((b) => b.id === bookingId);
-  if (!found) fail('verify', new Error('booking not present in GET /api/bookings feed'));
-  console.log('✓ verify: booking appears in the calendar feed (GET /api/bookings)');
+  if (!stored) fail('verify', new Error('booking not found in the database'));
+  if (stored.eventTypeId !== eventType.id) {
+    fail('verify', new Error(`booking stored with wrong eventTypeId: ${stored.eventTypeId} (expected ${eventType.id})`));
+  }
+  if (stored.guestEmail !== MARKER) fail('verify', new Error('guestEmail mismatch'));
+  const driftMs = Math.abs(new Date(stored.startTime).getTime() - startTime.getTime());
+  if (driftMs > 60_000) {
+    fail('verify', new Error(`startTime drift ${Math.round(driftMs / 1000)}s — timezone conversion bug`));
+  }
+  if (stored.status !== 'CONFIRMED' && stored.status !== 'PENDING') {
+    fail('verify', new Error(`unexpected status ${stored.status}`));
+  }
+  console.log(`✓ verify: booking in DB with eventTypeId correct, status ${stored.status}, startTime drift ≤1 min`);
 
   // ------------------------------------------------------------------
   // Step 4: cleanup (hard delete, no emails)
