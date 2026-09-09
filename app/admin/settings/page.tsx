@@ -88,6 +88,62 @@ export default function SettingsPage() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://anytimebot.app/api/stripe/webhook');
 
+  // --- Fallback: paste raw keys and save via API with visible error output ---
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteMode, setPasteMode] = useState<StripeMode>('test');
+  const [pasteText, setPasteText] = useState('');
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteResult, setPasteResult] = useState<{ ok: boolean; detail: string } | null>(null);
+
+  const parsePastedKeys = (text: string): Partial<StripeCredentialsForm> => {
+    const found: Partial<StripeCredentialsForm> = {};
+    const priceIds: string[] = [];
+    for (const token of text.match(/\b(?:sk_test|sk_live|pk_test|pk_live|whsec)_[A-Za-z0-9_]+\b|\bprice_[A-Za-z0-9_]+\b/g) || []) {
+      if (token.startsWith('sk_')) found.secretKey = token;
+      else if (token.startsWith('pk_')) found.publishableKey = token;
+      else if (token.startsWith('whsec_')) found.webhookSecret = token;
+      else if (token.startsWith('price_')) priceIds.push(token);
+    }
+    if (priceIds[0]) found.pricePro = priceIds[0];
+    if (priceIds[1]) found.priceTeam = priceIds[1];
+    return found;
+  };
+
+  const handlePasteSave = async () => {
+    const parsed = parsePastedKeys(pasteText);
+    const detected = Object.keys(parsed) as Array<keyof StripeCredentialsForm>;
+    if (detected.length === 0) {
+      setPasteResult({ ok: false, detail: 'No Stripe keys recognised. Expected tokens starting with sk_test_, pk_test_, whsec_ or price_.' });
+      return;
+    }
+    setPasteBusy(true);
+    setPasteResult(null);
+    try {
+      const res = await fetch('/api/admin/stripe-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: pasteMode, credentials: parsed }),
+      });
+      const bodyText = await res.text();
+      if (res.ok) {
+        setPasteResult({ ok: true, detail: `HTTP ${res.status} — ${res.statusText || 'OK'} — saved fields: ${detected.join(', ')} (${pasteMode} mode)\n${bodyText}` });
+        toast.success(`Keys saved for ${pasteMode} mode`);
+        setPasteText('');
+        const status = await fetch('/api/admin/stripe-mode').then((r) => r.json());
+        setStripe(status);
+      } else {
+        setPasteResult({ ok: false, detail: `HTTP ${res.status} ${res.statusText}\n${bodyText || '(empty response body)'}` });
+        toast.error(`Save failed — HTTP ${res.status} (details below)`);
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      setPasteResult({ ok: false, detail: `Network error — the request never reached the server.\n${msg}` });
+      toast.error('Network error (details below)');
+    } finally {
+      setPasteBusy(false);
+    }
+  };
+
   const [emailStatus, setEmailStatus] = useState<{ configured: boolean; stored: boolean; source: string; provider: 'smtp' | 'resend' } | null>(null);
   const [emailTab, setEmailTab] = useState<'smtp' | 'resend'>('smtp');
   const [emailApiKey, setEmailApiKey] = useState('');
@@ -596,6 +652,66 @@ export default function SettingsPage() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Fallback: paste raw keys (visible server output on any outcome) */}
+            <div className="rounded-lg border border-dashed p-4">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between text-sm font-medium"
+                onClick={() => setPasteOpen((v) => !v)}
+              >
+                <span>Paste keys directly (fallback)</span>
+                <span className="text-muted-foreground">{pasteOpen ? '−' : '+'}</span>
+              </button>
+              {pasteOpen && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Paste the keys anywhere in the box — tokens are auto-detected by prefix
+                    (sk_test_/sk_live_ → secret, pk_… → publishable, whsec_… → webhook secret,
+                    first/second price_… → Pro/Team price).
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Mode</Label>
+                    <select
+                      className="rounded-md border bg-transparent px-2 py-1 text-sm"
+                      value={pasteMode}
+                      onChange={(e) => setPasteMode(e.target.value as StripeMode)}
+                    >
+                      <option value="test">test</option>
+                      <option value="live">live</option>
+                    </select>
+                  </div>
+                  <textarea
+                    className="min-h-[90px] w-full rounded-md border bg-transparent p-2 font-mono text-xs"
+                    placeholder={'sk_test_…\npk_test_…\nwhsec_…'}
+                    value={pasteText}
+                    onChange={(e) => setPasteText(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" disabled={pasteBusy || !pasteText.trim()} onClick={handlePasteSave}>
+                      <KeyRound className="h-4 w-4 mr-1" />
+                      {pasteBusy ? 'Saving…' : 'Save keys'}
+                    </Button>
+                    {pasteResult && (
+                      <Button size="sm" variant="outline" onClick={() => setPasteResult(null)} disabled={pasteBusy}>
+                        Dismiss result
+                      </Button>
+                    )}
+                  </div>
+                  {pasteResult && (
+                    <pre
+                      className={`max-h-40 overflow-auto whitespace-pre-wrap rounded-md border p-2 text-xs ${
+                        pasteResult.ok
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                          : 'border-red-300 bg-red-50 text-red-800'
+                      }`}
+                    >
+                      {pasteResult.detail}
+                    </pre>
+                  )}
+                </div>
+              )}
             </div>
             </>
           ) : (
