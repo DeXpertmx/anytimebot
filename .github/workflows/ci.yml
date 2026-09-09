@@ -1,0 +1,76 @@
+# CI for Anytimebot — unit tests + post-deploy smoke on every push to main.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   PROD_DATABASE_URL — production Postgres connection string (Neon).
+#                       Needed by the smoke test to verify bookings and clean
+#                       up its throwaway data. NEVER print or log this value.
+#   APP_URL (optional) — defaults to https://anytimebot.app
+#
+# Note: a push to main also triggers a Vercel deploy via the GitHub
+# integration. This workflow validates that production is healthy *right
+# now*; to validate a specific new deployment use `npm run deploy:verify`
+# locally, which waits for Ready before smoking.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  smoke:
+    name: Production smoke (login · booking · payment)
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_URL: ${{ vars.APP_URL || 'https://anytimebot.app' }}
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run smoke test against production
+        run: npm run smoke
