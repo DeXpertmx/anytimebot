@@ -51,7 +51,7 @@ export default async function RootLayout({
   const locale = localeCookie?.value || 'es';
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       <body className={inter.className}>
         <I18nProvider locale={locale}>
           <Providers session={session}>

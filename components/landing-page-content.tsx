@@ -35,7 +35,7 @@ export function LandingPageContent() {
               </Link>
               <LanguageSwitcher />
               <ThemeToggle />
-              <Button asChild variant="ghost" className="hover:bg-cyan-50">
+              <Button asChild variant="ghost" className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10">
                 <Link href="/auth/signin">{t('landing.signIn')}</Link>
               </Button>
               <Button asChild className="bg-[#00D4FF] hover:bg-[#00B8E6] text-[#001F3F]">
@@ -74,7 +74,7 @@ export function LandingPageContent() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" asChild className="border-2 border-[#00D4FF] text-[#001F3F] hover:bg-cyan-50 text-lg px-8 py-6">
+              <Button size="lg" variant="outline" asChild className="border-2 border-[#00D4FF] text-[#001F3F] dark:text-[#00D4FF] hover:bg-cyan-50 dark:hover:bg-cyan-400/10 text-lg px-8 py-6">
                 <Link href="/auth/signin">{t('landing.signIn')}</Link>
               </Button>
             </div>
@@ -322,7 +322,7 @@ export function LandingPageContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.whatsappNative')}
                     </td>
@@ -333,7 +333,7 @@ export function LandingPageContent() {
                       <XCircle className="w-8 h-8 text-red-500 mx-auto" />
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.smartVideo')}
                     </td>
@@ -344,7 +344,7 @@ export function LandingPageContent() {
                       <XCircle className="w-8 h-8 text-red-500 mx-auto" />
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.preMeetingAI')}
                     </td>
@@ -355,7 +355,7 @@ export function LandingPageContent() {
                       <XCircle className="w-8 h-8 text-red-500 mx-auto" />
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.postMeetingAuto')}
                     </td>
@@ -366,7 +366,7 @@ export function LandingPageContent() {
                       <XCircle className="w-8 h-8 text-red-500 mx-auto" />
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.intelligentRouting')}
                     </td>
@@ -377,7 +377,7 @@ export function LandingPageContent() {
                       <XCircle className="w-8 h-8 text-red-500 mx-auto" />
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.teamAdvanced')}
                     </td>
@@ -388,7 +388,7 @@ export function LandingPageContent() {
                       <div className="text-yellow-500 font-semibold">Básico</div>
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.unlimitedEvents')}
                     </td>
@@ -399,7 +399,7 @@ export function LandingPageContent() {
                       <div className="text-yellow-500 font-semibold">Limitado</div>
                     </td>
                   </tr>
-                  <tr className="hover:bg-cyan-50 transition-colors">
+                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.aiAnalytics')}
                     </td>

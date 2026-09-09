@@ -12,10 +12,8 @@ import {
 import { useTranslation } from '@/lib/i18n/hooks';
 
 export function ThemeToggle() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { i18n } = useTranslation();
-
-  const isDark = resolvedTheme === 'dark';
 
   const options = [
     { value: 'light', label: i18n.t('common.themeLight'), icon: Sun },
@@ -27,7 +25,10 @@ export function ThemeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label={i18n.t('common.theme')}>
-          {isDark ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          {/* Both icons always in the DOM; CSS decides visibility. Avoids
+              hydration mismatch (SSR has no resolvedTheme) entirely. */}
+          <Sun className="h-5 w-5 dark:hidden" />
+          <Moon className="h-5 w-5 hidden dark:block" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
