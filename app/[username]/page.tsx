@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { computeAnnualSavings } from '@/lib/membership-pricing';
-import Image from 'next/image';
+import { BrandLogo } from '@/components/brand-logo';
 import { Calendar, Clock, MapPin, Video, Phone, Globe, Linkedin, Twitter, Mail, Star, ArrowRight, BadgeCheck } from 'lucide-react';
 import Link from 'next/link';
 
@@ -306,8 +306,7 @@ export default async function UserPage({ params }: UserPageProps) {
       <footer className="bg-gray-50 border-t">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Image
-              src="/anytimebot-logo.png"
+            <BrandLogo
               alt="Anytimebot"
               width={98}
               height={28}

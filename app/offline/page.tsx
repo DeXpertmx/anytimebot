@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { BrandLogo } from '@/components/brand-logo';
 
 export const metadata: Metadata = {
   title: 'Sin conexión - Anytimebot',
@@ -14,11 +15,9 @@ export default function OfflinePage() {
         <div className="bg-white rounded-2xl shadow-lg p-8">
           <div className="flex justify-center mb-6">
             <div className="relative w-[180px] h-[55px]">
-              <Image
-                src="/anytimebot-logo.png"
+              <BrandLogo
                 alt="Anytimebot"
                 fill
-                className="object-contain"
                 unoptimized
               />
             </div>

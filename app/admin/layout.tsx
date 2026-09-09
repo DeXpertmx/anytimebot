@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { 
   LayoutDashboard, 
   Users, 
@@ -83,12 +84,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
             <Link href="/admin" className="flex items-center">
               <div className="relative h-[60px] w-[200px]">
-                <Image
-                  src="/anytimebot-logo.png"
+                <BrandLogo
                   alt="Anytimebot Logo"
                   width={200}
                   height={60}
-                  className="object-contain"
                   priority
                 />
               </div>

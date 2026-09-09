@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { BrandLogo } from '@/components/brand-logo';
 import Link from 'next/link';
 
 export const metadata = {
@@ -14,7 +14,7 @@ export default function PrivacyPage() {
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center">
               <div className="relative w-[200px] h-[60px]">
-                <Image src="/anytimebot-logo.png" alt="ANYTIMEBOT" fill className="object-contain" />
+                <BrandLogo alt="ANYTIMEBOT" fill />
               </div>
             </Link>
           </div>

@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { getResellerBySlug, getResellerPlanPrices, extractRefFromUrl, RESELLER_REF_COOKIE, resolvePublicPriceCents, type ResellerContext } from '@/lib/resellers';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { BrandLogo } from '@/components/brand-logo';
 
 export const metadata: Metadata = {
   title: 'Planes y precios - Anytimebot',
@@ -118,9 +119,8 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img 
-                src="/anytimebot-logo.png" 
-                alt="ANYTIMEBOT Logo" 
+              <BrandLogo
+                alt="ANYTIMEBOT Logo"
                 width={200}
                 height={60}
                 className="h-[60px] w-[200px] object-contain"

@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { BrandIcon, BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Calendar, Clock, Users, MessageSquare, BarChart3, Bot, Link2, Video, Brain, Zap, CheckCircle2, XCircle, Sparkles, Target, TrendingUp, Smartphone } from 'lucide-react';
@@ -21,11 +22,9 @@ export function LandingPageContent() {
           <div className="flex justify-between items-center py-6">
             <Link href="/" className="flex items-center">
               <div className="relative w-[200px] h-[60px]">
-                <Image
-                  src="/anytimebot-logo.png"
+                <BrandLogo
                   alt="ANYTIMEBOT"
                   fill
-                  className="object-contain"
                   priority
                 />
               </div>
@@ -83,11 +82,10 @@ export function LandingPageContent() {
             {/* Hero Image/Icon */}
             <div className="flex justify-center mb-8">
               <div className="relative w-32 h-32 animate-pulse">
-                <Image
-                  src="/Anytimebot-icon.png"
+                <BrandIcon
                   alt="ANYTIMEBOT Icon"
                   fill
-                  className="object-contain drop-shadow-2xl"
+                  className="drop-shadow-2xl"
                   priority
                 />
               </div>
@@ -469,11 +467,9 @@ export function LandingPageContent() {
           <div className="flex flex-col items-center space-y-4">
             <Link href="/" className="flex items-center">
               <div className="relative w-[200px] h-[60px]">
-                <Image
-                  src="/anytimebot-logo.png"
+                <BrandLogo
                   alt="ANYTIMEBOT"
                   fill
-                  className="object-contain"
                 />
               </div>
             </Link>

@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { cn } from '@/lib/utils';
 import { PwaInstallButton } from '@/components/pwa-install-button';
+import { BrandLogo } from '@/components/brand-logo';
 import {
   Calendar,
   CalendarDays,
@@ -150,13 +150,7 @@ export function DashboardSidebar() {
         <div className="flex h-20 shrink-0 items-center justify-center border-b border-gray-200 px-4">
           <Link href="/dashboard" className="flex items-center">
             <div className="relative w-[200px] h-[60px]">
-              <Image
-                src="/anytimebot-logo.png"
-                alt="ANYTIMEBOT"
-                fill
-                className="object-contain"
-                priority
-              />
+              <BrandLogo alt="ANYTIMEBOT" fill priority />
             </div>
           </Link>
         </div>

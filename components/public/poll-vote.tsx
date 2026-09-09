@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n/hooks';
+import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,11 +94,10 @@ export function PollVote({ poll }: { poll: PublicPoll }) {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <Link href="/" className="relative block h-9 w-40">
-            <Image
-              src="/anytimebot-logo.png"
+            <BrandLogo
               alt="ANYTIMEBOT"
               fill
-              className="object-contain object-left"
+              className="object-left"
             />
           </Link>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600">

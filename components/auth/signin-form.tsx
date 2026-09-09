@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,11 +78,9 @@ export function SignInForm() {
       <CardHeader className="space-y-1 pb-6">
         <div className="flex items-center justify-center mb-6">
           <div className="relative w-[200px] h-[60px]">
-            <Image
-              src="/anytimebot-logo.png"
+            <BrandLogo
               alt="ANYTIMEBOT"
               fill
-              className="object-contain"
               priority
             />
           </div>

@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { BrandLogo } from '@/components/brand-logo';
 import Link from 'next/link';
 
 export const metadata = {
@@ -12,7 +12,7 @@ export default function TermsPage() {
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center">
-            <div className="relative h-[60px] w-[200px]"><Image src="/anytimebot-logo.png" alt="ANYTIMEBOT" fill className="object-contain" /></div>
+            <div className="relative h-[60px] w-[200px]"><BrandLogo alt="ANYTIMEBOT" fill /></div>
           </Link>
           <Link href="/pricing" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">Planes y precios</Link>
         </div>

@@ -7,7 +7,7 @@ import { BookingForm } from '@/components/public/booking-form';
 import { OwnerShareBar } from '@/components/public/owner-share-bar';
 import { Calendar, Clock, MapPin, Video, Phone, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { BrandLogo } from '@/components/brand-logo';
 import type { EventType, BookingFormField } from '@prisma/client';
 
 interface BookingPageProps {
@@ -90,11 +90,9 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
                 // Full Anytimebot logo, scaled responsively (the PNG has transparent padding,
                 // so it intentionally renders a bit larger than the wordmark itself)
                 <div className="relative h-10 w-[150px] sm:h-11 sm:w-[172px]">
-                  <Image
-                    src="/anytimebot-logo.png"
+                  <BrandLogo
                     alt="Anytimebot"
                     fill
-                    className="object-contain"
                     unoptimized
                   />
                 </div>
@@ -244,8 +242,7 @@ export default async function PublicBookingPage({ params, searchParams }: Bookin
       <footer className="bg-white border-t mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center flex-col sm:flex-row gap-2 sm:gap-3">
-            <Image
-              src="/anytimebot-logo.png"
+            <BrandLogo
               alt="Anytimebot"
               width={98}
               height={28}
