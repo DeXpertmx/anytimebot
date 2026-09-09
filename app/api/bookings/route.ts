@@ -400,7 +400,7 @@ export async function POST(request: NextRequest) {
         intersection = intersection.filter((r) => ids.has(r.id));
       }
       const pick = await pickResourceForSlot({
-        eventTypeId,
+        eventTypeId: serviceIds[0],
         bookingPageId: eventType.bookingPageId,
         userId: eventType.bookingPage.userId,
         slotStart: bookingStartTime0,
@@ -465,7 +465,7 @@ export async function POST(request: NextRequest) {
         // free this week but travelling later does not capture the whole run.
         const assignmentStart = occurrences[occurrences.length - 1];
         const assignment = await assignTeamMember({
-          eventTypeId,
+          eventTypeId: serviceIds[0],
           startTime: assignmentStart,
           endTime: addMinutes(assignmentStart, blockDuration),
           formData,
@@ -507,7 +507,9 @@ export async function POST(request: NextRequest) {
       : null;
 
     const baseBookingData = {
-      eventTypeId,
+      // Primary service of the block — NOT the raw singular field, which is
+      // undefined when the public form sends the multi-service array.
+      eventTypeId: serviceIds[0],
       guestName,
       guestEmail,
       guestPhone,
@@ -571,7 +573,7 @@ export async function POST(request: NextRequest) {
       try {
         await prisma.routingFormResponse.create({
           data: {
-            eventTypeId,
+            eventTypeId: serviceIds[0],
             bookingId: booking.id,
             responses: routingFormResponses,
           },
