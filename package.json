@@ -12,6 +12,7 @@
     "test": "tsx --test lib/*.test.ts",
     "test:e2e": "tsx scripts/e2e-free-booking.ts",
     "smoke": "tsx scripts/smoke-post-deploy.ts",
+    "deploy:verify": "bash scripts/deploy-and-verify.sh",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy"
   },
