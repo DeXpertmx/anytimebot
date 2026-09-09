@@ -150,8 +150,12 @@ export async function POST(request: NextRequest) {
       console.error('Failed to record booking consent:', consentError);
     }
 
-    // Validation
-    if (!eventTypeId || !guestName || !guestEmail || !startTime) {
+    // Validation. The public form sends eventTypeIds (multi-service array);
+    // the dashboard and API v1 send eventTypeId (singular). Both are valid —
+    // serviceIds below normalizes them — so accept either shape here.
+    const hasEventType =
+      !!eventTypeId || (Array.isArray(eventTypeIds) && eventTypeIds.length > 0);
+    if (!hasEventType || !guestName || !guestEmail || !startTime) {
       return NextResponse.json(
         { success: false, error: 'Event type, guest name, email, and start time are required' },
         { status: 400 }
