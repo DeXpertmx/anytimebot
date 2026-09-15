@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { isManualPayment } from '@/lib/payment-methods';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +71,9 @@ export async function GET(request: NextRequest) {
         id: true,
         paymentAmount: true,
         paymentCurrency: true,
+        paymentMethod: true,
+        stripeSessionId: true,
+        stripePaymentIntent: true,
         paidAt: true,
         createdAt: true,
         status: true,
@@ -100,6 +104,22 @@ export async function GET(request: NextRequest) {
     const grossCents = paidBookings.reduce((sum, b) => sum + (b.paymentAmount || 0), 0);
     const refundedCents = refunded.reduce((sum, b) => sum + (b.paymentAmount || 0), 0);
     const recurringCents = recurringPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // How the money came in: online (Stripe) versus collected in person
+    // (cash / card terminal / transfer / Bizum, recorded from the dashboard).
+    // This is the cash-drawer figure a business needs to reconcile a day.
+    const byMethod = new Map<string, { method: string; revenue: number; bookings: number }>();
+    let manualCents = 0;
+    for (const b of paidBookings) {
+      const manual = isManualPayment(b);
+      if (manual) manualCents += b.paymentAmount || 0;
+      const method = b.paymentMethod || (manual ? 'UNSPECIFIED' : 'CARD_ONLINE');
+      const entry = byMethod.get(method) || { method, revenue: 0, bookings: 0 };
+      entry.revenue += (b.paymentAmount || 0) / 100;
+      entry.bookings += 1;
+      byMethod.set(method, entry);
+    }
+    const onlineCents = grossCents - manualCents;
 
     // Monthly series (based on paidAt, fallback createdAt). When a custom
     // range is given, buckets are still calendar months within the window.
@@ -168,6 +188,10 @@ export async function GET(request: NextRequest) {
         netTotal: (grossCents + recurringCents - refundedCents) / 100,
         paidBookings: paidBookings.length + recurringPayments.length,
         avgBooking,
+        // Split of the gross collected amount by payment method.
+        onlineTotal: onlineCents / 100,
+        manualTotal: manualCents / 100,
+        byMethod: [...byMethod.values()].sort((a, b) => b.revenue - a.revenue),
         months,
         byType: [...byType.values()].sort((a, b) => b.revenue - a.revenue),
       },

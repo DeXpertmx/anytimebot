@@ -2,20 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { resolveBlockRange } from '@/lib/time-off';
 
 export const dynamic = 'force-dynamic';
-
-function parseDayStart(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function parseDayEnd(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T23:59:59.999Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
 
 // GET /api/time-off - list the owner's vacation / absence blocks
 export async function GET() {
@@ -43,7 +32,15 @@ export async function GET() {
   }
 }
 
-// POST /api/time-off - create a whole-day absence range
+// POST /api/time-off - create an absence: whole days (default) or a time range.
+//
+// Body:
+//   { name?, start, end, resourceId?, allDay? }
+//   - allDay === undefined/true → `start`/`end` are dates (YYYY-MM-DD) and the
+//     whole days are blocked (existing behaviour).
+//   - allDay === false → `start`/`end` are ISO datetimes with offset
+//     ("2026-09-20T14:00:00.000Z"), so the client's local hours are honoured
+//     instead of being read as server-local time.
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -52,24 +49,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, start, end, resourceId } = body;
+    const { name, start, end, resourceId, allDay } = body;
 
-    const startDate = parseDayStart(start);
-    const endDate = parseDayEnd(end);
-
-    if (!startDate || !endDate) {
-      return NextResponse.json(
-        { success: false, error: 'Start and end dates (YYYY-MM-DD) are required' },
-        { status: 400 }
-      );
+    const parsedRange = resolveBlockRange({ start, end, allDay });
+    if (!parsedRange.ok) {
+      return NextResponse.json({ success: false, error: parsedRange.error }, { status: 400 });
     }
-
-    if (endDate.getTime() < startDate.getTime()) {
-      return NextResponse.json(
-        { success: false, error: 'End date must be on or after start date' },
-        { status: 400 }
-      );
-    }
+    const { start: startDate, end: endDate, partial } = parsedRange.range;
 
     // Optional per-resource scope (Phase B): only that room/chair is blocked.
     let ownedResourceId: string | null = null;
@@ -91,6 +77,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: (session.user as any).id,
         name: typeof name === 'string' && name.trim() ? name.trim() : null,
+        allDay: !partial,
         start: startDate,
         end: endDate,
         resourceId: ownedResourceId,

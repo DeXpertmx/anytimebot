@@ -15,6 +15,10 @@ interface RevenueData {
   netTotal: number;
   paidBookings: number;
   avgBooking: number;
+  /** Money collected by Stripe vs. recorded from the dashboard (in person). */
+  onlineTotal?: number;
+  manualTotal?: number;
+  byMethod?: Array<{ method: string; revenue: number; bookings: number }>;
   months: Array<{ key: string; label: string; revenue: number; bookings: number }>;
   byType: Array<{ id: string; name: string; color: string; revenue: number; bookings: number }>;
 }
@@ -146,6 +150,38 @@ export function RevenueReport() {
           </Card>
         ))}
       </div>
+
+      {/* How the money came in: Stripe vs. collected in person */}
+      {(data.byMethod?.length ?? 0) > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('revenue.byMethodTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">
+                {t('revenue.onlineTotal')}: <strong>{fmt(data.onlineTotal ?? 0)}</strong>
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+                {t('revenue.manualTotal')}: <strong>{fmt(data.manualTotal ?? 0)}</strong>
+              </span>
+            </div>
+            <div className="space-y-2">
+              {data.byMethod!.map((entry) => (
+                <div key={entry.method} className="flex items-center gap-3">
+                  <span className="h-3 w-3 flex-shrink-0 rounded-full bg-slate-300" />
+                  <span className="flex-1 truncate text-sm font-medium text-slate-700">
+                    {t(`paymentMethods.${entry.method}`)}
+                  </span>
+                  <span className="text-xs text-slate-400">{entry.bookings}×</span>
+                  <span className="w-24 text-right text-sm font-semibold text-slate-900">{fmt(entry.revenue)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">{t('revenue.manualHint')}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Monthly chart */}
       <Card>

@@ -193,18 +193,26 @@ async function checkAvailability(
     }
 
     // ── Time off ────────────────────────────────────────────────────────────
-    // Owner-wide absence (resourceId = null) blocks the whole day, exactly as
-    // before. Per-resource absence only blocks that resource for the day.
+    // Owner-wide absences (resourceId = null) come in two flavours: whole days
+    // (vacations) and time ranges (a lunch break, an errand). Whole days close
+    // the calendar outright; ranges only remove the slots they overlap, so the
+    // rest of the day stays bookable.
     const timeOffs = await prisma.timeOff.findMany({
       where: {
         userId: eventType.bookingPage.userId,
         start: { lte: range.end },
         end: { gte: range.start },
       },
-      select: { resourceId: true },
+      select: { resourceId: true, start: true, end: true },
     });
 
-    const ownerBlockedDay = timeOffs.some((t) => !t.resourceId);
+    const ownerTimeOffs = timeOffs
+      .filter((t) => !t.resourceId)
+      .map((t) => ({ start: new Date(t.start), end: new Date(t.end) }));
+
+    const ownerBlockedDay = ownerTimeOffs.some(
+      (t) => t.start <= range.start && t.end >= range.end
+    );
     if (ownerBlockedDay) {
       return {
         success: true,
@@ -349,6 +357,13 @@ async function checkAvailability(
         });
       }
 
+      // Owner-wide absence overlapping this slot (partial-hour block).
+      if (!hasConflict && ownerTimeOffs.length > 0) {
+        hasConflict = ownerTimeOffs.some(
+          (off) => slotStart < off.end && slotEnd > off.start
+        );
+      }
+
       // Check if this slot conflicts with any Google Calendar event
       if (!hasConflict) {
         hasConflict = calendarEvents.some((event) => {
@@ -373,11 +388,16 @@ async function checkAvailability(
       });
     }
 
+    const availableCount = allSlots.filter((slot) => slot.available).length;
+
     return {
       success: true,
       availableSlots: allSlots.filter((slot) => slot.available).map((slot) => slot.time),
       allSlots,
       date,
+      // Whole day closed (vacation) — a partial-hour block leaves this false so
+      // the public page does not claim the day is unavailable.
+      ...(availableCount === 0 && ownerTimeOffs.length > 0 ? { timeOff: true } : {}),
       dayOfWeek: weekdayOfYmd(date, rangeTz),
       eventType: {
         name: combinedName(eventTypes),

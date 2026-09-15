@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Calendar, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2, Flag, Save, Sofa, MapPin } from 'lucide-react';
+import { Banknote, Ban, Calendar, CalendarOff, Loader2, RefreshCw, ChevronLeft, ChevronRight, Mail, UserRound, Users, X, Plus, CheckCircle2, Flag, Save, Sofa, MapPin } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { TimeOffDialog } from '@/components/dashboard/availability/time-off-dialog';
+import { formatBlockWindow, isWholeDayBlock } from '@/lib/time-off';
+import { MANUAL_PAYMENT_METHODS, isManualPayment, paymentMethodLabel } from '@/lib/payment-methods';
 
 interface Booking {
   id: string;
@@ -17,12 +20,16 @@ interface Booking {
   notes?: string | null;
   completedAt?: string | null;
   paymentStatus?: string | null;
+  paymentMethod?: string | null;
   paymentAmount?: number | null;
   paymentCurrency?: string | null;
+  /** Present only for payments collected online with Stripe. */
+  stripeSessionId?: string | null;
+  stripePaymentIntent?: string | null;
   resourceName?: string | null;
   locationName?: string | null;
   locationAddress?: string | null;
-  eventType: { name: string; color?: string };
+  eventType: { name: string; color?: string; price?: number | null; currency?: string | null; collectPayment?: boolean };
   /** Combined services (multi-service bookings): show "Corte + Barba". */
   serviceItems?: Array<{ name: string; duration: number }> | null;
   /** CRM customer matched by guest email (photo shown in the modal). */
@@ -35,6 +42,8 @@ interface TimeOff {
   name?: string | null;
   start: string;
   end: string;
+  /** Whole-day absence vs. partial-hour block (stored flag). */
+  allDay?: boolean | null;
   resourceId?: string | null;
   resource?: { id: string; name: string } | null;
 }
@@ -92,6 +101,22 @@ export default function CalendarPage() {
   const [bookingNotesDraft, setBookingNotesDraft] = useState('');
   const [notesSaving, setNotesSaving] = useState(false);
 
+  // Manual (in-person) payment: cash, card terminal, transfer, Bizum.
+  const [paySaving, setPaySaving] = useState(false);
+  const [payMethod, setPayMethod] = useState<string>('CASH');
+  const [payAmount, setPayAmount] = useState('');
+  const [payComplete, setPayComplete] = useState(true);
+
+  // Quick "block my time" action (shared absence dialog, prefilled with a day).
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockDialogDate, setBlockDialogDate] = useState<string | undefined>(undefined);
+  const toYmd = (day: Date) =>
+    `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  const openBlockDialog = (day?: Date | string) => {
+    setBlockDialogDate(typeof day === 'string' ? day : toYmd(day || selectedDay));
+    setBlockDialogOpen(true);
+  };
+
   const visibleBookings = teamId === 'all' ? bookings : bookings.filter((booking) => teams.find((team) => team.id === teamId)?.members.some((member) => member.email === booking.guestEmail));
 
   const eventLabel = (b: Booking) =>
@@ -134,6 +159,15 @@ export default function CalendarPage() {
     return () => { cancelled = true; };
   }, [selectedBooking]);
   useEffect(() => { if (session) load(); }, [session]);
+  // Prefill the manual-payment form whenever a different booking is opened.
+  useEffect(() => {
+    if (!selectedBooking) return;
+    const cents = selectedBooking.paymentAmount ?? selectedBooking.eventType?.price ?? 0;
+    setPayAmount(cents ? (cents / 100).toFixed(2) : '');
+    setPayMethod(selectedBooking.paymentMethod && selectedBooking.paymentMethod !== 'CARD_ONLINE' ? selectedBooking.paymentMethod : 'CASH');
+    setPayComplete(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBooking?.id]);
   // Sync the notes draft whenever a different booking detail is opened
   useEffect(() => {
     setBookingNotesDraft(selectedBooking?.notes ?? '');
@@ -143,26 +177,33 @@ export default function CalendarPage() {
   const monthDays = useMemo(() => { const first = new Date(month.getFullYear(), month.getMonth(), 1); const start = new Date(first); start.setDate(first.getDate() - first.getDay()); return Array.from({ length: 42 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; }); }, [month]);
   const weekDays = useMemo(() => { const day = new Date(selectedDay); day.setDate(day.getDate() - day.getDay()); return Array.from({ length: 7 }, (_, index) => { const value = new Date(day); value.setDate(day.getDate() + index); return value; }); }, [selectedDay]);
   const dayBookings = (day: Date) => visibleBookings.filter(b => { const date = new Date(b.startTime); return date.toDateString() === day.toDateString(); });
-  // Owner-wide absences block the whole day. Per-resource absences only close
-  // that resource (shown as a small note, never as a full-day block).
+  // Owner-wide absences come in two shapes: whole days off (vacations — the
+  // day is closed) and time ranges (lunch break — only those hours are closed).
+  // Per-resource absences only close that resource (always as a small note).
+  const overlapsDay = (t: TimeOff, day: Date) => {
+    const start = new Date(t.start);
+    const end = new Date(t.end);
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+    return start <= dayEnd && end >= dayStart;
+  };
   const dayTimeOff = (day: Date) =>
-    timeOffs.find(t => {
-      if (t.resourceId) return false;
+    timeOffs.find(t => !t.resourceId && isWholeDayBlock(t) && overlapsDay(t, day));
+  /** Partial-hour blocks (owner-wide) touching the day. */
+  const dayHourTimeOffs = (day: Date) =>
+    timeOffs.filter(t => !t.resourceId && !isWholeDayBlock(t) && overlapsDay(t, day));
+  /** Partial-hour block covering a given hour of the day, if any. */
+  const hourTimeOff = (day: Date, hour: number) => {
+    const hourStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour);
+    const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000);
+    return dayHourTimeOffs(day).find(t => {
       const start = new Date(t.start);
       const end = new Date(t.end);
-      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-      const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
-      return start <= dayEnd && end >= dayStart;
+      return start < hourEnd && end > hourStart;
     });
+  };
   const dayScopedTimeOffs = (day: Date) =>
-    timeOffs.filter(t => {
-      if (!t.resourceId) return false;
-      const start = new Date(t.start);
-      const end = new Date(t.end);
-      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-      const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
-      return start <= dayEnd && end >= dayStart;
-    });
+    timeOffs.filter(t => !!t.resourceId && overlapsDay(t, day));
   const offStripe = 'repeating-linear-gradient(135deg, rgba(244,63,94,0.10) 0px, rgba(244,63,94,0.10) 8px, transparent 8px, transparent 16px)';
   const formatTime = (date: string) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const title = view === 'day' ? selectedDay.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : view === 'week' ? `Semana del ${weekDays[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : month.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
@@ -243,6 +284,70 @@ export default function CalendarPage() {
       toast.error('Error al actualizar la cita');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Record money collected in person (cash, card terminal, transfer, Bizum).
+  // Nothing goes to Stripe: the booking is simply marked as paid and, when
+  // "finalizar" is checked, closed (which emits its invoice).
+  const handleRecordPayment = async () => {
+    if (!selectedBooking) return;
+    const raw = payAmount.trim().replace(',', '.');
+    const cents = raw ? Math.round(Number(raw) * 100) : undefined;
+    if (cents !== undefined && (!Number.isFinite(cents) || cents < 0)) {
+      toast.error('Importe no válido');
+      return;
+    }
+    setPaySaving(true);
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: payMethod, amountCents: cents, complete: payComplete }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Cobro registrado (${data.data.methodLabel})`);
+        if (data.data.finalizeWarning) toast.error(data.data.finalizeWarning);
+        setSelectedBooking(prev => prev ? {
+          ...prev,
+          paymentStatus: 'PAID',
+          paymentMethod: payMethod,
+          paymentAmount: data.data.booking?.paymentAmount ?? cents ?? prev.paymentAmount,
+          paymentCurrency: data.data.booking?.paymentCurrency ?? prev.paymentCurrency,
+          status: data.data.completed ? 'COMPLETED' : prev.status,
+        } : prev);
+        load();
+      } else {
+        toast.error(data.error || 'No se pudo registrar el cobro');
+      }
+    } catch {
+      toast.error('Error al registrar el cobro');
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
+  // Annul a payment recorded by mistake (in-person payments only).
+  const handleAnnullPayment = async (booking: Booking) => {
+    if (!window.confirm('¿Anular el cobro registrado? La reserva quedará como no cobrada.')) {
+      return;
+    }
+    setPaySaving(true);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/payment`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Cobro anulado');
+        setSelectedBooking(prev => prev ? { ...prev, paymentStatus: null, paymentMethod: null, paymentAmount: null, paymentCurrency: null } : prev);
+        load();
+      } else {
+        toast.error(data.error || 'No se pudo anular el cobro');
+      }
+    } catch {
+      toast.error('Error al anular el cobro');
+    } finally {
+      setPaySaving(false);
     }
   };
 
@@ -332,6 +437,9 @@ export default function CalendarPage() {
           <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700" onClick={() => openNewBooking()}>
             <Plus className="mr-1 h-4 w-4" />Nueva cita
           </Button>
+          <Button size="sm" variant="outline" onClick={() => openBlockDialog()} title="Bloquear fechas en las que no atiendes">
+            <CalendarOff className="mr-1 h-4 w-4" />Bloquear
+          </Button>
           <Users className="h-4 w-4 text-indigo-600" />
           <select value={teamId} onChange={e => setTeamId(e.target.value)} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm">
             <option value="all">Mi calendario</option>
@@ -386,7 +494,16 @@ export default function CalendarPage() {
                           🚫 {off.name || 'Ausencia'}
                         </span>
                       )}
-                      {!off && dayScopedTimeOffs(day).length > 0 && (
+                      {!off && dayHourTimeOffs(day).slice(0, 1).map(t => (
+                        <span
+                          key={t.id}
+                          className="ml-auto inline-flex max-w-[calc(100%-2rem)] items-center gap-1 truncate rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700"
+                          title={formatBlockWindow(t)}
+                        >
+                          ⏱ {new Date(t.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      ))}
+                      {!off && dayHourTimeOffs(day).length === 0 && dayScopedTimeOffs(day).length > 0 && (
                         <span
                           className="ml-auto inline-flex max-w-[calc(100%-2rem)] items-center gap-1 truncate rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-700"
                           title={dayScopedTimeOffs(day).map(s => s.resource?.name || s.name || 'Recurso').join(', ')}
@@ -431,6 +548,17 @@ export default function CalendarPage() {
                 <div key={day.toISOString()} className={`sticky top-0 z-10 border-b border-l bg-slate-50 py-2 text-center ${day.toDateString() === today.toDateString() ? 'text-indigo-600' : 'text-slate-600'}`}>
                   <span className="block text-xs font-semibold uppercase">{weekdays[day.getDay()]}</span>
                   <span className="text-lg font-bold">{day.getDate()}</span>
+                  {/* In day view there is room for a one-click block action. */}
+                  {visibleDays.length === 1 && (
+                    <button
+                      type="button"
+                      onClick={() => openBlockDialog(day)}
+                      className="mt-1 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-rose-600 hover:bg-rose-50"
+                    >
+                      <CalendarOff className="h-3 w-3" />
+                      Bloquear
+                    </button>
+                  )}
                 </div>
               ))}
               {Array.from({ length: 14 }, (_, index) => {
@@ -441,7 +569,7 @@ export default function CalendarPage() {
                     {visibleDays.map(day => (
                       <div
                         key={`${day.toISOString()}-${hour}`}
-                        className={`relative min-h-[60px] border-b border-l border-slate-100 cursor-pointer ${dayTimeOff(day) ? 'bg-rose-50/40' : 'hover:bg-indigo-50/30'}`}
+                        className={`relative min-h-[60px] border-b border-l border-slate-100 cursor-pointer ${dayTimeOff(day) || hourTimeOff(day, hour) ? 'bg-rose-50/40' : 'hover:bg-indigo-50/30'}`}
                         style={dayTimeOff(day) ? { backgroundImage: offStripe } : undefined}
                         onClick={(e) => { e.stopPropagation(); openNewBooking(day, hour); }}
                       >
@@ -463,6 +591,19 @@ export default function CalendarPage() {
                             ))}
                           </div>
                         )}
+                        {/* Partial-hour block: labelled where it starts. */}
+                        {(() => {
+                          const partial = dayHourTimeOffs(day).find(t => new Date(t.start).getHours() === hour);
+                          if (!partial) return null;
+                          return (
+                            <span
+                              className="absolute left-1 right-1 top-1 z-20 truncate rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700"
+                              title={`Bloqueado: ${formatBlockWindow(partial)}`}
+                            >
+                              ⏱ {formatBlockWindow(partial)}
+                            </span>
+                          );
+                        })()}
                         {dayBookings(day).filter(b => new Date(b.startTime).getHours() === hour).map(booking => (
                           <button
                             key={booking.id}
@@ -488,6 +629,14 @@ export default function CalendarPage() {
           </div>
         )}
       </div>
+
+      {/* Quick absence / block creation (whole day or a few hours) */}
+      <TimeOffDialog
+        open={blockDialogOpen}
+        onOpenChange={setBlockDialogOpen}
+        defaultDate={blockDialogDate}
+        onCreated={load}
+      />
 
       {/* Detail modal — existing booking */}
       {selectedBooking && (
@@ -607,12 +756,13 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              {/* Payment info */}
-              {selectedBooking.paymentStatus && selectedBooking.paymentStatus !== 'PENDING' && (
-                <div className="rounded-lg border p-3 text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Pago</p>
+              {/* Cobro: online (Stripe) o registrado en el local */}
+              <div className="rounded-lg border p-3 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cobro</p>
+
+                {selectedBooking.paymentStatus && selectedBooking.paymentStatus !== 'PENDING' ? (
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           selectedBooking.paymentStatus === 'PAID'
@@ -628,30 +778,97 @@ export default function CalendarPage() {
                             ? 'Reembolsada'
                             : selectedBooking.paymentStatus}
                       </span>
+                      {selectedBooking.paymentStatus === 'PAID' && selectedBooking.paymentMethod && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                          {paymentMethodLabel(selectedBooking.paymentMethod)}
+                        </span>
+                      )}
                       {selectedBooking.paymentAmount != null && (
                         <span className="font-semibold text-slate-800">
                           {(selectedBooking.paymentAmount / 100).toFixed(2)} {selectedBooking.paymentCurrency?.toUpperCase()}
                         </span>
                       )}
                     </span>
-                    {selectedBooking.paymentStatus === 'PAID' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                        disabled={refunding}
-                        onClick={() => handleRefundBooking(selectedBooking)}
-                      >
-                        {refunding ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
-                        Reembolsar
-                      </Button>
-                    )}
+                    {selectedBooking.paymentStatus === 'PAID' &&
+                      (isManualPayment(selectedBooking) ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-slate-200 text-slate-600 hover:bg-slate-50"
+                          disabled={paySaving}
+                          onClick={() => handleAnnullPayment(selectedBooking)}
+                        >
+                          {paySaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Ban className="mr-1 h-3.5 w-3.5" />}
+                          Anular cobro
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                          disabled={refunding}
+                          onClick={() => handleRefundBooking(selectedBooking)}
+                        >
+                          {refunding ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
+                          Reembolsar
+                        </Button>
+                      ))}
                   </div>
-                  {selectedBooking.paymentStatus === 'REFUNDED' && (
-                    <p className="mt-1 text-xs text-slate-500">Se devolvió el importe completo al método de pago del cliente.</p>
-                  )}
-                </div>
-              )}
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-slate-500">
+                      Registra aquí el cobro en efectivo, con tarjeta en el local, por transferencia o Bizum. No pasa por Stripe.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={payMethod}
+                        onChange={(e) => setPayMethod(e.target.value)}
+                        className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                      >
+                        {MANUAL_PAYMENT_METHODS.map((method) => (
+                          <option key={method} value={method}>
+                            {paymentMethodLabel(method)}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-1">
+                        <input
+                          value={payAmount}
+                          onChange={(e) => setPayAmount(e.target.value)}
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          className="w-20 rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                        />
+                        <span className="text-xs font-semibold text-slate-500">
+                          {(selectedBooking.paymentCurrency || selectedBooking.eventType?.currency || 'EUR').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={payComplete}
+                        onChange={(e) => setPayComplete(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-slate-300"
+                      />
+                      Finalizar la cita y emitir la factura
+                    </label>
+                    <Button
+                      size="sm"
+                      className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                      disabled={paySaving}
+                      onClick={handleRecordPayment}
+                    >
+                      {paySaving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Banknote className="mr-1 h-3.5 w-3.5" />}
+                      Registrar cobro
+                    </Button>
+                  </div>
+                )}
+
+                {selectedBooking.paymentStatus === 'REFUNDED' && (
+                  <p className="mt-1 text-xs text-slate-500">Se devolvió el importe completo al método de pago del cliente.</p>
+                )}
+              </div>
 
               {/* Customer history */}
               <div className="border-t pt-3">

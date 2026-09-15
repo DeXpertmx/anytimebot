@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LocationsResources } from './locations-resources';
+import { TimeOffManager } from '@/components/dashboard/availability/time-off-manager';
 import { signOut, useSession } from 'next-auth/react';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import { Card } from '@/components/ui/card';
@@ -738,6 +739,9 @@ export function SettingsForm({ user, googleConnected = false }: SettingsFormProp
 
       {/* Locations & Resources (sedes + recursos reservables) */}
       <LocationsResources />
+
+      {/* Away blocks: whole days off + partial-hour blocks */}
+      <TimeOffManager />
 
       {/* Danger Zone — intentionally kept as the final section of this form */}
       <Card className="order-last border-red-200 p-6">

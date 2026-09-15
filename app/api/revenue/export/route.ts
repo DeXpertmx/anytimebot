@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { isManualPayment } from '@/lib/payment-methods';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
         guestEmail: true,
         startTime: true,
         paymentStatus: true,
+        paymentMethod: true,
         paymentAmount: true,
         paymentCurrency: true,
         paidAt: true,
@@ -78,6 +80,8 @@ export async function GET(request: NextRequest) {
         'status',
         'amount',
         'currency',
+        'payment_method',
+        'payment_source',
       ].join(','),
     ];
 
@@ -93,6 +97,10 @@ export async function GET(request: NextRequest) {
           b.paymentStatus ?? '',
           ((b.paymentAmount ?? 0) / 100).toFixed(2),
           (b.paymentCurrency || 'usd').toUpperCase(),
+          // CASH | CARD_ONSITE | TRANSFER | BIZUM | CARD_ONLINE | OTHER
+          b.paymentMethod ?? '',
+          // stripe = collected online, in_person = recorded from the dashboard
+          isManualPayment(b) ? 'in_person' : 'stripe',
         ]
           .map(escape)
           .join(','),

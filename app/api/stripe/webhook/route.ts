@@ -191,6 +191,9 @@ async function handleBookingPayment(session: Stripe.Checkout.Session, eventAccou
         ...(isMultiService ? { serviceItems: serviceItems as any } : {}),
         status: 'CONFIRMED',
         paymentStatus: 'PAID',
+        // Money collected online: recorded with the dedicated method so the
+        // revenue report can separate Stripe from in-person collections.
+        paymentMethod: 'CARD_ONLINE',
         stripeSessionId: session.id,
         stripePaymentIntent: paymentIntentId,
         paymentAmount: session.amount_total || eventType.price,

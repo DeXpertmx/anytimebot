@@ -289,6 +289,10 @@ model TimeOff {
   // blocks only that physical resource (room/chair) for the day(s).
   resourceId String?  @map("resource_id")
   name      String?
+  // Whole-day absence (vacation) vs. a partial-hour block (lunch break). The
+  // UI must not guess this from the stored UTC hours: a whole day is stored as
+  // the *owner's* local day bounds, which land at 22:00Z/21:59Z in Madrid.
+  allDay    Boolean  @default(true) @map("all_day")
   start     DateTime
   end       DateTime // inclusive: last blocked day at 23:59:59.999
   createdAt DateTime @default(now()) @map("created_at")
@@ -846,8 +850,12 @@ model Booking {
   locationName    String? @map("location_name")
   locationAddress String? @map("location_address")
 
-  // Payment tracking
+  // Payment tracking. `paymentMethod` is set by the Stripe webhook for online
+  // payments (CARD_ONLINE) and by the owner when the money is collected in
+  // person (cash / card terminal / transfer / Bizum), see
+  // POST /api/bookings/[id]/payment.
   paymentStatus       PaymentStatus? @map("payment_status")
+  paymentMethod       PaymentMethod? @map("payment_method")
   stripeSessionId     String?        @map("stripe_session_id")
   stripePaymentIntent String?        @map("stripe_payment_intent") // Stripe PaymentIntent ID for refunds
   stripeAccountId     String?        @map("stripe_account_id") // Connected account that received the payment
@@ -1314,6 +1322,18 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+}
+
+// How the money was actually collected. CARD_ONLINE is written by the Stripe
+// webhook; every other value means the owner recorded the payment in person
+// (no Stripe involved, nothing to refund through Stripe).
+enum PaymentMethod {
+  CASH
+  CARD_ONSITE
+  TRANSFER
+  BIZUM
+  CARD_ONLINE
+  OTHER
 }
 
 enum InvoiceStatus {
