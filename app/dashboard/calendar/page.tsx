@@ -10,6 +10,14 @@ import { TimeOffDialog } from '@/components/dashboard/availability/time-off-dial
 import { formatBlockWindow, isWholeDayBlock } from '@/lib/time-off';
 import { MANUAL_PAYMENT_METHODS, isManualPayment, paymentMethodLabel } from '@/lib/payment-methods';
 
+/** Google Calendar event as returned by GET /api/calendar/events. */
+interface GoogleEvent {
+  id: string;
+  summary?: string | null;
+  start?: { dateTime?: string | null; date?: string | null } | null;
+  end?: { dateTime?: string | null; date?: string | null } | null;
+}
+
 interface Booking {
   id: string;
   guestName: string;
@@ -76,6 +84,8 @@ export default function CalendarPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [timeOffs, setTimeOffs] = useState<TimeOff[]>([]);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEvents, setGoogleEvents] = useState<GoogleEvent[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [guestHistory, setGuestHistory] = useState<Booking[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -159,6 +169,15 @@ export default function CalendarPage() {
     return () => { cancelled = true; };
   }, [selectedBooking]);
   useEffect(() => { if (session) load(); }, [session]);
+
+  // Detect whether Google Calendar is connected for this account.
+  useEffect(() => {
+    if (!session) return;
+    fetch('/api/calendar/status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setGoogleConnected(!!data?.connected))
+      .catch(() => setGoogleConnected(false));
+  }, [session]);
   // Prefill the manual-payment form whenever a different booking is opened.
   useEffect(() => {
     if (!selectedBooking) return;
@@ -174,9 +193,37 @@ export default function CalendarPage() {
   }, [selectedBooking?.id]);
   useEffect(() => { if (searchParams.get('success') === 'true') { toast.success('Google Calendar conectado exitosamente'); window.history.replaceState({}, '', '/dashboard/calendar'); } }, [searchParams]);
 
+  // Fetch Google Calendar events covering the visible range (month grid adds
+  // a few days before/after; week view the 7 shown days; day view just that
+  // day). Only when the account has Google Calendar connected.
+  useEffect(() => {
+    if (!session || !googleConnected) { setGoogleEvents([]); return; }
+    const from = view === 'month'
+      ? new Date(month.getFullYear(), month.getMonth() - 1, 20)
+      : new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate() - 2);
+    const to = view === 'month'
+      ? new Date(month.getFullYear(), month.getMonth() + 2, 10)
+      : new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate() + (view === 'week' ? 9 : 2));
+    let cancelled = false;
+    fetch(`/api/calendar/events?startDate=${from.toISOString()}&endDate=${to.toISOString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled) setGoogleEvents(Array.isArray(data?.events) ? data.events : []); })
+      .catch(() => { if (!cancelled) setGoogleEvents([]); });
+    return () => { cancelled = true; };
+  }, [session, googleConnected, view, month, selectedDay]);
+
   const monthDays = useMemo(() => { const first = new Date(month.getFullYear(), month.getMonth(), 1); const start = new Date(first); start.setDate(first.getDate() - first.getDay()); return Array.from({ length: 42 }, (_, index) => { const day = new Date(start); day.setDate(start.getDate() + index); return day; }); }, [month]);
   const weekDays = useMemo(() => { const day = new Date(selectedDay); day.setDate(day.getDate() - day.getDay()); return Array.from({ length: 7 }, (_, index) => { const value = new Date(day); value.setDate(day.getDate() + index); return value; }); }, [selectedDay]);
   const dayBookings = (day: Date) => visibleBookings.filter(b => { const date = new Date(b.startTime); return date.toDateString() === day.toDateString(); });
+
+  // --- Google Calendar overlay (read-only, visually distinct) ---------------
+  const googleEventStart = (e: GoogleEvent) => new Date(e.start?.dateTime || e.start?.date || '');
+  const googleEventEnd = (e: GoogleEvent) => new Date(e.end?.dateTime || e.end?.date || '');
+  const dayGoogleEvents = (day: Date) =>
+    googleEvents.filter((e) => {
+      const s = googleEventStart(e);
+      return !isNaN(s.getTime()) && s.toDateString() === day.toDateString();
+    });
   // Owner-wide absences come in two shapes: whole days off (vacations — the
   // day is closed) and time ranges (lunch break — only those hours are closed).
   // Per-resource absences only close that resource (always as a small note).
@@ -446,6 +493,15 @@ export default function CalendarPage() {
             {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
           </select>
           <span className="text-sm text-slate-500">{visibleBookings.length} citas</span>
+          {googleConnected && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-500"
+              title="Los eventos con borde punteado vienen de tu Google Calendar (solo lectura)"
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Google Calendar conectado
+            </span>
+          )}
           <div className="ml-2 flex items-center gap-1">
             <Button variant="outline" size="sm" onClick={() => { const now = new Date(); setMonth(now); setSelectedDay(now); }}>Hoy</Button>
             <Button variant="outline" size="sm" onClick={load}><RefreshCw className="mr-1 h-3.5 w-3.5" />Actualizar</Button>
@@ -533,6 +589,17 @@ export default function CalendarPage() {
                       {dayItems.length > 4 && (
                         <div className="text-[10px] font-medium text-indigo-600">+{dayItems.length - 4} más</div>
                       )}
+                      {/* Google Calendar overlay: read-only, visually distinct. */}
+                      {dayGoogleEvents(day).slice(0, Math.max(0, 3 - Math.min(dayItems.length, 4))).map((gEvent) => (
+                        <div
+                          key={`g-${gEvent.id}`}
+                          className="block w-full truncate rounded-sm border border-dashed border-slate-300 bg-slate-50/80 px-1 py-0.5 text-left text-[10px] leading-tight text-slate-500"
+                          title={`${gEvent.summary || '(sin título)'} · evento de Google Calendar (solo lectura)`}
+                        >
+                          <span className="font-semibold">{!isNaN(googleEventStart(gEvent).getTime()) ? formatTime(googleEventStart(gEvent).toISOString()) : ''}</span>{' '}
+                          {gEvent.summary || '(sin título)'}
+                        </div>
+                      ))}
                     </div>
                   </button>
                 );
@@ -620,6 +687,22 @@ export default function CalendarPage() {
                             <span className="block truncate text-[10px]">{formatTime(booking.startTime)}</span>
                           </button>
                         ))}
+                        {/* Google Calendar overlay for this hour. */}
+                        {dayGoogleEvents(day)
+                          .filter((gEvent) => {
+                            const s = googleEventStart(gEvent);
+                            return !isNaN(s.getTime()) && s.getHours() === hour;
+                          })
+                          .map((gEvent) => (
+                            <div
+                              key={`g-${gEvent.id}`}
+                              className="absolute left-0.5 right-0.5 z-0 truncate rounded border border-dashed border-slate-300 bg-slate-50/80 px-1 py-0.5 text-[10px] text-slate-500"
+                              style={{ top: `${(googleEventStart(gEvent).getMinutes() / 60) * 60}px` }}
+                              title={`${gEvent.summary || '(sin título)'} · evento de Google Calendar (solo lectura)`}
+                            >
+                              {gEvent.summary || '(sin título)'}
+                            </div>
+                          ))}
                       </div>
                     ))}
                   </div>

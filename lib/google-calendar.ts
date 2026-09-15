@@ -2,11 +2,19 @@
 import { calendar_v3, google } from 'googleapis';
 import { prisma } from './db';
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.NEXTAUTH_URL
-);
+/**
+ * A fresh OAuth2 client per call. The client is mutable state (setCredentials),
+ * so a module-level singleton would let two users' concurrent calendar
+ * operations race and send each other's credentials — a real multi-tenant
+ * sync-corruption bug. Creating one per call is cheap and safe.
+ */
+function newOAuthClient(): InstanceType<typeof google.auth.OAuth2> {
+  return new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.NEXTAUTH_URL
+  );
+}
 
 export async function getCalendarClient(userId: string): Promise<calendar_v3.Calendar> {
   const account = await prisma.account.findFirst({
@@ -20,6 +28,7 @@ export async function getCalendarClient(userId: string): Promise<calendar_v3.Cal
     throw new Error('No Google account connected');
   }
 
+  const oauth2Client = newOAuthClient();
   oauth2Client.setCredentials({
     access_token: account.access_token,
     refresh_token: account.refresh_token,

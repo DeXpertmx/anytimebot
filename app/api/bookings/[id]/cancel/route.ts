@@ -6,6 +6,7 @@ import { verifyBookingToken } from '@/lib/booking-tokens';
 import { notifyAdminBookingCancelled } from '@/lib/system-whatsapp';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 import { dispatchVolkernBookingEvent } from '@/lib/volkern';
+import { deleteCalendarEvent } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,17 @@ export async function POST(
         status: 'CANCELLED',
       },
     });
+
+    // Keep Google Calendar in sync: remove the event created for this booking.
+    // Best-effort — a calendar failure must never break the cancellation.
+    if (booking.googleCalendarEventId) {
+      try {
+        await deleteCalendarEvent(booking.eventType.bookingPage.userId, booking.googleCalendarEventId);
+        await prisma.booking.update({ where: { id: bookingId }, data: { googleCalendarEventId: null } });
+      } catch (calError) {
+        console.error('Failed to delete Google Calendar event on cancel:', calError);
+      }
+    }
 
     // Send cancellation email
     try {

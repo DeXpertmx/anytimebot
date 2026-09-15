@@ -344,6 +344,21 @@ export async function PUT(
 
     // Notify the guest by email when the host cancels a booking (real change only).
     if (nextStatus === 'CANCELLED' && statusChanged) {
+      // Keep Google Calendar in sync: remove the event created for this
+      // booking. Best-effort — a calendar failure must never break the flow.
+      if (updatedBooking.googleCalendarEventId) {
+        try {
+          const { deleteCalendarEvent } = await import('@/lib/google-calendar');
+          await deleteCalendarEvent(
+            updatedBooking.eventType.bookingPage.userId,
+            updatedBooking.googleCalendarEventId,
+          );
+          await prisma.booking.update({ where: { id: params.id }, data: { googleCalendarEventId: null } });
+        } catch (calError) {
+          console.error('Failed to delete Google Calendar event on host cancel:', calError);
+        }
+      }
+
       try {
         await sendCancellationEmail({
           to: updatedBooking.guestEmail,
@@ -497,6 +512,18 @@ export async function DELETE(
       where: { id: params.id },
       data: { status: 'CANCELLED' },
     });
+
+    // Keep Google Calendar in sync: remove the event created for this booking.
+    // Best-effort — a calendar failure must never break the cancellation.
+    if (existingBooking.googleCalendarEventId) {
+      try {
+        const { deleteCalendarEvent } = await import('@/lib/google-calendar');
+        await deleteCalendarEvent((session.user as any).id, existingBooking.googleCalendarEventId);
+        await prisma.booking.update({ where: { id: params.id }, data: { googleCalendarEventId: null } });
+      } catch (calError) {
+        console.error('Failed to delete Google Calendar event on dashboard cancel:', calError);
+      }
+    }
 
     // Notify the dashboard user via Web Push (best-effort).
     try {

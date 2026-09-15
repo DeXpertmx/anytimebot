@@ -7,6 +7,7 @@ import { verifyBookingToken, generateBookingToken } from '@/lib/booking-tokens';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 import { dispatchVolkernBookingEvent } from '@/lib/volkern';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
+import { updateCalendarEvent } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,6 +168,19 @@ export async function POST(
         },
       },
     });
+
+    // Keep Google Calendar in sync: move the event to the new slot.
+    // Best-effort — a calendar failure must never break the reschedule.
+    if (updatedBooking.googleCalendarEventId) {
+      try {
+        await updateCalendarEvent(updatedBooking.eventType.bookingPage.userId, updatedBooking.googleCalendarEventId, {
+          start: updatedBooking.startTime,
+          end: updatedBooking.endTime,
+        });
+      } catch (calError) {
+        console.error('Failed to update Google Calendar event on reschedule:', calError);
+      }
+    }
 
     // Generate new tokens for the rescheduled booking
     const cancelToken = generateBookingToken(updatedBooking.id, 'cancel');
