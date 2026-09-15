@@ -196,6 +196,22 @@ export async function setStripeMode(mode: StripeMode): Promise<void> {
 }
 
 /**
+ * Which Stripe mode the post-deploy smoke should expect.
+ *
+ * An explicit pin (`EXPECT_STRIPE_MODE`) always wins, so CI can freeze the
+ * expectation. Without a pin we trust the mode configured in the admin panel
+ * and verify the session Stripe hands back against it — that comparison is what
+ * catches the "admin says test, Stripe returns live" drift. The smoke never
+ * completes a payment, so no charge can happen in either mode.
+ */
+export function resolveExpectedSmokeMode(
+  pinned: string | undefined | null,
+  configured: StripeMode,
+): StripeMode {
+  return pinned === 'test' || pinned === 'live' ? pinned : configured;
+}
+
+/**
  * Webhook signature secrets for the modes that have one configured.
  * The webhook tries them in order and uses the first one that verifies,
  * which also tells it which mode the event belongs to.

@@ -38,6 +38,8 @@ yarn-error.log*
 
 # vercel
 .vercel
+# `vercel env pull` output — contains production secrets, never commit it
+.vercel.env*
 
 # typescript
 *.tsbuildinfo

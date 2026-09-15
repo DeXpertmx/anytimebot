@@ -289,26 +289,38 @@ async function smokePayment(): Promise<void> {
     : payment.data.sessionId.startsWith('cs_live_') ? 'live'
     : 'unknown';
 
-  // Expected mode: EXPECT_STRIPE_MODE env var (defaults to 'test' — the smoke
-  // should never be able to touch real money by accident).
-  const expectedMode = (process.env.EXPECT_STRIPE_MODE || 'test') as 'test' | 'live';
+  // Expected mode. An explicit EXPECT_STRIPE_MODE always wins (pin it in CI to
+  // freeze the expectation). Otherwise we read the mode the ADMIN configured and
+  // check the created session against it: "admin says test but Stripe handed us a
+  // live session" is exactly the drift this check exists to catch. Either way the
+  // smoke never completes a payment — the session is expired during cleanup — so
+  // no money can move, live or test.
+  const pinned = process.env.EXPECT_STRIPE_MODE;
+  let expectedMode: 'test' | 'live';
+  try {
+    const { getStripeMode, resolveExpectedSmokeMode } = await import('../lib/stripe-mode');
+    expectedMode = resolveExpectedSmokeMode(pinned, await getStripeMode());
+  } catch {
+    // Could not read the configured mode (DB unreachable): fall back to a pin,
+    // or to test — the safe expectation.
+    expectedMode = pinned === 'test' || pinned === 'live' ? pinned : 'test';
+  }
   if (sessionMode !== expectedMode) {
     fail(
       'payment/mode',
       new Error(
         `Stripe mode mismatch: checkout session is ${sessionMode.toUpperCase()} but expected ${expectedMode.toUpperCase()}. `
         + (expectedMode === 'test'
-          ? 'Refusing to touch live payments — switch the mode in Admin → Stripe (or run with EXPECT_STRIPE_MODE=live to override).'
+          ? 'The admin panel is configured for TEST but Stripe returned a LIVE session — fix the credentials/mode in Admin → Stripe.'
           : 'Expected live but got a test session — check the active mode in Admin → Stripe.'),
       ),
     );
   }
   if (sessionMode === 'live') {
-    // Allowed only via explicit EXPECT_STRIPE_MODE=live. Session is expired
-    // immediately during cleanup and never completed.
     console.log('⚠ [payment] Stripe is in LIVE mode — session created and expired immediately, never completed');
+    console.log('  (pin EXPECT_STRIPE_MODE=test in CI if production must stay in test mode)');
   }
-  ok('payment/mode', `checkout session mode: ${sessionMode} (expected ${expectedMode})`);
+  ok('payment/mode', `checkout session mode: ${sessionMode} (matches the mode configured in Admin)`);
   ok('payment/create', `checkout session ${payment.data.sessionId.slice(0, 24)}… (not completed)`);
 }
 

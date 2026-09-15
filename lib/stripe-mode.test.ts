@@ -5,6 +5,7 @@ import {
   isModeConfigured,
   getStripePriceId,
   getWebhookSecretCandidates,
+  resolveExpectedSmokeMode,
 } from '@/lib/stripe-mode';
 import { getSubscriptionPeriodEnd } from '@/lib/stripe';
 
@@ -134,4 +135,20 @@ test('stripe: respects interval_count', () => {
     items: { data: [{ price: { recurring: { interval: 'week', interval_count: 2 } } }] },
   };
   assert.equal(getSubscriptionPeriodEnd(sub), anchor + 2 * 7 * 86400);
+});
+
+test('resolveExpectedSmokeMode: an explicit pin always wins', () => {
+  assert.equal(resolveExpectedSmokeMode('test', 'live'), 'test');
+  assert.equal(resolveExpectedSmokeMode('live', 'test'), 'live');
+});
+
+test('resolveExpectedSmokeMode: without a pin it follows the configured mode', () => {
+  assert.equal(resolveExpectedSmokeMode(undefined, 'live'), 'live');
+  assert.equal(resolveExpectedSmokeMode(undefined, 'test'), 'test');
+  assert.equal(resolveExpectedSmokeMode('', 'live'), 'live');
+});
+
+test('resolveExpectedSmokeMode: ignores junk values from the environment', () => {
+  assert.equal(resolveExpectedSmokeMode('TEST', 'live'), 'live');
+  assert.equal(resolveExpectedSmokeMode('production', 'test'), 'test');
 });
