@@ -183,10 +183,23 @@ async function smokeBooking(): Promise<void> {
   if (!slot) fail('booking/availability', new Error('no slots in the next 7 weekdays'));
   ok('booking/availability', `${date} ${slot}`);
 
-  // Madrid wall-time → UTC instant
-  const asUTC = new Date(`${date}T${slot}:00Z`);
-  const asMadrid = new Date(asUTC.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-  const startTime = new Date(asUTC.getTime() + (asUTC.getTime() - asMadrid.getTime()));
+  // Madrid wall-time → UTC instant, independent of the machine's timezone.
+  // (The old toLocaleString formula was only correct on UTC machines; on a
+  // CEST laptop it shifted the slot +2h and could hit real calendar events.)
+  const madridWallToUTC = (dateStr: string, time: string): Date => {
+    const naive = Date.parse(`${dateStr}T${time}:00Z`);
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Madrid', hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    const at = new Date(naive);
+    const p = dtf.formatToParts(at);
+    const g = (t: string) => Number(p.find((x) => x.type === t)?.value);
+    const asUTC = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour') % 24, g('minute'), g('second'));
+    return new Date(naive - (asUTC - at.getTime()));
+  };
+  const startTime = madridWallToUTC(date, slot);
   const endTime = new Date(startTime.getTime() + (eventType.duration + eventType.bufferTime) * 60000);
 
   const res = await fetch(`${APP_URL}/api/bookings`, {
