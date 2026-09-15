@@ -384,6 +384,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Google Calendar cross-check: when the owner syncs their calendar, a
+    // meeting may have landed in Google after the public page computed its
+    // slots. Reject those slots with an honest 409 BEFORE any DB write (the
+    // later per-event check stays as defense in depth for races). Both lib
+    // helpers fail open on Google errors, so an API outage never blocks
+    // bookings.
+    if (eventType.bookingPage.userId) {
+      const gcalOwner = await prisma.user.findUnique({
+        where: { id: eventType.bookingPage.userId },
+        select: {
+          calendarSyncEnabled: true,
+          accounts: { where: { provider: 'google' }, select: { id: true } },
+        },
+      });
+      if (gcalOwner?.calendarSyncEnabled && gcalOwner.accounts.length > 0) {
+        const seriesLastEnd = addMinutes(occurrences[occurrences.length - 1], blockDuration);
+        const gcalFree = rule
+          ? (await listCalendarEvents(eventType.bookingPage.userId, bookingStartTime, seriesLastEnd)).length === 0
+          : await checkCalendarAvailability(eventType.bookingPage.userId, bookingStartTime, bookingEndTime);
+        if (!gcalFree) {
+          return NextResponse.json(
+            { success: false, error: 'The selected time is no longer available (Google Calendar conflict)' },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     // Resource-mode events (rooms/chairs) check capacity per resource instead
     // of the owner-wide overlap check: two event types can run concurrently as
     // long as they use different physical resources. The pick below also
