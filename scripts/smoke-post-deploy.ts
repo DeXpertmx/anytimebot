@@ -40,6 +40,8 @@ import { PrismaClient } from '@prisma/client';
 
 const APP_URL = (process.env.APP_URL || 'https://anytimebot.app').replace(/\/$/, '');
 const RUN_TAG = `smoke-${Date.now()}`;
+const SMOKE_STARTED_AT = Date.now();
+const stepResults: Record<string, boolean> = {};
 const BOOKING_EMAIL = `${RUN_TAG}@anytimebot.app`;
 const LOGIN_EMAIL = `${RUN_TAG}-login@anytimebot.app`;
 const LOGIN_PASSWORD = `Sm0ke!${crypto.randomBytes(6).toString('hex')}`;
@@ -52,10 +54,12 @@ const created: {
 } = { bookingIds: [], userIds: [], stripeSessionIds: [] };
 
 function ok(step: string, msg: string): void {
+  stepResults[step] = true;
   console.log(`✓ [${step}] ${msg}`);
 }
 
 function fail(step: string, error: unknown): never {
+  stepResults[step] = false;
   console.error(`✗ [${step}] FAILED:`, error instanceof Error ? error.message : error);
   process.exitCode = 1;
   throw error instanceof Error ? error : new Error(String(error));
@@ -324,6 +328,35 @@ async function smokePayment(): Promise<void> {
   ok('payment/create', `checkout session ${payment.data.sessionId.slice(0, 24)}… (not completed)`);
 }
 
+/**
+ * Persist the smoke result into SystemSetting "deploy.status" so the admin
+ * status panel (/admin/settings → Estado del sistema) always shows the last
+ * verified deployment, locally or from CI. Best-effort: a DB write failure
+ * must never break the smoke itself.
+ */
+async function recordSystemStatus(): Promise<void> {
+  try {
+    const key = 'deploy.status';
+    const value = {
+      ok: process.exitCode !== 1,
+      appUrl: APP_URL,
+      deployedUrl: process.env.DEPLOYED_URL || null,
+      commit: process.env.DEPLOYED_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || null,
+      ranAt: new Date().toISOString(),
+      durationSec: Math.round((Date.now() - SMOKE_STARTED_AT) / 1000),
+      steps: stepResults,
+    };
+    await prisma.systemSetting.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value },
+    });
+    console.log('✓ [status] result recorded for the admin panel');
+  } catch (error) {
+    console.warn('(could not record deploy status:', error instanceof Error ? error.message : error, ')');
+  }
+}
+
 async function main(): Promise<void> {
   console.log(`Post-deploy smoke → ${APP_URL}\n`);
   await smokeLogin();
@@ -338,6 +371,7 @@ main()
   .catch(() => process.exitCode = 1)
   .finally(async () => {
     if (process.exitCode === 1) console.error('\n(run smoke cleanup…)');
+    await recordSystemStatus();
     await cleanup();
     await prisma.$disconnect();
   });

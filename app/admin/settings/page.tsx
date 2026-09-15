@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail, HardDrive } from 'lucide-react';
+import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail, HardDrive, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -58,6 +58,25 @@ const CREDENTIAL_FIELDS: Array<{ key: keyof StripeCredentialsForm; label: string
   { key: 'priceTeam', label: 'Team price ID', placeholder: 'price_...' },
 ];
 
+interface SmokeEventStatus {
+  id: string;
+  pageSlug: string;
+  pageActive: boolean;
+}
+
+interface SystemStatus {
+  lastDeployment: {
+    ok: boolean;
+    ranAt: string | null;
+    appUrl: string | null;
+    commit: string | null;
+    durationSec: number | null;
+    steps: Record<string, boolean>;
+  } | null;
+  stripeMode: StripeMode | null;
+  smokeEvent: SmokeEventStatus | null;
+}
+
 const EMPTY_FORM: StripeCredentialsForm = {
   secretKey: '',
   publishableKey: '',
@@ -87,6 +106,7 @@ export default function SettingsPage() {
   const [clearingCreds, setClearingCreds] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://anytimebot.app/api/stripe/webhook');
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
 
   // --- Fallback: paste raw keys and save via API with visible error output ---
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -200,6 +220,11 @@ export default function SettingsPage() {
     fetch('/api/admin/storage-credentials')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setStorageStatus(data))
+      .catch(() => undefined);
+
+    fetch('/api/admin/system-status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setSystemStatus(data))
       .catch(() => undefined);
   }, []);
 
@@ -1094,6 +1119,89 @@ export default function SettingsPage() {
               <span className="text-muted-foreground">Version</span>
               <span className="font-medium">1.0.0</span>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Estado del sistema
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Último despliegue verificado (smoke)</span>
+              {systemStatus?.lastDeployment ? (
+                systemStatus.lastDeployment.ok ? (
+                  <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">OK</span>
+                ) : (
+                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">FALLÓ</span>
+                )
+              ) : (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">sin datos</span>
+              )}
+            </div>
+            {systemStatus?.lastDeployment ? (
+              <p className="text-sm text-muted-foreground">
+                {systemStatus.lastDeployment.ranAt
+                  ? new Date(systemStatus.lastDeployment.ranAt).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
+                  : 'fecha desconocida'}
+                {systemStatus.lastDeployment.appUrl ? ` · ${systemStatus.lastDeployment.appUrl.replace(/^https?:\/\//, '')}` : ''}
+                {systemStatus.lastDeployment.commit ? ` · commit ${systemStatus.lastDeployment.commit}` : ''}
+                {systemStatus.lastDeployment.durationSec != null ? ` · ${systemStatus.lastDeployment.durationSec}s` : ''}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Aún no se ha ejecutado `npm run deploy:verify` ni el smoke de CI desde que este panel existe.</p>
+            )}
+            {systemStatus?.lastDeployment && Object.keys(systemStatus.lastDeployment.steps).length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {Object.entries(systemStatus.lastDeployment.steps).map(([step, passed]) => (
+                  <span
+                    key={step}
+                    className={`rounded border px-1.5 py-0.5 font-mono text-xs ${passed ? 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400' : 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400'}`}
+                  >
+                    {passed ? '✓' : '✗'} {step}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+            <div>
+              <p className="text-sm font-medium">Modo de pagos (Stripe)</p>
+              <p className="text-xs text-muted-foreground">Modo activo en producción; cámbialo en la tarjeta Stripe Mode de arriba.</p>
+            </div>
+            {systemStatus?.stripeMode ? (
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  systemStatus.stripeMode === 'live'
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-400'
+                }`}
+              >
+                {systemStatus.stripeMode === 'live' ? 'LIVE (producción)' : 'TEST'}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">desconocido</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+            <div>
+              <p className="text-sm font-medium">Evento de pago del smoke</p>
+              <p className="text-xs text-muted-foreground">Objetivo permanente que usa `npm run deploy:verify` para probar pagos sin cobrar.</p>
+            </div>
+            {systemStatus?.smokeEvent ? (
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${systemStatus.smokeEvent.pageActive ? 'bg-green-500/15 text-green-700 dark:text-green-400' : 'bg-red-500/15 text-red-700 dark:text-red-400'}`}>
+                {systemStatus.smokeEvent.pageActive ? 'Listo' : `Página inactiva (${systemStatus.smokeEvent.pageSlug})`}
+              </span>
+            ) : (
+              <span className="rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-700 dark:text-red-400">Falta</span>
+            )}
           </div>
         </CardContent>
       </Card>

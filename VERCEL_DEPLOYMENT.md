@@ -181,3 +181,20 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://TU_DOMINIO/api/cron/reset-u
 - No uses credenciales de prueba en Production.
 - Mantén PostgreSQL con backups y prueba restauraciones periódicamente.
 - Antes de activar nuevos módulos Convex, define cuál sistema es la fuente de verdad.
+
+## Token de Vercel de larga duración (despliegues no interactivos)
+
+El CLI de Vercel usa un token de sesión de vida corta que se rota con un *refresh token* de un solo uso; si varios comandos del CLI corren a la vez la rotación se pisa y el despliegue falla con `Error: Not authorized`. `npm run deploy:verify` ya es resiliente a esto (preflight + reintento), pero para scripts y CI conviene un token de larga duración:
+
+1. Crea el token en Vercel → **Account Settings → Tokens → Create Token** (sin fecha de caducidad, o con una muy lejana; scope: toda la cuenta).
+2. Úsalo sin tocar la sesión interactiva (el script lo resuelve en este orden de prioridad):
+
+   ```bash
+   export VERCEL_TOKEN=<token>            # 1. variable de entorno
+   printf '%s' '<token>' > ~/.vercel-token && chmod 600 ~/.vercel-token   # 2. fichero (también vale VERCEL_TOKEN_FILE=/ruta)
+   npm run deploy:verify
+   ```
+
+3. Para CI (GitHub Actions): guarda el token como secreto del repositorio `VERCEL_TOKEN` y pásalo al paso de despliegue. El workflow actual (`ci.yml`) **no** despliega — valida producción después del push — así que solo es necesario si se añade un job de deploy.
+
+Con el token presente, `deploy:verify` es inmune a la rotación de la sesión interactiva.

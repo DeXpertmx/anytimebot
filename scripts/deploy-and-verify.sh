@@ -253,7 +253,9 @@ echo "==> $TARGET_URL is live"
 
 # --- Run the smoke test (login + booking + payment) ---
 echo "==> Running smoke test…"
-if npm run --silent smoke; then
+# Hand the deployment URL/commit to the smoke so it can record the verified
+# deployment into SystemSetting('deploy.status') for the admin status panel.
+if DEPLOYED_URL="${DEPLOY_URL:-}" DEPLOYED_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)" npm run --silent smoke; then
   echo ""
   echo "✓ DEPLOY VERIFIED — production is up and all smoke flows passed"
   exit 0
