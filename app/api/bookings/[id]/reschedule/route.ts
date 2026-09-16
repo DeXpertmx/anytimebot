@@ -146,6 +146,10 @@ export async function POST(
         startTime: newBookingStartTime,
         endTime: newBookingEndTime,
         status: 'CONFIRMED',
+        // New time → new reminders: re-arm the notification flags (email cron
+        // sets reminder24hSent on success; WhatsApp sets both).
+        reminder24hSent: false,
+        reminder1hSent: false,
         ...(pickedResource
           ? {
               resourceId: pickedResource.id,

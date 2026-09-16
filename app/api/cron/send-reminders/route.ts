@@ -1,22 +1,26 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { sendBookingReminderWithTemplate } from '@/lib/email';
 import { bookingVenueText } from '@/lib/booking-venue';
 import { generateBookingToken } from '@/lib/booking-tokens';
+import { window24h } from '@/lib/reminder-windows';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Cron job to send reminders 24 hours before bookings
- * This should be called by a cron service (e.g., Vercel Cron, AWS EventBridge, etc.)
+ * Cron job: send the 24-hour email reminder.
+ *
+ * Runs hourly; the query window is wide (±60 min) so an hourly schedule never
+ * misses a booking, and `reminder24hSent` guarantees each booking is reminded
+ * at most once even if the cron runs more often. Flags are set only after a
+ * successful send so transient failures are retried on the next run.
  */
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET || 'dev-secret';
-    
+
     if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -24,21 +28,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate 24 hours from now (with 1 hour window)
-    const now = new Date();
-    const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const in23Hours = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+    const { from, to } = window24h(new Date());
 
-    // Find bookings that start in approximately 24 hours and haven't been reminded
+    // Bookings starting in the next ~24h (±1h) that have not been reminded yet.
+    // reminder24hSent defaults to false on new bookings; series reschedules
+    // and individual reschedules both reset it.
     const bookings = await prisma.booking.findMany({
       where: {
-        startTime: {
-          gte: in23Hours,
-          lte: in24Hours,
-        },
+        startTime: { gte: from, lte: to },
         status: { in: ['CONFIRMED', 'PENDING'] },
-        // We would track if reminder was sent in a production app
-        // reminderSent: false,
+        reminder24hSent: false,
       },
       include: {
         eventType: {
@@ -53,42 +52,48 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log(`Found ${bookings.length} bookings to send reminders for`);
+    console.log(`[Email Reminders] Found ${bookings.length} bookings for 24h reminders`);
 
-    // Send reminders
-    const results = await Promise.allSettled(
-      bookings.map(async (booking) => {
-        try {
-          // Generate tokens for cancel/reschedule links
-          const cancelToken = generateBookingToken(booking.id, 'cancel');
-          const rescheduleToken = generateBookingToken(booking.id, 'reschedule');
+    let successful = 0;
+    let failed = 0;
 
-          await sendBookingReminderWithTemplate({
-            userId: booking.eventType.bookingPage.userId,
-            to: booking.guestEmail,
-            guestName: booking.guestName,
-            eventTitle: booking.eventType.name,
-            startTime: booking.startTime,
-            videoLink: (booking as any).meetingUrl || booking.eventType.videoLink || undefined,
-            location: booking.eventType.location,
-            venue: bookingVenueText(booking),
-            timezone: booking.timezone,
-            cancelToken,
-            rescheduleToken,
-            hoursBefore: 24,
+    for (const booking of bookings) {
+      try {
+        // Generate tokens for cancel/reschedule links
+        const cancelToken = generateBookingToken(booking.id, 'cancel');
+        const rescheduleToken = generateBookingToken(booking.id, 'reschedule');
+
+        const sent = await sendBookingReminderWithTemplate({
+          userId: booking.eventType.bookingPage.userId,
+          to: booking.guestEmail,
+          guestName: booking.guestName,
+          eventTitle: booking.eventType.name,
+          startTime: booking.startTime,
+          videoLink: (booking as any).meetingUrl || booking.eventType.videoLink || undefined,
+          location: booking.eventType.location,
+          venue: bookingVenueText(booking),
+          timezone: booking.timezone,
+          cancelToken,
+          rescheduleToken,
+          hoursBefore: 24,
+        });
+
+        if (sent) {
+          // Mark only on success so a transient email failure is retried next run.
+          await prisma.booking.update({
+            where: { id: booking.id },
+            data: { reminder24hSent: true },
           });
-
-          console.log(`Reminder sent for booking ${booking.id}`);
-          return { success: true, bookingId: booking.id };
-        } catch (error) {
-          console.error(`Failed to send reminder for booking ${booking.id}:`, error);
-          return { success: false, bookingId: booking.id, error };
+          successful++;
+        } else {
+          failed++;
+          console.error(`[Email Reminders] sendEmail returned false for booking ${booking.id}`);
         }
-      })
-    );
-
-    const successful = results.filter(r => r.status === 'fulfilled' && (r.value as any).success).length;
-    const failed = results.length - successful;
+      } catch (error) {
+        failed++;
+        console.error(`[Email Reminders] Failed to send reminder for booking ${booking.id}:`, error);
+      }
+    }
 
     return NextResponse.json({
       success: true,

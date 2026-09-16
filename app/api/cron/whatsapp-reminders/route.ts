@@ -3,16 +3,18 @@ import { prisma } from '@/lib/db';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { sendSystemWhatsAppMessage } from '@/lib/system-whatsapp';
 import { generateBookingToken } from '@/lib/booking-tokens';
+import { window24h, window1h } from '@/lib/reminder-windows';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Cron job to send WhatsApp reminders for upcoming bookings
- * 
- * Sends two reminders:
- * - 24 hours before the booking
- * - 1 hour before the booking
- * 
+ * Cron job: send WhatsApp reminders for upcoming bookings (24h and 1h).
+ *
+ * Runs hourly; the shared window helpers make the query ranges wide enough
+ * that an hourly schedule (with jitter) never misses a booking, while the
+ * per-booking flags keep each reminder at most once. Flags flip only after a
+ * successful send so transient failures are retried on the next run.
+ *
  * Call with: GET /api/cron/whatsapp-reminders
  * Header: Authorization: Bearer $CRON_SECRET
  */
@@ -35,14 +37,13 @@ export async function GET(request: NextRequest) {
     let totalSkipped = 0;
 
     // === 24-HOUR REMINDERS ===
-    // Find bookings starting between 23h30m and 24h30m from now
-    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const in23h30m = new Date(now.getTime() + 23.5 * 60 * 60 * 1000);
+    // Bookings starting in the next ~24h (±1h) not yet reminded.
+    const { from: from24h, to: in24h } = window24h(now);
 
     const bookings24h = await prisma.booking.findMany({
       where: {
         startTime: {
-          gte: in23h30m,
+          gte: from24h,
           lte: in24h,
         },
         status: { in: ['CONFIRMED', 'PENDING'] },
@@ -123,13 +124,12 @@ Si necesitas cancelar o reprogramar:
         sent = await sendSystemWhatsAppMessage(booking.guestPhone, message, booking.id);
       }
 
-      // Update reminder status
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { reminder24hSent: true },
-      });
-
+      // Flag only on success so a failed send is retried on the next run.
       if (sent) {
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: { reminder24hSent: true },
+        });
         totalSent++;
         console.log(`[WhatsApp Reminders] 24h reminder sent for booking ${booking.id}`);
       } else {
@@ -139,9 +139,8 @@ Si necesitas cancelar o reprogramar:
     }
 
     // === 1-HOUR REMINDERS ===
-    // Find bookings starting between 50m and 1h10m from now
-    const in1h = new Date(now.getTime() + 60 * 60 * 1000);
-    const in50m = new Date(now.getTime() + 50 * 60 * 1000);
+    // Bookings starting within the hour (plus a small past grace) not yet reminded.
+    const { from: in50m, to: in1h } = window1h(now);
 
     const bookings1h = await prisma.booking.findMany({
       where: {
@@ -217,13 +216,12 @@ ${booking.eventType.videoLink ? `🔗 Link de la reunión: ${booking.eventType.v
         sent = await sendSystemWhatsAppMessage(booking.guestPhone, message, booking.id);
       }
 
-      // Update reminder status
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: { reminder1hSent: true },
-      });
-
+      // Flag only on success so a failed send is retried on the next run.
       if (sent) {
+        await prisma.booking.update({
+          where: { id: booking.id },
+          data: { reminder1hSent: true },
+        });
         totalSent++;
         console.log(`[WhatsApp Reminders] 1h reminder sent for booking ${booking.id}`);
       } else {
