@@ -8,6 +8,8 @@ import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 import { dispatchVolkernBookingEvent } from '@/lib/volkern';
 import { pickResourceForSlot } from '@/lib/resource-assignment';
 import { updateCalendarEvent } from '@/lib/google-calendar';
+import { buildCalendarDescription } from '@/lib/calendar-description';
+import { bookingVenueText } from '@/lib/booking-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -177,9 +179,26 @@ export async function POST(
     // Best-effort — a calendar failure must never break the reschedule.
     if (updatedBooking.googleCalendarEventId) {
       try {
+        const vp = updatedBooking.eventType.videoProvider;
+        const joinUrl = updatedBooking.meetingUrl
+          || (vp !== 'DAILY' ? updatedBooking.eventType.videoLink : undefined)
+          || undefined;
         await updateCalendarEvent(updatedBooking.eventType.bookingPage.userId, updatedBooking.googleCalendarEventId, {
           start: updatedBooking.startTime,
           end: updatedBooking.endTime,
+          description: buildCalendarDescription({
+            guestName: updatedBooking.guestName,
+            guestEmail: updatedBooking.guestEmail,
+            guestPhone: updatedBooking.guestPhone,
+            meetingUrl: joinUrl,
+            meetingProvider:
+              vp === 'ZOOM' ? 'Zoom'
+              : vp === 'TEAMS' ? 'Microsoft Teams'
+              : vp === 'GOOGLE_MEET' ? 'Google Meet'
+              : vp === 'DAILY' ? null
+              : 'Reunión',
+            venue: bookingVenueText(updatedBooking) ?? null,
+          }),
         });
       } catch (calError) {
         console.error('Failed to update Google Calendar event on reschedule:', calError);

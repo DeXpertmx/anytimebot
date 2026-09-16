@@ -8,6 +8,7 @@ import { bookingVenueText } from '@/lib/booking-venue';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability } from '@/lib/google-calendar';
+import { buildCalendarDescription } from '@/lib/calendar-description';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
 import { getPublicAppUrl } from '@/lib/public-url';
@@ -357,7 +358,23 @@ export async function POST(request: NextRequest) {
       if (isAvailable) {
         const calendarEvent = await createCalendarEvent(bookingOwner.id, {
           summary: `${eventType.name} - ${guestName}`,
-          description: `Booking with ${guestName}\nEmail: ${guestEmail}${guestPhone ? `\nPhone: ${guestPhone}` : ''}`,
+          // Include the join link in the description (Zoom/Teams/manual; for
+          // GOOGLE_MEET the conferenceData below adds the native Meet link).
+          description: buildCalendarDescription({
+            guestName,
+            guestEmail,
+            guestPhone,
+            meetingUrl:
+              eventType.videoProvider === 'ZOOM' || eventType.videoProvider === 'TEAMS' || eventType.videoProvider === 'CUSTOM'
+                ? eventType.videoLink || null
+                : null,
+            meetingProvider:
+              eventType.videoProvider === 'ZOOM' ? 'Zoom'
+              : eventType.videoProvider === 'TEAMS' ? 'Microsoft Teams'
+              : eventType.videoProvider === 'CUSTOM' ? 'Reunión'
+              : null,
+            venue: bookingVenueText(booking) ?? null,
+          }),
           location:
             eventType.location === 'video' && eventType.videoLink
               ? eventType.videoLink

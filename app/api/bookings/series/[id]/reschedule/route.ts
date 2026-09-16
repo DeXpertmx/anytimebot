@@ -7,6 +7,8 @@ import { addMinutes } from '@/lib/utils';
 import { expandRecurrence, describeRecurrence } from '@/lib/series';
 import { dispatchWebhookEvent, buildBookingPayload } from '@/lib/webhooks';
 import { deleteCalendarEvent, createCalendarEvent } from '@/lib/google-calendar';
+import { buildCalendarDescription } from '@/lib/calendar-description';
+import { bookingVenueText } from '@/lib/booking-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,9 +180,25 @@ export async function POST(
           }
         }
         try {
+          const vp = eventType.videoProvider;
           const ev = await createCalendarEvent(ownerId, {
             summary: `${eventType.name} - ${booking.guestName}`,
-            description: `Booking with ${booking.guestName}\nEmail: ${booking.guestEmail}`,
+            description: buildCalendarDescription({
+              guestName: booking.guestName,
+              guestEmail: booking.guestEmail,
+              guestPhone: booking.guestPhone,
+              meetingUrl:
+                eventType.location === 'video' && vp !== 'DAILY'
+                  ? eventType.videoLink || booking.meetingUrl || null
+                  : booking.meetingUrl || null,
+              meetingProvider:
+                vp === 'ZOOM' ? 'Zoom'
+                : vp === 'TEAMS' ? 'Microsoft Teams'
+                : vp === 'GOOGLE_MEET' ? 'Google Meet'
+                : vp === 'DAILY' ? null
+                : 'Reunión',
+              venue: bookingVenueText(booking) ?? null,
+            }),
             location: eventType.location === 'video' && eventType.videoLink ? eventType.videoLink : eventType.location,
             start,
             end: addMinutes(start, duration),

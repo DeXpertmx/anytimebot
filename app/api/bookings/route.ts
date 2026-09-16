@@ -9,6 +9,7 @@ import { bookingVenueText } from '@/lib/booking-venue';
 import { sendBookingConfirmation as sendWhatsAppBookingConfirmation } from '@/lib/whatsapp';
 import { sendSystemBookingConfirmation } from '@/lib/system-whatsapp';
 import { createCalendarEvent, checkAvailability as checkCalendarAvailability, listCalendarEvents } from '@/lib/google-calendar';
+import { buildCalendarDescription } from '@/lib/calendar-description';
 import { parseRecurrence, expandRecurrence, describeRecurrence, MAX_SERIES_HORIZON_DAYS, type RecurrenceRule } from '@/lib/series';
 import { generateBookingToken } from '@/lib/booking-tokens';
 import { assignTeamMember } from '@/lib/team-assignment';
@@ -768,7 +769,22 @@ export async function POST(request: NextRequest) {
 
             const calendarEvent = await createCalendarEvent(bookingOwner.id, {
               summary: `${isMultiService ? combinedName(eventTypes) : eventType.name} - ${guestName}`,
-              description: `Booking with ${guestName}\nEmail: ${guestEmail}${guestPhone ? `\nPhone: ${guestPhone}` : ''}`,
+              // Description includes the join link when the event type uses a
+              // video provider (Zoom/Teams/Meet/Daily) or a manual link —
+              // providerMeeting sets eventType.videoLink earlier in this flow.
+              description: buildCalendarDescription({
+                guestName,
+                guestEmail,
+                guestPhone,
+                meetingUrl: providerMeeting?.roomUrl || (eventType.videoProvider !== 'DAILY' && eventType.videoLink) || null,
+                meetingProvider:
+                  eventType.videoProvider === 'ZOOM' ? 'Zoom'
+                  : eventType.videoProvider === 'TEAMS' ? 'Microsoft Teams'
+                  : eventType.videoProvider === 'GOOGLE_MEET' ? 'Google Meet'
+                  : eventType.videoProvider === 'DAILY' ? null
+                  : 'Reunión',
+                venue: bookingVenueText(booking) ?? null,
+              }),
               location: eventType.location === 'video' && eventType.videoLink ? eventType.videoLink : eventType.location,
               conferenceData: eventType.videoProvider === 'GOOGLE_MEET' ? {
                 createRequest: {
