@@ -1,0 +1,313 @@
+/**
+ * Tests for lib/crm-merge.ts (node:test + tsx, no DB, no network).
+ *
+ * Prisma is an in-memory fake, so the whole merge (plan + apply) is covered:
+ * tag/note union, field adoption, opt-out survival, campaign re-pointing and
+ * the no-op paths.
+ */
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  normalizeEmail,
+  mergeNotes,
+  planCustomerMerge,
+  mergeDuplicateCustomers,
+  sweepDuplicateCustomers,
+  type MergeableCustomer,
+} from './crm-merge';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+type Row = Record<string, any>;
+
+/** Every seeded row belongs to this owner unless a test overrides it. */
+const OWNER = 'u1';
+
+let seq = 0;
+function row(over: Partial<MergeableCustomer> = {}): MergeableCustomer {
+  const n = ++seq;
+  return {
+    id: `c${n}`,
+    userId: OWNER,
+    email: 'juan@demo.com',
+    name: null,
+    company: null,
+    phone: null,
+    photo: null,
+    notes: null,
+    tags: [],
+    marketingOptOut: false,
+    createdAt: new Date(Date.UTC(2024, 0, n)),
+    ...over,
+  };
+}
+
+function makeDb(customers: MergeableCustomer[]) {
+  const store = customers.map((c) => ({ ...c, tags: [...c.tags] }));
+  const db = {
+    store,
+    updates: [] as Row[],
+    deletes: [] as string[][],
+    repoints: [] as Row[],
+    customer: {
+      // The real query narrows by owner + `contains`; each test seeds a single
+      // owner's rows, so the fake only applies the email narrowing. Without a
+      // `where` (the sweep) the whole table comes back.
+      findMany: async ({ where }: any = {}) => {
+        const rows = where?.userId ? store.filter((c) => c.userId === where.userId) : store;
+        if (!where?.email?.contains) return rows.map((c) => ({ ...c }));
+        const needle = String(where.email.contains).toLowerCase();
+        return rows.filter((c) => c.email.toLowerCase().includes(needle));
+      },
+      update: async ({ where, data }: any) => {
+        const target = store.find((c) => c.id === where.id)!;
+        Object.assign(target, data);
+        db.updates.push({ id: where.id, data });
+        return target;
+      },
+      deleteMany: async ({ where }: any) => {
+        const ids: string[] = where.id.in;
+        db.deletes.push(ids);
+        for (const id of ids) {
+          const i = store.findIndex((c) => c.id === id);
+          if (i >= 0) store.splice(i, 1);
+        }
+        return { count: ids.length };
+      },
+    },
+    campaignRecipient: {
+      updateMany: async ({ where, data }: any) => {
+        db.repoints.push({ where, data });
+        return { count: 1 };
+      },
+    },
+  };
+  return db;
+}
+
+/** Wrap the fake the way the real caller injects prisma. */
+const runDeps = (db: unknown) => ({ prisma: db }) as any;
+
+// ---------------------------------------------------------------------------
+// normalizeEmail
+// ---------------------------------------------------------------------------
+describe('normalizeEmail', () => {
+  test('trims and lowercases', () => {
+    assert.equal(normalizeEmail('  Juan@Demo.COM '), 'juan@demo.com');
+  });
+
+  test('returns an empty string for null/undefined handling', () => {
+    assert.equal(normalizeEmail(null), '');
+    assert.equal(normalizeEmail(undefined), '');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeNotes
+// ---------------------------------------------------------------------------
+describe('mergeNotes', () => {
+  test('concatenates notes primary-first, separated by a blank line', () => {
+    assert.equal(mergeNotes('Prefiere tardes', ['Llegó tarde en marzo']), 'Prefiere tardes\n\nLlegó tarde en marzo');
+  });
+
+  test('drops empty notes and exact duplicates', () => {
+    assert.equal(mergeNotes(null, ['  ', 'Misma nota', 'Misma nota']), 'Misma nota');
+  });
+
+  test('returns null when nothing is left', () => {
+    assert.equal(mergeNotes(null, [null, '   ']), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planCustomerMerge
+// ---------------------------------------------------------------------------
+describe('planCustomerMerge', () => {
+  test('prefers the row already on the normalized email as survivor', () => {
+    const old = row({ id: 'old', email: 'Juan@Demo.com', createdAt: new Date('2023-01-01') });
+    const clean = row({ id: 'clean', email: 'juan@demo.com', createdAt: new Date('2024-06-01') });
+    const plan = planCustomerMerge([old, clean], 'juan@demo.com');
+    assert.equal(plan?.primaryId, 'clean');
+    assert.deepEqual(plan?.duplicateIds, ['old']);
+    assert.equal(plan?.merged.email, 'juan@demo.com');
+  });
+
+  test('falls back to the oldest row when no exact match exists', () => {
+    const newer = row({ id: 'newer', email: 'JUAN@demo.com', createdAt: new Date('2024-05-01') });
+    const older = row({ id: 'older', email: 'Juan@DEMO.com', createdAt: new Date('2022-02-02') });
+    const plan = planCustomerMerge([newer, older], 'juan@demo.com');
+    assert.equal(plan?.primaryId, 'older');
+  });
+
+  test('unions tags (lowercased, deduped, primary first) and adopts missing fields', () => {
+    const primary = row({
+      id: 'p',
+      email: 'juan@demo.com',
+      createdAt: new Date('2022-01-01'),
+      name: 'Juan Pérez',
+      phone: '+34 600 111 111',
+      tags: ['VIP', 'barberia'],
+    });
+    const dup = row({
+      id: 'd',
+      email: 'JUAN@demo.com',
+      createdAt: new Date('2024-01-01'),
+      company: 'Barbería Demo',
+      notes: 'Paga en efectivo',
+      tags: ['vip', 'nuevo'],
+      photo: '/api/storage/juan.jpg',
+      marketingOptOut: true,
+    });
+    const plan = planCustomerMerge([primary, dup], 'juan@demo.com')!;
+    assert.deepEqual(plan.merged.tags, ['vip', 'barberia', 'nuevo']);
+    assert.equal(plan.merged.company, 'Barbería Demo');
+    assert.equal(plan.merged.photo, '/api/storage/juan.jpg');
+    assert.equal(plan.merged.name, 'Juan Pérez');
+    assert.equal(plan.merged.phone, '+34 600 111 111');
+    assert.equal(plan.merged.marketingOptOut, true, 'opt-out must survive the merge');
+    assert.equal(plan.merged.createdAt.toISOString(), new Date('2022-01-01').toISOString());
+  });
+
+  test('keeps notes from every duplicate row', () => {
+    const a = row({ id: 'a', email: 'juan@demo.com', notes: 'Cliente desde 2019', createdAt: new Date('2021-01-01') });
+    const b = row({ id: 'b', email: 'JUAN@demo.com', notes: 'Prefiere las mañanas', createdAt: new Date('2023-01-01') });
+    const c = row({ id: 'c', email: ' juan@demo.com ', notes: 'Alérgico al perfume fuerte', createdAt: new Date('2024-01-01') });
+    const plan = planCustomerMerge([a, b, c], 'juan@demo.com')!;
+    assert.deepEqual(plan.duplicateIds.sort(), ['b', 'c']);
+    assert.equal(
+      plan.merged.notes,
+      'Cliente desde 2019\n\nPrefiere las mañanas\n\nAlérgico al perfume fuerte'
+    );
+  });
+
+  test('ignores rows of other contacts and returns null when there is nothing to merge', () => {
+    const other = row({ id: 'x', email: 'otro@demo.com' });
+    assert.equal(planCustomerMerge([other], 'juan@demo.com'), null);
+    assert.equal(planCustomerMerge([], 'juan@demo.com'), null);
+    assert.equal(planCustomerMerge([other], ''), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeDuplicateCustomers (plan + apply)
+// ---------------------------------------------------------------------------
+describe('mergeDuplicateCustomers', () => {
+  test('merges two rows: survivor updated, recipient re-pointed, duplicate deleted', async () => {
+    const db = makeDb([
+      row({
+        id: 'p',
+        email: 'juan@demo.com',
+        createdAt: new Date('2022-01-01'),
+        tags: ['vip'],
+        notes: 'Cliente antiguo',
+      }),
+      row({
+        id: 'd',
+        email: 'JUAN@demo.com',
+        createdAt: new Date('2024-01-01'),
+        tags: ['nuevo'],
+        notes: 'Llegó por Instagram',
+        company: 'Barbería Demo',
+      }),
+    ]);
+
+    const result = await mergeDuplicateCustomers('u1', ' juan@demo.com ', runDeps(db));
+
+    assert.equal(result.merged, 1);
+    assert.equal(result.primaryId, 'p');
+    assert.deepEqual(db.deletes, [['d']]);
+    assert.equal(db.store.length, 1);
+    assert.equal(db.store[0].id, 'p');
+    assert.deepEqual(db.store[0].tags, ['vip', 'nuevo']);
+    assert.equal(db.store[0].notes, 'Cliente antiguo\n\nLlegó por Instagram');
+    assert.equal(db.store[0].company, 'Barbería Demo');
+    assert.equal(db.repoints[0].data.customerId, 'p');
+  });
+
+  test('normalizes a single padded row instead of leaving it to duplicate later', async () => {
+    const db = makeDb([row({ id: 'only', email: ' Juan@Demo.com ' })]);
+    const result = await mergeDuplicateCustomers('u1', 'juan@demo.com', runDeps(db));
+    assert.equal(result.merged, 0);
+    assert.equal(result.primaryId, 'only');
+    assert.equal(db.store[0].email, 'juan@demo.com');
+    assert.equal(db.deletes.length, 0);
+  });
+
+  test('does nothing when the contact is unknown', async () => {
+    const db = makeDb([]);
+    const result = await mergeDuplicateCustomers('u1', 'nadie@demo.com', runDeps(db));
+    assert.deepEqual(result, { merged: 0, primaryId: null, email: 'nadie@demo.com' });
+    assert.equal(db.updates.length, 0);
+  });
+
+  test('never throws, even when the database fails', async () => {
+    const failing = {
+      customer: {
+        findMany: async () => {
+          throw new Error('connection lost');
+        },
+      },
+      campaignRecipient: { updateMany: async () => ({ count: 0 }) },
+    };
+    const result = await mergeDuplicateCustomers('u1', 'juan@demo.com', runDeps(failing));
+    assert.deepEqual(result, { merged: 0, primaryId: null, email: 'juan@demo.com' });
+  });
+
+  test('sweep collapses every duplicated contact and is idempotent', async () => {
+    const db = makeDb([
+      row({ id: 'a1', email: 'juan@demo.com', createdAt: new Date('2022-01-01'), tags: ['vip'] }),
+      row({ id: 'a2', email: 'JUAN@demo.com', createdAt: new Date('2024-01-01'), tags: ['nuevo'] }),
+      row({ id: 'b1', email: 'ana@demo.com', createdAt: new Date('2023-01-01') }),
+      row({ id: 'b2', email: ' ana@demo.com ', createdAt: new Date('2024-02-02') }),
+      row({ id: 'c1', email: 'solo@demo.com' }),
+      // Same address under a different owner: a different person, untouched.
+      row({ id: 'a3', email: 'JUAN@demo.com', userId: 'u2' }),
+    ]);
+
+    const first = await sweepDuplicateCustomers(runDeps(db));
+    assert.equal(first.contacts, 4);
+    assert.equal(first.merged, 2);
+    assert.equal(first.removed, 2);
+    assert.equal(db.store.length, 4);
+    assert.equal(db.store.filter((c) => c.userId === 'u2').length, 1);
+    assert.deepEqual(
+      db.store.find((c) => c.id === 'a1')!.tags,
+      ['vip', 'nuevo']
+    );
+
+    const second = await sweepDuplicateCustomers(runDeps(db));
+    assert.equal(second.merged, 0);
+    assert.equal(second.removed, 0);
+  });
+
+  test('sweep never throws when the database fails', async () => {
+    const failing = {
+      customer: {
+        findMany: async () => {
+          throw new Error('connection lost');
+        },
+      },
+      campaignRecipient: { updateMany: async () => ({ count: 0 }) },
+    };
+    assert.deepEqual(await sweepDuplicateCustomers(runDeps(failing)), {
+      contacts: 0,
+      merged: 0,
+      removed: 0,
+    });
+  });
+
+  test('finishes the merge even if re-pointing recipients fails', async () => {
+    const db = makeDb([
+      row({ id: 'p', email: 'juan@demo.com', createdAt: new Date('2022-01-01') }),
+      row({ id: 'd', email: 'JUAN@demo.com', createdAt: new Date('2024-01-01') }),
+    ]);
+    db.campaignRecipient.updateMany = async () => {
+      throw new Error('unique constraint');
+    };
+    const result = await mergeDuplicateCustomers('u1', 'juan@demo.com', runDeps(db));
+    assert.equal(result.merged, 1);
+    assert.equal(db.store.length, 1);
+  });
+});

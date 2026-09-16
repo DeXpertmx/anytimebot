@@ -29,7 +29,9 @@ export async function GET(
       where: {
         booking: {
           eventType: { bookingPage: { userId } },
-          guestEmail: customer.email,
+          // Case-insensitive so reviews left under a differently-cased guest
+          // email survive the CRM duplicate merge (the contact keeps one email).
+          guestEmail: { equals: customer.email, mode: 'insensitive' },
         },
       },
       orderBy: { createdAt: 'desc' },
