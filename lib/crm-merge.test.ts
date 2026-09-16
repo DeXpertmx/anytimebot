@@ -15,6 +15,7 @@ import {
   describeCustomerMerge,
   findDuplicateGroups,
   mergeDuplicateCustomers,
+  mergeContactIntoAddress,
   sweepDuplicateCustomers,
   type MergeableCustomer,
 } from './crm-merge';
@@ -432,5 +433,122 @@ describe('mergeDuplicateCustomers', () => {
     const result = await mergeDuplicateCustomers('u1', 'juan@demo.com', runDeps(db));
     assert.equal(result.merged, 1);
     assert.equal(db.store.length, 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// mergeContactIntoAddress (CRM email editor)
+// ---------------------------------------------------------------------------
+describe('mergeContactIntoAddress', () => {
+  /** The row as the CRM would send it: new address + the user's fresh values. */
+  const editedWithNewAddress = (stored: MergeableCustomer, over: Partial<MergeableCustomer> = {}) =>
+    ({ ...stored, email: 'juan@demo.com', ...over });
+
+  test('collapses the edited contact and the holder of the address', async () => {
+    const stored = row({
+      id: 'edit',
+      email: 'viejo@demo.com',
+      createdAt: new Date('2023-01-01'),
+      tags: ['barberia'],
+      notes: 'Le gusta por la tarde',
+      phone: '+34 600 111 111',
+    });
+    const existing = row({
+      id: 'ex',
+      email: 'juan@demo.com',
+      createdAt: new Date('2024-01-01'),
+      name: 'Juan Viejo',
+      company: 'Barbería Demo',
+      tags: ['vip'],
+      notes: 'Paga en efectivo',
+      marketingOptOut: true,
+    });
+    const db = makeDb([stored, existing]);
+
+    const result = await mergeContactIntoAddress(
+      'u1',
+      editedWithNewAddress(stored, { name: 'Juan Nuevo' }),
+      'juan@demo.com',
+      runDeps(db)
+    );
+
+    assert.equal(result.merged, 1);
+    assert.equal(result.primaryId, 'edit', 'the row being edited keeps its identity');
+    assert.equal(db.store.length, 1);
+    const survivor = db.store[0];
+    assert.equal(survivor.email, 'juan@demo.com', 'the new address is written');
+    assert.equal(survivor.name, 'Juan Nuevo', 'the freshly typed value wins');
+    assert.equal(survivor.company, 'Barbería Demo', 'the other card still contributes');
+    assert.equal(survivor.phone, '+34 600 111 111');
+    assert.deepEqual(survivor.tags, ['barberia', 'vip']);
+    assert.equal(survivor.notes, 'Le gusta por la tarde\n\nPaga en efectivo');
+    assert.equal(survivor.marketingOptOut, true);
+  });
+
+  test('keeps the existing contact when the user picks it as survivor', async () => {
+    const stored = row({
+      id: 'edit',
+      email: 'viejo@demo.com',
+      createdAt: new Date('2023-01-01'),
+      name: 'Nombre Teclado',
+      tags: ['nuevo'],
+    });
+    const existing = row({
+      id: 'ex',
+      email: 'juan@demo.com',
+      createdAt: new Date('2022-06-06'),
+      name: 'El Superviviente',
+      notes: 'Histórico',
+    });
+    const db = makeDb([stored, existing]);
+
+    const result = await mergeContactIntoAddress(
+      'u1',
+      editedWithNewAddress(stored),
+      'juan@demo.com',
+      runDeps(db),
+      { primaryId: 'ex' }
+    );
+
+    assert.equal(result.primaryId, 'ex');
+    assert.equal(db.store.length, 1);
+    assert.equal(db.store[0].id, 'ex');
+    assert.equal(db.store[0].email, 'juan@demo.com');
+    assert.equal(db.store[0].name, 'El Superviviente');
+    assert.deepEqual(db.store[0].tags, ['nuevo'], 'the edited card still contributes');
+    assert.equal(db.store[0].notes, 'Histórico');
+  });
+
+  test('does nothing when nobody else holds the address', async () => {
+    const stored = row({ id: 'solo', email: 'viejo@demo.com' });
+    const db = makeDb([stored]);
+
+    const result = await mergeContactIntoAddress(
+      'u1',
+      editedWithNewAddress(stored),
+      'juan@demo.com',
+      runDeps(db)
+    );
+
+    assert.deepEqual(result, { merged: 0, primaryId: 'solo', email: 'juan@demo.com' });
+    assert.equal(db.store.length, 1, 'no write happens on the no-op path');
+  });
+
+  test('never throws when the database fails', async () => {
+    const failing = {
+      customer: {
+        findMany: async () => {
+          throw new Error('connection lost');
+        },
+      },
+      campaignRecipient: { updateMany: async () => ({ count: 0 }) },
+    };
+    const result = await mergeContactIntoAddress(
+      'u1',
+      row({ id: 'edit', email: 'juan@demo.com' }),
+      'juan@demo.com',
+      runDeps(failing)
+    );
+    assert.deepEqual(result, { merged: 0, primaryId: null, email: 'juan@demo.com' });
   });
 });

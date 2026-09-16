@@ -16,6 +16,12 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/lib/i18n/hooks';
+// Types only: the API payloads are shared with the route, so the dialog and the
+// 409 body cannot drift apart.
+import type {
+  EmailConflictPayload,
+  MergePreviewPayload,
+} from '@/lib/crm-merge';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import {
   Building2,
@@ -71,15 +77,7 @@ interface FeedbackItem {
 type MergeFieldKey = 'name' | 'company' | 'phone' | 'photo';
 
 /** Preview of what merging a duplicate group keeps, with the source contact. */
-interface MergePreview {
-  primaryId: string;
-  duplicateIds: string[];
-  fields: Record<MergeFieldKey, { value: string | null; fromId: string | null }>;
-  tags: { tag: string; fromIds: string[] }[];
-  notes: { text: string; fromId: string }[];
-  createdAt: string;
-  marketingOptOut: boolean;
-}
+type MergePreview = MergePreviewPayload;
 
 interface DuplicateGroup {
   email: string;
@@ -90,6 +88,89 @@ interface DuplicateGroup {
   totalBookings: number;
   confirmedBookings: number;
   lastBookingAt?: string | null;
+}
+
+/**
+ * Payload the API returns with a 409 when the email being typed already belongs
+ * to another contact: both cards plus the preview of what merging them keeps.
+ */
+type EmailConflict = EmailConflictPayload;
+
+type Translator = ReturnType<typeof useTranslation>['t'];
+
+/**
+ * "Result after merging" block: every kept value with the card it comes from.
+ * Shared by the duplicate-group dialog and the email-change dialog.
+ */
+function MergeResultBlock({
+  preview,
+  chosenId,
+  label,
+  t,
+}: {
+  preview: MergePreview;
+  chosenId: string;
+  label: (contactId: string) => string;
+  t: Translator;
+}) {
+  return (
+    <div className="rounded-md bg-gray-50 p-3 text-sm dark:bg-gray-900/60">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        {t('crm.duplicatesResult')}
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {(['name', 'company', 'phone'] as MergeFieldKey[]).map((key) => {
+          const field = preview.fields[key];
+          return (
+            <li key={key} className="flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
+              <span className="text-gray-500 dark:text-gray-400">{t(`crm.${key}`)}:</span>
+              <span className={field.value ? 'font-medium' : 'text-gray-400'}>
+                {field.value || t('crm.duplicatesEmpty')}
+              </span>
+              {field.fromId && field.fromId !== chosenId && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {t('crm.duplicatesFrom', { name: label(field.fromId) })}
+                </span>
+              )}
+            </li>
+          );
+        })}
+        <li className="flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
+          <span className="text-gray-500 dark:text-gray-400">{t('crm.tags')}:</span>
+          <span className="flex flex-wrap gap-1">
+            {preview.tags.length === 0 ? (
+              <span className="text-gray-400">{t('crm.duplicatesEmpty')}</span>
+            ) : (
+              preview.tags.map((item) => (
+                <span
+                  key={item.tag}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                >
+                  {item.tag}
+                  {item.fromIds.length > 1 && <span className="text-amber-500">+{item.fromIds.length - 1}</span>}
+                </span>
+              ))
+            )}
+          </span>
+        </li>
+        <li className="text-gray-700 dark:text-gray-300">
+          <span className="text-gray-500 dark:text-gray-400">{t('crm.notes')}:</span>{' '}
+          {preview.notes.length === 0 ? (
+            <span className="text-gray-400">{t('crm.duplicatesEmpty')}</span>
+          ) : (
+            <span className="font-medium">
+              {t('crm.duplicatesNotesKept', { count: preview.notes.length })}
+            </span>
+          )}
+        </li>
+        {preview.marketingOptOut && (
+          <li className="text-xs font-medium text-amber-700 dark:text-amber-300">
+            {t('crm.duplicatesOptOut')}
+          </li>
+        )}
+      </ul>
+    </div>
+  );
 }
 
 export function CustomersList() {
@@ -120,6 +201,9 @@ export function CustomersList() {
   const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [primaryChoice, setPrimaryChoice] = useState<Record<string, string>>({});
   const [merging, setMerging] = useState<string | null>(null);
+  /** Set when the edited email already belongs to another contact. */
+  const [emailConflict, setEmailConflict] = useState<EmailConflict | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
 
@@ -198,6 +282,7 @@ export function CustomersList() {
 
   const openEdit = (customer: Customer) => {
     setEditing(customer);
+    setEmailConflict(null);
     setForm({
       name: customer.name || '',
       email: customer.email || '',
@@ -222,16 +307,30 @@ export function CustomersList() {
     setForm({ ...form, tags: form.tags.filter((item) => item !== tag) });
   };
 
+  /** Save the edited card, optionally asking the API to merge on conflict. */
+  const postEdit = async (extra: Record<string, unknown>) => {
+    if (!editing) return null;
+    const response = await fetch(`/api/customers/${editing.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...form, ...extra }),
+    });
+    return { response, data: await response.json() };
+  };
+
   const handleSave = async () => {
     if (!editing) return;
     setSaving(true);
     try {
-      const response = await fetch(`/api/customers/${editing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const data = await response.json();
+      const result = await postEdit({});
+      if (!result) return;
+      const { response, data } = result;
+
+      // The address is taken: offer to merge both cards instead of refusing.
+      if (response.status === 409 && data.conflict) {
+        setEmailConflict(data.conflict as EmailConflict);
+        return;
+      }
 
       if (data.success) {
         toast({ title: t('common.success'), description: t('crm.saved') });
@@ -249,6 +348,62 @@ export function CustomersList() {
       toast({
         title: t('common.error'),
         description: t('crm.saveFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Switch which card keeps its identity: the API recomputes the preview (the
+   * conflicting request is a dry run, so nothing is written yet).
+   */
+  const chooseConflictPrimary = async (primaryId: string) => {
+    if (!editing || !emailConflict || primaryId === emailConflict.preview.primaryId) return;
+    setPreviewLoading(true);
+    try {
+      const result = await postEdit({ primaryId });
+      if (result && result.response.status === 409 && result.data.conflict) {
+        setEmailConflict(result.data.conflict as EmailConflict);
+      }
+    } catch (error) {
+      // keep the previous preview
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  /** Confirm the merge: save the edits and collapse both cards into one. */
+  const handleMergeConflict = async () => {
+    if (!editing || !emailConflict) return;
+    setSaving(true);
+    try {
+      const result = await postEdit({
+        mergeOnConflict: true,
+        primaryId: emailConflict.preview.primaryId,
+      });
+      if (!result) return;
+      const { data } = result;
+
+      if (data.success) {
+        toast({ title: t('common.success'), description: t('crm.emailConflictMerged') });
+        setEmailConflict(null);
+        setEditing(null);
+        fetchCustomers(query);
+        fetchTags();
+        fetchDuplicates();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.duplicatesMergeFailed'),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.duplicatesMergeFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -747,65 +902,13 @@ export function CustomersList() {
                   </div>
 
                   {/* What the merged contact keeps */}
-                  <div className="mt-3 rounded-md bg-gray-50 p-3 text-sm dark:bg-gray-900/60">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      {t('crm.duplicatesResult')}
-                    </p>
-                    <ul className="mt-1.5 space-y-1">
-                      {(['name', 'company', 'phone'] as MergeFieldKey[]).map((key) => {
-                        const field = group.preview.fields[key];
-                        return (
-                          <li key={key} className="flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
-                            <span className="text-gray-500 dark:text-gray-400">
-                              {t(`crm.${key}`)}:
-                            </span>
-                            <span className={field.value ? 'font-medium' : 'text-gray-400' }>
-                              {field.value || t('crm.duplicatesEmpty')}
-                            </span>
-                            {field.fromId && field.fromId !== chosen && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {t('crm.duplicatesFrom', { name: label(field.fromId) })}
-                              </span>
-                            )}
-                          </li>
-                        );
-                      })}
-                      <li className="flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
-                        <span className="text-gray-500 dark:text-gray-400">{t('crm.tags')}:</span>
-                        <span className="flex flex-wrap gap-1">
-                          {group.preview.tags.length === 0 ? (
-                            <span className="text-gray-400">{t('crm.duplicatesEmpty')}</span>
-                          ) : (
-                            group.preview.tags.map((item) => (
-                              <span
-                                key={item.tag}
-                                className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
-                              >
-                                {item.tag}
-                                {item.fromIds.length > 1 && (
-                                  <span className="text-amber-500">+{item.fromIds.length - 1}</span>
-                                )}
-                              </span>
-                            ))
-                          )}
-                        </span>
-                      </li>
-                      <li className="text-gray-700 dark:text-gray-300">
-                        <span className="text-gray-500 dark:text-gray-400">{t('crm.notes')}:</span>{' '}
-                        {group.preview.notes.length === 0 ? (
-                          <span className="text-gray-400">{t('crm.duplicatesEmpty')}</span>
-                        ) : (
-                          <span className="font-medium">
-                            {t('crm.duplicatesNotesKept', { count: group.preview.notes.length })}
-                          </span>
-                        )}
-                      </li>
-                      {group.preview.marketingOptOut && (
-                        <li className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                          {t('crm.duplicatesOptOut')}
-                        </li>
-                      )}
-                    </ul>
+                  <div className="mt-3">
+                    <MergeResultBlock
+                      preview={group.preview}
+                      chosenId={chosen}
+                      label={label}
+                      t={t}
+                    />
                   </div>
 
                   <div className="mt-3 flex justify-end">
@@ -836,11 +939,110 @@ export function CustomersList() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditing(null);
+            setEmailConflict(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('crm.editTitle')}</DialogTitle>
+            <DialogTitle>
+              {emailConflict ? t('crm.emailConflictTitle') : t('crm.editTitle')}
+            </DialogTitle>
           </DialogHeader>
+
+          {/* The typed address belongs to another card: merge instead of refusing */}
+          {emailConflict && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/40">
+                <Merge className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  {t('crm.emailConflictDesc', { email: emailConflict.email })}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {t('crm.emailConflictChoose')}
+                </p>
+                {emailConflict.contacts.map((contact, index) => {
+                  const chosen = emailConflict.preview.primaryId === contact.id;
+                  return (
+                    <label
+                      key={contact.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-2.5 transition-colors ${
+                        chosen
+                          ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-700 dark:bg-indigo-950/40'
+                          : 'border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="conflict-primary"
+                        className="mt-1"
+                        checked={chosen}
+                        disabled={saving || previewLoading}
+                        onChange={() => chooseConflictPrimary(contact.id)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {contact.name || t('crm.duplicatesNoName')}
+                        </p>
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          {contact.historyEmail}
+                          {contact.historyEmail !== contact.email && (
+                            <span className="font-medium text-indigo-600 dark:text-indigo-400">
+                              {' → '}
+                              {contact.email}
+                            </span>
+                          )}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                          {contact.company && <span>{contact.company}</span>}
+                          {contact.phone && <span>{contact.phone}</span>}
+                          <span>
+                            {t('crm.duplicatesCreatedAt', {
+                              date: formatDate(contact.createdAt) || '',
+                            })}
+                          </span>
+                          <span>{t('crm.totalBookings', { count: contact.totalBookings })}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                          {index === 0 ? t('crm.emailConflictCurrent') : t('crm.emailConflictExisting')}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                        {chosen ? t('crm.duplicatesKeeping') : ''}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {previewLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('crm.loading')}
+                </div>
+              ) : (
+                <MergeResultBlock
+                  preview={emailConflict.preview}
+                  chosenId={emailConflict.preview.primaryId}
+                  label={(contactId) => {
+                    const contact = emailConflict.contacts.find((item) => item.id === contactId);
+                    return contact?.name || contact?.email || '—';
+                  }}
+                  t={t}
+                />
+              )}
+            </div>
+          )}
+
+          {!emailConflict && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="customer-photo">{t('crm.photo')}</Label>
@@ -940,18 +1142,46 @@ export function CustomersList() {
               </div>
             </div>
           </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {t('common.save')}
-            </Button>
+            {emailConflict ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setEmailConflict(null)}
+                  disabled={saving}
+                >
+                  {t('crm.emailConflictBack')}
+                </Button>
+                <Button
+                  onClick={handleMergeConflict}
+                  disabled={saving || previewLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Merge className="mr-2 h-4 w-4" />
+                  )}
+                  {t('crm.emailConflictMerge')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setEditing(null)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {t('common.save')}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

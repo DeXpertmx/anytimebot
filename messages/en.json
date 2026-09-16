@@ -449,7 +449,15 @@
     "duplicatesOptOut": "This customer opted out of marketing: the opt-out is kept.",
     "duplicatesMerge": "Merge into one ({{count}})",
     "duplicatesMerged": "{{count}} contact(s) merged into a single card",
-    "duplicatesMergeFailed": "Could not merge the contacts"
+    "duplicatesMergeFailed": "Could not merge the contacts",
+    "emailConflictTitle": "This email already belongs to another contact",
+    "emailConflictDesc": "{{email}} is already on another card. You can merge both into a single one instead of refusing the change: tags are summed, notes are kept and the history of both addresses stays on the resulting card.",
+    "emailConflictChoose": "Choose which card keeps its identity",
+    "emailConflictCurrent": "Card you are editing",
+    "emailConflictExisting": "Existing contact",
+    "emailConflictMerge": "Merge and save",
+    "emailConflictBack": "Back to editing",
+    "emailConflictMerged": "Both cards were merged into one"
   },
   "availability": {
     "subtitle": "Set your working hours and availability for bookings",

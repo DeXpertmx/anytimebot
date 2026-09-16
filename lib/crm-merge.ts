@@ -14,6 +14,9 @@
  * that referenced a duplicate (marketing campaign recipients) are re-pointed to
  * the survivor, so the full history stays attached.
  *
+ * The same engine powers the CRM email editor: re-pointing a contact to an
+ * address another contact already owns merges both cards instead of failing.
+ *
  * Planning is pure and applying is dependency-injected, so node:test drives it
  * without a database.
  */
@@ -146,6 +149,50 @@ export interface CrmMergeDeps {
 }
 
 /**
+ * Machine-readable code sent with the 409 when an email edit collides with
+ * another contact: the CRM editor uses it to offer merging both cards. Clients
+ * that do not know about merging keep seeing a plain conflict.
+ */
+export const EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS';
+
+/** A `MergePreview` as it crosses the API boundary (dates serialized). */
+export type MergePreviewPayload = Omit<MergePreview, 'createdAt'> & { createdAt: string };
+
+/**
+ * One side of an email conflict, as the API sends it to the CRM dialog.
+ *
+ * `email` is the address the card shows (on the card being edited that is the
+ * one the user just typed) while `historyEmail` is the address whose bookings
+ * it currently carries — the two differ while an email change is pending.
+ */
+export interface EmailConflictContactPayload {
+  id: string;
+  email: string;
+  name: string | null;
+  company: string | null;
+  phone: string | null;
+  photo: string | null;
+  notes: string | null;
+  tags: string[];
+  marketingOptOut: boolean;
+  createdAt: string;
+  historyEmail: string;
+  totalBookings: number;
+  lastBookingAt: string | null;
+}
+
+/**
+ * Body of the 409 the CRM receives when the email being saved already belongs
+ * to another contact: both cards plus what merging them would keep.
+ */
+export interface EmailConflictPayload {
+  email: string;
+  contacts: EmailConflictContactPayload[];
+  suggestedPrimaryId: string;
+  preview: MergePreviewPayload;
+}
+
+/**
  * Identity anchor of a CRM contact: emails are stored trimmed and lowercased so
  * `Juan@Demo.com` and ` juan@demo.com ` are the same person.
  */
@@ -235,36 +282,32 @@ export function planCustomerMerge(
 }
 
 /**
- * Collapse the duplicate CRM contacts of `email` for one owner, keeping every
- * piece of data and re-pointing related records to the survivor. Never throws:
- * a CRM tidy-up must not break booking creation.
+ * Collapse a known set of contacts that are supposed to be the same person.
+ * Callers hand over the rows (already scoped to the owner) because the group is
+ * not always derivable from a stored address: when the CRM user re-points a
+ * contact to an address another contact already owns, the edited row still has
+ * its previous address in the database (see `mergeContactIntoAddress`).
+ *
+ * Never throws: a CRM tidy-up must not break booking creation.
  */
-export async function mergeDuplicateCustomers(
+export async function mergeCustomerRows(
   ownerId: string,
-  email: string | null | undefined,
+  normalizedEmail: string,
+  rows: MergeableCustomer[],
   deps: CrmMergeDeps = { prisma },
   options: { primaryId?: string | null } = {}
 ): Promise<CrmMergeResult> {
-  const normalized = normalizeEmail(email);
+  const normalized = normalizeEmail(normalizedEmail);
   if (!ownerId || !normalized) return { merged: 0, primaryId: null, email: null };
 
   try {
-    // `contains` narrows indexed rows cheaply (it also catches padded emails
-    // that `equals` would miss); the exact comparison happens in JS below.
-    const candidates = await deps.prisma.customer.findMany({
-      where: {
-        userId: ownerId,
-        email: { contains: normalized, mode: 'insensitive' },
-      },
-    });
-
-    const rows = candidates.filter((row) => normalizeEmail(row.email) === normalized);
-    if (rows.length === 0) return { merged: 0, primaryId: null, email: normalized };
+    const relevant = rows.filter((row) => normalizeEmail(row.email) === normalized);
+    if (relevant.length === 0) return { merged: 0, primaryId: null, email: normalized };
 
     // Single row: still normalize the stored address (a padded/mixed-case row
     // would otherwise spawn a second contact on the next exact-match upsert).
-    if (rows.length === 1) {
-      const only = rows[0];
+    if (relevant.length === 1) {
+      const only = relevant[0];
       if (only.email !== normalized) {
         await deps.prisma.customer.update({
           where: { id: only.id },
@@ -274,7 +317,7 @@ export async function mergeDuplicateCustomers(
       return { merged: 0, primaryId: only.id, email: normalized };
     }
 
-    const plan = planCustomerMerge(rows, normalized, options.primaryId);
+    const plan = planCustomerMerge(relevant, normalized, options.primaryId);
     if (!plan || plan.duplicateIds.length === 0) {
       return { merged: 0, primaryId: plan?.primaryId ?? null, email: normalized };
     }
@@ -283,9 +326,7 @@ export async function mergeDuplicateCustomers(
     // CRM lets the user choose it), and in that case another row may still hold
     // the normalized address: normalizing the survivor in the same write would
     // hit the (user_id, email) unique index. So the fields go first, then the
-    // duplicates disappear, and only then the address is normalized. If that
-    // last write fails, the merge is already complete and the address merely
-    // keeps its original spelling.
+    // duplicates disappear, and only then the address is written.
     const { email: mergedEmail, ...mergedFields } = plan.merged;
     await deps.prisma.customer.update({
       where: { id: plan.primaryId },
@@ -308,13 +349,14 @@ export async function mergeDuplicateCustomers(
       where: { userId: ownerId, id: { in: plan.duplicateIds } },
     });
 
-    const survivorEmail = rows.find((row) => row.id === plan.primaryId)?.email;
-    if (survivorEmail !== mergedEmail) {
-      await deps.prisma.customer.update({
-        where: { id: plan.primaryId },
-        data: { email: mergedEmail },
-      });
-    }
+    // Unconditional: by now the group freed the address (every row holding it
+    // was either the survivor or a duplicate just deleted), and the survivor is
+    // the only row left that must carry the normalized spelling. It is also
+    // what makes an email change stick when the survivor is the edited row.
+    await deps.prisma.customer.update({
+      where: { id: plan.primaryId },
+      data: { email: mergedEmail },
+    });
 
     return {
       merged: plan.duplicateIds.length,
@@ -323,6 +365,84 @@ export async function mergeDuplicateCustomers(
     };
   } catch (error) {
     console.error('CRM duplicate merge failed:', error);
+    return { merged: 0, primaryId: null, email: normalized };
+  }
+}
+
+/**
+ * Collapse the duplicate CRM contacts of `email` for one owner, keeping every
+ * piece of data and re-pointing related records to the survivor. This is the
+ * booking-time / sweep entry point, where the group is simply "every row on
+ * that address".
+ */
+export async function mergeDuplicateCustomers(
+  ownerId: string,
+  email: string | null | undefined,
+  deps: CrmMergeDeps = { prisma },
+  options: { primaryId?: string | null } = {}
+): Promise<CrmMergeResult> {
+  const normalized = normalizeEmail(email);
+  if (!ownerId || !normalized) return { merged: 0, primaryId: null, email: null };
+
+  try {
+    // `contains` narrows indexed rows cheaply (it also catches padded emails
+    // that `equals` would miss); the exact comparison happens in JS below.
+    const candidates = await deps.prisma.customer.findMany({
+      where: {
+        userId: ownerId,
+        email: { contains: normalized, mode: 'insensitive' },
+      },
+    });
+
+    return await mergeCustomerRows(ownerId, normalized, candidates, deps, options);
+  } catch (error) {
+    console.error('CRM duplicate merge failed:', error);
+    return { merged: 0, primaryId: null, email: normalized };
+  }
+}
+
+/**
+ * Merge a contact that is being re-pointed to an address another contact of the
+ * same owner already holds (the CRM email editor, where a plain save used to be
+ * rejected with a 409).
+ *
+ * `edited` is the row as it will look after the edit — new address and pending
+ * field changes included — so the values the user just typed are the ones that
+ * win; the stored rows on that address are folded in as duplicates. Every row
+ * of the group is considered (there may be more than one), and the group's
+ * address is free by the time it is written.
+ */
+export async function mergeContactIntoAddress(
+  ownerId: string,
+  edited: MergeableCustomer,
+  email: string | null | undefined,
+  deps: CrmMergeDeps = { prisma },
+  options: { primaryId?: string | null } = {}
+): Promise<CrmMergeResult> {
+  const normalized = normalizeEmail(email);
+  if (!ownerId || !normalized || !edited?.id) {
+    return { merged: 0, primaryId: edited?.id ?? null, email: normalized || null };
+  }
+
+  try {
+    const candidates = await deps.prisma.customer.findMany({
+      where: {
+        userId: ownerId,
+        id: { not: edited.id },
+        email: { contains: normalized, mode: 'insensitive' },
+      },
+    });
+    const others = candidates.filter((row) => normalizeEmail(row.email) === normalized);
+    if (others.length === 0) {
+      return { merged: 0, primaryId: edited.id, email: normalized };
+    }
+
+    const group: MergeableCustomer[] = [{ ...edited, email: normalized }, ...others];
+    return await mergeCustomerRows(ownerId, normalized, group, deps, {
+      primaryId: options.primaryId ?? edited.id,
+    });
+  } catch (error) {
+    console.error('CRM email change merge failed:', error);
     return { merged: 0, primaryId: null, email: normalized };
   }
 }

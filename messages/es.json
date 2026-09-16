@@ -449,7 +449,15 @@
     "duplicatesOptOut": "Este cliente pidió no recibir marketing: se mantiene la baja.",
     "duplicatesMerge": "Unir en una ficha ({{count}})",
     "duplicatesMerged": "{{count}} contacto(s) unidos en una sola ficha",
-    "duplicatesMergeFailed": "No se pudieron unir los contactos"
+    "duplicatesMergeFailed": "No se pudieron unir los contactos",
+    "emailConflictTitle": "Este email ya pertenece a otro contacto",
+    "emailConflictDesc": "{{email}} ya está en otra ficha. Puedes unir las dos en una sola en lugar de rechazar el cambio: las etiquetas se suman, las notas se conservan y el historial de ambas direcciones queda en la ficha resultante.",
+    "emailConflictChoose": "Elige qué ficha conserva su identidad",
+    "emailConflictCurrent": "Ficha que estás editando",
+    "emailConflictExisting": "Contacto existente",
+    "emailConflictMerge": "Unir y guardar",
+    "emailConflictBack": "Volver a editar",
+    "emailConflictMerged": "Las dos fichas se unieron en una sola"
   },
   "availability": {
     "subtitle": "Configura tus horarios y disponibilidad para las reservas",
