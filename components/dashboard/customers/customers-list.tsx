@@ -25,12 +25,14 @@ import {
   Download,
   Loader2,
   Mail,
+  Merge,
   Phone,
   Search,
   Star,
   Tag,
   Trash2,
   UserRound,
+  UsersRound,
   X,
 } from 'lucide-react';
 
@@ -43,6 +45,7 @@ interface Customer {
   photo?: string | null;
   notes?: string | null;
   tags: string[];
+  createdAt?: string | null;
   totalBookings: number;
   confirmedBookings: number;
   lastBookingAt?: string | null;
@@ -63,6 +66,30 @@ interface FeedbackItem {
   createdAt: string;
   eventTypeName: string;
   startTime: string;
+}
+
+type MergeFieldKey = 'name' | 'company' | 'phone' | 'photo';
+
+/** Preview of what merging a duplicate group keeps, with the source contact. */
+interface MergePreview {
+  primaryId: string;
+  duplicateIds: string[];
+  fields: Record<MergeFieldKey, { value: string | null; fromId: string | null }>;
+  tags: { tag: string; fromIds: string[] }[];
+  notes: { text: string; fromId: string }[];
+  createdAt: string;
+  marketingOptOut: boolean;
+}
+
+interface DuplicateGroup {
+  email: string;
+  contacts: Customer[];
+  suggestedPrimaryId: string;
+  preview: MergePreview;
+  count: number;
+  totalBookings: number;
+  confirmedBookings: number;
+  lastBookingAt?: string | null;
 }
 
 export function CustomersList() {
@@ -89,6 +116,10 @@ export function CustomersList() {
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [feedbackSummary, setFeedbackSummary] = useState<{ total: number; average: number } | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
+  const [primaryChoice, setPrimaryChoice] = useState<Record<string, string>>({});
+  const [merging, setMerging] = useState<string | null>(null);
   const { toast } = useToast();
   const { t } = useTranslation();
 
@@ -131,10 +162,21 @@ export function CustomersList() {
     }
   }, []);
 
+  const fetchDuplicates = useCallback(async () => {
+    try {
+      const response = await fetch('/api/customers/duplicates');
+      const data = await response.json();
+      if (data.success) setDuplicates(data.data);
+    } catch (error) {
+      // silent: the banner is an aid, never a blocker
+    }
+  }, []);
+
   useEffect(() => {
     fetchCustomers();
     fetchTags();
-  }, [fetchCustomers, fetchTags]);
+    fetchDuplicates();
+  }, [fetchCustomers, fetchTags, fetchDuplicates]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchCustomers(query), 350);
@@ -211,6 +253,50 @@ export function CustomersList() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Merge one duplicate group into a single contact (survivor = the choice). */
+  const mergeGroup = async (group: DuplicateGroup) => {
+    setMerging(group.email);
+    try {
+      const response = await fetch('/api/customers/duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: group.email,
+          primaryId: primaryChoice[group.email] || group.suggestedPrimaryId,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: t('common.success'),
+          description: t('crm.duplicatesMerged', { count: data.data.merged }),
+        });
+        setDuplicates((prev) => {
+          const next = prev.filter((item) => item.email !== group.email);
+          if (next.length === 0) setDuplicatesOpen(false);
+          return next;
+        });
+        fetchCustomers(query);
+        fetchTags();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.duplicatesMergeFailed'),
+          variant: 'destructive',
+        });
+        fetchDuplicates();
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.duplicatesMergeFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setMerging(null);
     }
   };
 
@@ -332,6 +418,33 @@ export function CustomersList() {
             </button>
           ))}
         </div>
+      )}
+
+      {duplicates.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-start gap-3">
+              <UsersRound className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  {t('crm.duplicatesTitle', { count: duplicates.length })}
+                </p>
+                <p className="text-sm text-amber-800/90 dark:text-amber-300/90">
+                  {t('crm.duplicatesDesc')}
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 border-amber-400 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-950"
+              onClick={() => setDuplicatesOpen(true)}
+            >
+              <Merge className="mr-2 h-4 w-4" />
+              {t('crm.duplicatesReview')}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {loading ? (
@@ -533,6 +646,195 @@ export function CustomersList() {
           ))}
         </div>
       )}
+
+      {/* Duplicate contacts: review and merge, one group at a time */}
+      <Dialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen}>
+        <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('crm.duplicatesDialogTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="-mt-1 text-sm text-gray-600 dark:text-gray-400">
+            {t('crm.duplicatesDialogDesc')}
+          </p>
+
+          <div className="space-y-4">
+            {duplicates.map((group) => {
+              const chosen = primaryChoice[group.email] || group.suggestedPrimaryId;
+              const label = (contactId: string) => {
+                const contact = group.contacts.find((item) => item.id === contactId);
+                return contact?.name || contact?.email || '—';
+              };
+              return (
+                <div
+                  key={group.email}
+                  className="rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{group.email}</p>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('crm.totalBookings', { count: group.totalBookings })}
+                    </span>
+                  </div>
+
+                  {/* Which contact keeps its identity */}
+                  <div className="mt-3 space-y-2">
+                    {group.contacts.map((contact) => (
+                      <label
+                        key={contact.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-md border p-2.5 transition-colors ${
+                          chosen === contact.id
+                            ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-700 dark:bg-indigo-950/40'
+                            : 'border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`primary-${group.email}`}
+                          className="mt-1"
+                          checked={chosen === contact.id}
+                          onChange={() =>
+                            setPrimaryChoice((prev) => ({ ...prev, [group.email]: contact.id }))
+                          }
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {contact.name || t('crm.duplicatesNoName')}
+                          </p>
+                          <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                            {contact.email}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                            {contact.company && (
+                              <span className="flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {contact.company}
+                              </span>
+                            )}
+                            {contact.phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {contact.phone}
+                              </span>
+                            )}
+                            <span>
+                              {t('crm.duplicatesCreatedAt', { date: formatDate(contact.createdAt) || '' })}
+                            </span>
+                          </div>
+                          {contact.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {contact.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                                >
+                                  <Tag className="h-3 w-3" />
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {contact.notes && (
+                            <p className="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
+                              {contact.notes}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                          {chosen === contact.id ? t('crm.duplicatesKeeping') : ''}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* What the merged contact keeps */}
+                  <div className="mt-3 rounded-md bg-gray-50 p-3 text-sm dark:bg-gray-900/60">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {t('crm.duplicatesResult')}
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {(['name', 'company', 'phone'] as MergeFieldKey[]).map((key) => {
+                        const field = group.preview.fields[key];
+                        return (
+                          <li key={key} className="flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
+                            <span className="text-gray-500 dark:text-gray-400">
+                              {t(`crm.${key}`)}:
+                            </span>
+                            <span className={field.value ? 'font-medium' : 'text-gray-400' }>
+                              {field.value || t('crm.duplicatesEmpty')}
+                            </span>
+                            {field.fromId && field.fromId !== chosen && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {t('crm.duplicatesFrom', { name: label(field.fromId) })}
+                              </span>
+                            )}
+                          </li>
+                        );
+                      })}
+                      <li className="flex flex-wrap items-baseline gap-x-2 text-gray-700 dark:text-gray-300">
+                        <span className="text-gray-500 dark:text-gray-400">{t('crm.tags')}:</span>
+                        <span className="flex flex-wrap gap-1">
+                          {group.preview.tags.length === 0 ? (
+                            <span className="text-gray-400">{t('crm.duplicatesEmpty')}</span>
+                          ) : (
+                            group.preview.tags.map((item) => (
+                              <span
+                                key={item.tag}
+                                className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                              >
+                                {item.tag}
+                                {item.fromIds.length > 1 && (
+                                  <span className="text-amber-500">+{item.fromIds.length - 1}</span>
+                                )}
+                              </span>
+                            ))
+                          )}
+                        </span>
+                      </li>
+                      <li className="text-gray-700 dark:text-gray-300">
+                        <span className="text-gray-500 dark:text-gray-400">{t('crm.notes')}:</span>{' '}
+                        {group.preview.notes.length === 0 ? (
+                          <span className="text-gray-400">{t('crm.duplicatesEmpty')}</span>
+                        ) : (
+                          <span className="font-medium">
+                            {t('crm.duplicatesNotesKept', { count: group.preview.notes.length })}
+                          </span>
+                        )}
+                      </li>
+                      {group.preview.marketingOptOut && (
+                        <li className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                          {t('crm.duplicatesOptOut')}
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      size="sm"
+                      className="bg-indigo-600 hover:bg-indigo-700"
+                      disabled={merging === group.email}
+                      onClick={() => mergeGroup(group)}
+                    >
+                      {merging === group.email ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Merge className="mr-2 h-4 w-4" />
+                      )}
+                      {t('crm.duplicatesMerge', { count: group.count })}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDuplicatesOpen(false)}>
+              {t('common.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">

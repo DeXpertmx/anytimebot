@@ -64,6 +64,83 @@ export interface CrmMergeResult {
   email: string | null;
 }
 
+/** Fields shown (with provenance) in the merge preview. */
+export type MergeFieldKey = 'name' | 'company' | 'phone' | 'photo';
+
+/**
+ * Human-readable preview of a merge: which contact every kept value comes from,
+ * which tags survive and which notes are kept. Drives the CRM dialog, so the
+ * user sees what is preserved before confirming.
+ */
+export interface MergePreview {
+  email: string;
+  primaryId: string;
+  duplicateIds: string[];
+  /** Merged value + the contact it was taken from (null = empty in all rows). */
+  fields: Record<MergeFieldKey, { value: string | null; fromId: string | null }>;
+  /** Tags of the result, each with the contacts that contributed it. */
+  tags: { tag: string; fromIds: string[] }[];
+  /** Notes kept, in order, with their original contact. */
+  notes: { text: string; fromId: string }[];
+  /** Oldest createdAt of the group (what the result will keep). */
+  createdAt: Date;
+  /** True when any row had opted out (the result stays opted out). */
+  marketingOptOut: boolean;
+}
+
+/**
+ * Build the merge preview (provenance included) for one email out of its rows.
+ * Pure: no database, no writes.
+ */
+export function describeCustomerMerge(
+  rows: MergeableCustomer[],
+  normalizedEmail: string,
+  preferredPrimaryId?: string | null
+): MergePreview | null {
+  const plan = planCustomerMerge(rows, normalizedEmail, preferredPrimaryId);
+  if (!plan) return null;
+
+  const primary = rows.find((row) => row.id === plan.primaryId)!;
+  const ordered = [primary, ...plan.duplicateIds.map((id) => rows.find((r) => r.id === id)!)].filter(
+    Boolean
+  ) as MergeableCustomer[];
+
+  const sourceOf = (pick: (row: MergeableCustomer) => string | null, value: string | null) =>
+    value === null ? null : ordered.find((row) => pick(row)?.trim() === value)?.id ?? null;
+
+  const fields = {} as MergePreview['fields'];
+  for (const key of ['name', 'company', 'phone', 'photo'] as MergeFieldKey[]) {
+    const pick = (row: MergeableCustomer) => row[key];
+    fields[key] = { value: plan.merged[key], fromId: sourceOf(pick, plan.merged[key]) };
+  }
+
+  const tags = plan.merged.tags.map((tag) => ({
+    tag,
+    fromIds: ordered
+      .filter((row) => (row.tags || []).some((item) => item.trim().toLowerCase() === tag))
+      .map((row) => row.id),
+  }));
+
+  const notes: MergePreview['notes'] = [];
+  for (const row of ordered) {
+    const text = row.notes?.trim();
+    if (text && !notes.some((note) => note.text === text)) {
+      notes.push({ text, fromId: row.id });
+    }
+  }
+
+  return {
+    email: plan.merged.email,
+    primaryId: plan.primaryId,
+    duplicateIds: plan.duplicateIds,
+    fields,
+    tags,
+    notes,
+    createdAt: plan.merged.createdAt,
+    marketingOptOut: plan.merged.marketingOptOut,
+  };
+}
+
 export interface CrmMergeDeps {
   prisma: Pick<PrismaClient, 'customer' | 'campaignRecipient'>;
 }
@@ -98,13 +175,16 @@ export function mergeNotes(primary: string | null, others: (string | null)[]): s
 /**
  * Plan the merge of every row that belongs to `normalizedEmail`.
  *
- * Rows already on the normalized address win the primary spot; otherwise the
- * oldest row does (so the contact keeps the age and history it earned first).
- * Returns null when there is nothing to merge.
+ * `preferredPrimaryId` (what the user picked in the CRM) wins when it is part
+ * of the group; otherwise rows already on the normalized address take the
+ * primary spot, and failing that the oldest row does — so the contact keeps
+ * the age and history it earned first. Returns null when there is nothing to
+ * merge.
  */
 export function planCustomerMerge(
   rows: MergeableCustomer[],
-  normalizedEmail: string
+  normalizedEmail: string,
+  preferredPrimaryId?: string | null
 ): MergePlan | null {
   const email = normalizeEmail(normalizedEmail);
   if (!email) return null;
@@ -112,8 +192,12 @@ export function planCustomerMerge(
   const relevant = rows.filter((row) => normalizeEmail(row.email) === email);
   if (relevant.length === 0) return null;
 
+  const preferred = preferredPrimaryId
+    ? relevant.find((row) => row.id === preferredPrimaryId)
+    : undefined;
   const exact = relevant.filter((row) => row.email === email).sort(byAge);
-  const primary = exact.length > 0 ? exact[0] : [...relevant].sort(byAge)[0];
+  const primary =
+    preferred ?? (exact.length > 0 ? exact[0] : [...relevant].sort(byAge)[0]);
   const duplicates = relevant.filter((row) => row.id !== primary.id).sort(byAge);
 
   // Duplicates are read oldest-first so the oldest value becomes the fallback
@@ -158,7 +242,8 @@ export function planCustomerMerge(
 export async function mergeDuplicateCustomers(
   ownerId: string,
   email: string | null | undefined,
-  deps: CrmMergeDeps = { prisma }
+  deps: CrmMergeDeps = { prisma },
+  options: { primaryId?: string | null } = {}
 ): Promise<CrmMergeResult> {
   const normalized = normalizeEmail(email);
   if (!ownerId || !normalized) return { merged: 0, primaryId: null, email: null };
@@ -189,14 +274,22 @@ export async function mergeDuplicateCustomers(
       return { merged: 0, primaryId: only.id, email: normalized };
     }
 
-    const plan = planCustomerMerge(rows, normalized);
+    const plan = planCustomerMerge(rows, normalized, options.primaryId);
     if (!plan || plan.duplicateIds.length === 0) {
       return { merged: 0, primaryId: plan?.primaryId ?? null, email: normalized };
     }
 
+    // Order matters. The survivor can be a row with the legacy spelling (the
+    // CRM lets the user choose it), and in that case another row may still hold
+    // the normalized address: normalizing the survivor in the same write would
+    // hit the (user_id, email) unique index. So the fields go first, then the
+    // duplicates disappear, and only then the address is normalized. If that
+    // last write fails, the merge is already complete and the address merely
+    // keeps its original spelling.
+    const { email: mergedEmail, ...mergedFields } = plan.merged;
     await deps.prisma.customer.update({
       where: { id: plan.primaryId },
-      data: plan.merged,
+      data: mergedFields,
     });
 
     // Related records follow the survivor. Isolated in its own try/catch so a
@@ -215,6 +308,14 @@ export async function mergeDuplicateCustomers(
       where: { userId: ownerId, id: { in: plan.duplicateIds } },
     });
 
+    const survivorEmail = rows.find((row) => row.id === plan.primaryId)?.email;
+    if (survivorEmail !== mergedEmail) {
+      await deps.prisma.customer.update({
+        where: { id: plan.primaryId },
+        data: { email: mergedEmail },
+      });
+    }
+
     return {
       merged: plan.duplicateIds.length,
       primaryId: plan.primaryId,
@@ -224,6 +325,51 @@ export async function mergeDuplicateCustomers(
     console.error('CRM duplicate merge failed:', error);
     return { merged: 0, primaryId: null, email: normalized };
   }
+}
+
+/**
+ * Duplicate groups of one owner, ready for the CRM dialog: every contact of
+ * the address plus the preview of what merging them keeps.
+ */
+export interface DuplicateGroup {
+  email: string;
+  contacts: MergeableCustomer[];
+  preview: MergePreview;
+}
+
+/**
+ * Find the contacts that are duplicated per email for one owner. Grouping
+ * happens in JS because the SQL index is on the raw address, so
+ * `Juan@Demo.com` and `juan@demo.com` are separate groups for the database.
+ */
+export async function findDuplicateGroups(
+  userId: string,
+  deps: CrmMergeDeps = { prisma }
+): Promise<DuplicateGroup[]> {
+  const rows = await deps.prisma.customer.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const byEmail = new Map<string, MergeableCustomer[]>();
+  for (const row of rows) {
+    const email = normalizeEmail(row.email);
+    if (!email) continue;
+    const group = byEmail.get(email);
+    if (group) group.push(row);
+    else byEmail.set(email, [row]);
+  }
+
+  const groups: DuplicateGroup[] = [];
+  for (const [email, contacts] of byEmail) {
+    if (contacts.length < 2) continue;
+    const preview = describeCustomerMerge(contacts, email);
+    if (!preview) continue;
+    groups.push({ email, contacts, preview });
+  }
+
+  // Oldest groups first: those are the ones that have been split the longest.
+  return groups.sort((a, b) => a.preview.createdAt.getTime() - b.preview.createdAt.getTime());
 }
 
 export interface CrmSweepResult {

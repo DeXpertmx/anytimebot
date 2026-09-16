@@ -12,6 +12,8 @@ import {
   normalizeEmail,
   mergeNotes,
   planCustomerMerge,
+  describeCustomerMerge,
+  findDuplicateGroups,
   mergeDuplicateCustomers,
   sweepDuplicateCustomers,
   type MergeableCustomer,
@@ -63,6 +65,19 @@ function makeDb(customers: MergeableCustomer[]) {
       },
       update: async ({ where, data }: any) => {
         const target = store.find((c) => c.id === where.id)!;
+        // Emulate the (user_id, email) unique index: writing an address that
+        // another row of the SAME owner already holds must fail, like Postgres
+        // would (two owners may share an address without clashing).
+        if (data.email) {
+          const clash = store.some(
+            (c) => c.id !== target.id && c.userId === target.userId && c.email === data.email
+          );
+          if (clash) {
+            const error = new Error('Unique constraint failed on the fields: (`user_id`,`email`)');
+            (error as any).code = 'P2002';
+            throw error;
+          }
+        }
         Object.assign(target, data);
         db.updates.push({ id: where.id, data });
         return target;
@@ -191,6 +206,94 @@ describe('planCustomerMerge', () => {
 });
 
 // ---------------------------------------------------------------------------
+// describeCustomerMerge (preview with provenance)
+// ---------------------------------------------------------------------------
+describe('describeCustomerMerge', () => {
+  const older = row({
+    id: 'old',
+    email: 'Juan@Demo.com',
+    createdAt: new Date('2022-01-01'),
+    name: 'Juan Pérez',
+    phone: '+34 600 111 111',
+    tags: ['vip'],
+    notes: 'Cliente desde 2022',
+    marketingOptOut: true,
+  });
+  const newer = row({
+    id: 'new',
+    email: 'juan@demo.com',
+    createdAt: new Date('2024-05-05'),
+    company: 'Barbería Demo',
+    phone: '+34 699 999 999',
+    tags: ['vip', 'nuevo'],
+    notes: 'Llegó por Instagram',
+  });
+
+  test('reports where every kept value comes from', () => {
+    const preview = describeCustomerMerge([older, newer], 'juan@demo.com')!;
+    assert.equal(preview.primaryId, 'new');
+    assert.deepEqual(preview.duplicateIds, ['old']);
+    // The survivor has no name, so the legacy row provides it.
+    assert.deepEqual(preview.fields.name, { value: 'Juan Pérez', fromId: 'old' });
+    assert.deepEqual(preview.fields.company, { value: 'Barbería Demo', fromId: 'new' });
+    // First meaningful value wins: the survivor's phone.
+    assert.deepEqual(preview.fields.phone, { value: '+34 699 999 999', fromId: 'new' });
+    assert.deepEqual(preview.fields.photo, { value: null, fromId: null });
+    assert.equal(preview.marketingOptOut, true);
+    assert.equal(preview.createdAt.toISOString(), new Date('2022-01-01').toISOString());
+  });
+
+  test('lists tags with the contacts that contributed them and keeps every note', () => {
+    const preview = describeCustomerMerge([older, newer], 'juan@demo.com')!;
+    assert.deepEqual(preview.tags, [
+      { tag: 'vip', fromIds: ['new', 'old'] },
+      { tag: 'nuevo', fromIds: ['new'] },
+    ]);
+    assert.deepEqual(preview.notes, [
+      { text: 'Llegó por Instagram', fromId: 'new' },
+      { text: 'Cliente desde 2022', fromId: 'old' },
+    ]);
+  });
+
+  test('honours the contact the user picked to keep', () => {
+    const preview = describeCustomerMerge([older, newer], 'juan@demo.com', 'old')!;
+    assert.equal(preview.primaryId, 'old');
+    assert.deepEqual(preview.duplicateIds, ['new']);
+    // Name now comes from the survivor itself; the company is still adopted.
+    assert.deepEqual(preview.fields.name, { value: 'Juan Pérez', fromId: 'old' });
+    assert.deepEqual(preview.fields.company, { value: 'Barbería Demo', fromId: 'new' });
+    // Phone is the survivor's own value now.
+    assert.deepEqual(preview.fields.phone, { value: '+34 600 111 111', fromId: 'old' });
+    assert.deepEqual(preview.notes.map((n) => n.fromId), ['old', 'new']);
+  });
+
+  test('returns null when there is nothing to preview', () => {
+    assert.equal(describeCustomerMerge([], 'juan@demo.com'), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findDuplicateGroups
+// ---------------------------------------------------------------------------
+describe('findDuplicateGroups', () => {
+  test('groups duplicated addresses per owner and skips lone contacts', async () => {
+    const db = makeDb([
+      row({ id: 'a1', email: 'juan@demo.com', createdAt: new Date('2022-01-01'), tags: ['vip'] }),
+      row({ id: 'a2', email: 'JUAN@demo.com', createdAt: new Date('2024-01-01'), company: 'Demo SL' }),
+      row({ id: 'b1', email: 'ana@demo.com' }),
+      row({ id: 'c1', email: 'juan@demo.com', userId: 'u2' }),
+    ]);
+
+    const groups = await findDuplicateGroups('u1', runDeps(db));
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].email, 'juan@demo.com');
+    assert.deepEqual(groups[0].contacts.map((c) => c.id), ['a1', 'a2']);
+    assert.equal(groups[0].preview.fields.company.value, 'Demo SL');
+    assert.equal(groups[0].preview.primaryId, 'a1');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // mergeDuplicateCustomers (plan + apply)
 // ---------------------------------------------------------------------------
 describe('mergeDuplicateCustomers', () => {
@@ -224,6 +327,26 @@ describe('mergeDuplicateCustomers', () => {
     assert.equal(db.store[0].notes, 'Cliente antiguo\n\nLlegó por Instagram');
     assert.equal(db.store[0].company, 'Barbería Demo');
     assert.equal(db.repoints[0].data.customerId, 'p');
+  });
+
+  test('normalizes the address when the user keeps the legacy row as survivor', async () => {
+    const db = makeDb([
+      row({ id: 'old', email: 'Juan@Demo.com', createdAt: new Date('2022-01-01'), name: 'Juan' }),
+      row({ id: 'new', email: 'juan@demo.com', createdAt: new Date('2024-01-01'), company: 'Demo SL' }),
+    ]);
+
+    // The user's pick forces the loop ordering that used to hit the unique index.
+    const result = await mergeDuplicateCustomers('u1', 'juan@demo.com', runDeps(db), {
+      primaryId: 'old',
+    });
+
+    assert.equal(result.merged, 1);
+    assert.equal(result.primaryId, 'old');
+    assert.equal(db.store.length, 1);
+    assert.equal(db.store[0].id, 'old');
+    // Fields merged and the legacy spelling normalized afterwards.
+    assert.equal(db.store[0].company, 'Demo SL');
+    assert.equal(db.store[0].email, 'juan@demo.com');
   });
 
   test('normalizes a single padded row instead of leaving it to duplicate later', async () => {
