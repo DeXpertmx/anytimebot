@@ -198,6 +198,7 @@ export function CustomersList() {
   const [feedbackSummary, setFeedbackSummary] = useState<{ total: number; average: number } | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+  const [phoneDuplicates, setPhoneDuplicates] = useState<DuplicateGroup[]>([]);
   const [duplicatesOpen, setDuplicatesOpen] = useState(false);
   const [primaryChoice, setPrimaryChoice] = useState<Record<string, string>>({});
   const [merging, setMerging] = useState<string | null>(null);
@@ -250,7 +251,10 @@ export function CustomersList() {
     try {
       const response = await fetch('/api/customers/duplicates');
       const data = await response.json();
-      if (data.success) setDuplicates(data.data);
+      if (data.success) {
+        setDuplicates(data.data);
+        setPhoneDuplicates(data.phoneGroups || []);
+      }
     } catch (error) {
       // silent: the banner is an aid, never a blocker
     }
@@ -305,6 +309,51 @@ export function CustomersList() {
 
   const removeTag = (tag: string) => {
     setForm({ ...form, tags: form.tags.filter((item) => item !== tag) });
+  };
+
+  /** Merge a phone group: the owner confirmed both cards are the same person. */
+  const mergePhoneGroup = async (group: DuplicateGroup) => {
+    setMerging(group.email);
+    try {
+      const response = await fetch('/api/customers/duplicates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: group.email,
+          primaryId: primaryChoice[group.email] || group.suggestedPrimaryId,
+          kind: 'phone',
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: t('common.success'),
+          description: t('crm.duplicatesMerged', { count: data.data.merged }),
+        });
+        setPhoneDuplicates((prev) => {
+          const next = prev.filter((item) => item.email !== group.email);
+          if (next.length === 0 && duplicates.length === 0) setDuplicatesOpen(false);
+          return next;
+        });
+        fetchCustomers(query);
+        fetchTags();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.duplicatesMergeFailed'),
+          variant: 'destructive',
+        });
+        fetchDuplicates();
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.duplicatesMergeFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setMerging(null);
+    }
   };
 
   /** Save the edited card, optionally asking the API to merge on conflict. */
@@ -411,7 +460,11 @@ export function CustomersList() {
     }
   };
 
-  /** Merge one duplicate group into a single contact (survivor = the choice). */
+  /**
+   * Merge one duplicate group into a single contact (survivor = the choice).
+   * Email groups collapse to one address; phone groups fold the cards the user
+   * confirmed are the same person while the survivor keeps its own email.
+   */
   const mergeGroup = async (group: DuplicateGroup) => {
     setMerging(group.email);
     try {
@@ -431,7 +484,12 @@ export function CustomersList() {
         });
         setDuplicates((prev) => {
           const next = prev.filter((item) => item.email !== group.email);
-          if (next.length === 0) setDuplicatesOpen(false);
+          if (next.length === 0 && phoneDuplicates.length === 0) setDuplicatesOpen(false);
+          return next;
+        });
+        setPhoneDuplicates((prev) => {
+          const next = prev.filter((item) => item.email !== group.email);
+          if (next.length === 0 && duplicates.length === 0) setDuplicatesOpen(false);
           return next;
         });
         fetchCustomers(query);
@@ -575,17 +633,17 @@ export function CustomersList() {
         </div>
       )}
 
-      {duplicates.length > 0 && (
+      {(duplicates.length > 0 || phoneDuplicates.length > 0) && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/40">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div className="flex items-start gap-3">
               <UsersRound className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div>
                 <p className="font-medium text-amber-900 dark:text-amber-200">
-                  {t('crm.duplicatesTitle', { count: duplicates.length })}
+                  {t('crm.duplicatesTitle', { count: duplicates.length + phoneDuplicates.length })}
                 </p>
                 <p className="text-sm text-amber-800/90 dark:text-amber-300/90">
-                  {t('crm.duplicatesDesc')}
+                  {duplicates.length > 0 ? t('crm.duplicatesDesc') : t('crm.duplicatesDescPhone')}
                 </p>
               </div>
             </div>
@@ -808,9 +866,11 @@ export function CustomersList() {
           <DialogHeader>
             <DialogTitle>{t('crm.duplicatesDialogTitle')}</DialogTitle>
           </DialogHeader>
-          <p className="-mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {t('crm.duplicatesDialogDesc')}
-          </p>
+          {duplicates.length > 0 && (
+            <p className="-mt-1 text-sm text-gray-600 dark:text-gray-400">
+              {t('crm.duplicatesDialogDesc')}
+            </p>
+          )}
 
           <div className="space-y-4">
             {duplicates.map((group) => {
@@ -929,6 +989,111 @@ export function CustomersList() {
                 </div>
               );
             })}
+
+            {/* Same phone: advisory groups, merged only on confirmation */}
+            {phoneDuplicates.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 border-t pt-3">
+                  <Phone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    {t('crm.duplicatesPhoneSection')}
+                  </p>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t('crm.duplicatesPhoneDesc')}
+                </p>
+                {phoneDuplicates.map((group) => {
+                  const chosen = primaryChoice[group.email] || group.suggestedPrimaryId;
+                  const label = (contactId: string) => {
+                    const contact = group.contacts.find((item) => item.id === contactId);
+                    return contact?.name || contact?.email || '—';
+                  };
+                  return (
+                    <div
+                      key={group.email}
+                      className="rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="flex items-center gap-2 font-medium text-gray-900 dark:text-gray-100">
+                          <Phone className="h-3.5 w-3.5" />
+                          {group.contacts.find((c) => c.phone)?.phone || group.email}
+                        </p>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('crm.totalBookings', { count: group.totalBookings })}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {group.contacts.map((contact) => (
+                          <label
+                            key={contact.id}
+                            className={`flex cursor-pointer items-start gap-3 rounded-md border p-2.5 transition-colors ${
+                              chosen === contact.id
+                                ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-700 dark:bg-indigo-950/40'
+                                : 'border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`phone-primary-${group.email}`}
+                              className="mt-1"
+                              checked={chosen === contact.id}
+                              onChange={() =>
+                                setPrimaryChoice((prev) => ({ ...prev, [group.email]: contact.id }))
+                              }
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {contact.name || t('crm.duplicatesNoName')}
+                              </p>
+                              <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                                {contact.email}
+                              </p>
+                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                {contact.company && <span>{contact.company}</span>}
+                                <span>
+                                  {t('crm.duplicatesCreatedAt', {
+                                    date: formatDate(contact.createdAt) || '',
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="shrink-0 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                              {chosen === contact.id ? t('crm.duplicatesKeeping') : ''}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="mt-3">
+                        <MergeResultBlock
+                          preview={group.preview}
+                          chosenId={chosen}
+                          label={label}
+                          t={t}
+                        />
+                      </div>
+
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          size="sm"
+                          className="bg-indigo-600 hover:bg-indigo-700"
+                          disabled={merging === group.email}
+                          onClick={() => mergePhoneGroup(group)}
+                        >
+                          {merging === group.email ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Merge className="mr-2 h-4 w-4" />
+                          )}
+                          {t('crm.duplicatesPhoneMerge', { count: group.count })}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <DialogFooter>

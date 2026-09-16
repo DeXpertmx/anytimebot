@@ -457,7 +457,11 @@
     "emailConflictExisting": "Existing contact",
     "emailConflictMerge": "Merge and save",
     "emailConflictBack": "Back to editing",
-    "emailConflictMerged": "Both cards were merged into one"
+    "emailConflictMerged": "Both cards were merged into one",
+    "duplicatesDescPhone": "They share the same phone number (even when written differently). Check they are really the same person before merging.",
+    "duplicatesPhoneSection": "Same phone",
+    "duplicatesPhoneDesc": "They may be the same person or two different contacts sharing a number (family, reception...). Choose which card to keep: its tags, notes and data are joined and the resulting card keeps its own email.",
+    "duplicatesPhoneMerge": "Merge ({{count}})"
   },
   "availability": {
     "subtitle": "Set your working hours and availability for bookings",

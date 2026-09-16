@@ -457,7 +457,11 @@
     "emailConflictExisting": "Contacto existente",
     "emailConflictMerge": "Unir y guardar",
     "emailConflictBack": "Volver a editar",
-    "emailConflictMerged": "Las dos fichas se unieron en una sola"
+    "emailConflictMerged": "Las dos fichas se unieron en una sola",
+    "duplicatesDescPhone": "Comparten el mismo número de teléfono (aunque esté escrito de otra forma). Comprueba que sean la misma persona antes de unirlas.",
+    "duplicatesPhoneSection": "Mismo teléfono",
+    "duplicatesPhoneDesc": "Puede que sean la misma persona o dos contactos distintos que comparten número (familiar, recepción...). Elige qué ficha conservar: sus etiquetas, notas y datos se unen y la ficha resultante mantiene su propio email.",
+    "duplicatesPhoneMerge": "Unir ({{count}})"
   },
   "availability": {
     "subtitle": "Configura tus horarios y disponibilidad para las reservas",

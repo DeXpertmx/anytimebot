@@ -10,12 +10,15 @@ import assert from 'node:assert/strict';
 
 import {
   normalizeEmail,
+  normalizePhone,
   mergeNotes,
   planCustomerMerge,
   describeCustomerMerge,
   findDuplicateGroups,
+  findPhoneDuplicateGroups,
   mergeDuplicateCustomers,
   mergeContactIntoAddress,
+  mergePhoneDuplicates,
   sweepDuplicateCustomers,
   type MergeableCustomer,
 } from './crm-merge';
@@ -123,6 +126,28 @@ describe('normalizeEmail', () => {
 // ---------------------------------------------------------------------------
 // mergeNotes
 // ---------------------------------------------------------------------------
+describe('normalizePhone', () => {
+  test('strips spaces, dashes, parentheses and dots', () => {
+    assert.equal(normalizePhone('+34 600 111 111'), '34600111111');
+    assert.equal(normalizePhone('600-111-111'), '34600111111');
+    assert.equal(normalizePhone('(+34) 600.111.111'), '34600111111');
+  });
+
+  test('expands the 00 international prefix', () => {
+    assert.equal(normalizePhone('0034 600 111 111'), '34600111111');
+  });
+
+  test('assumes the Spanish code for a bare 9-digit number only', () => {
+    assert.equal(normalizePhone('600111111'), '34600111111');
+    assert.equal(normalizePhone('15551234567'), '15551234567', '11 digits: another country code, left as-is');
+  });
+
+  test('returns empty for null or garbage', () => {
+    assert.equal(normalizePhone(null), '');
+    assert.equal(normalizePhone('---'), '');
+  });
+});
+
 describe('mergeNotes', () => {
   test('concatenates notes primary-first, separated by a blank line', () => {
     assert.equal(mergeNotes('Prefiere tardes', ['Llegó tarde en marzo']), 'Prefiere tardes\n\nLlegó tarde en marzo');
@@ -202,7 +227,15 @@ describe('planCustomerMerge', () => {
     const other = row({ id: 'x', email: 'otro@demo.com' });
     assert.equal(planCustomerMerge([other], 'juan@demo.com'), null);
     assert.equal(planCustomerMerge([], 'juan@demo.com'), null);
-    assert.equal(planCustomerMerge([other], ''), null);
+  });
+
+  test('an empty email previews the rows as given (phone groups)', () => {
+    const a = row({ id: 'a', email: 'ana@demo.com', phone: '+34 600 111 111' });
+    const b = row({ id: 'b', email: 'ana-trabajo@demo.com', phone: '600-111-111', notes: 'Otra ficha' });
+    const plan = planCustomerMerge([a, b], '', 'a');
+    assert.equal(plan?.primaryId, 'a');
+    assert.deepEqual(plan?.duplicateIds, ['b']);
+    assert.equal(plan?.merged.notes, 'Otra ficha');
   });
 });
 
@@ -550,5 +583,106 @@ describe('mergeContactIntoAddress', () => {
       runDeps(failing)
     );
     assert.deepEqual(result, { merged: 0, primaryId: null, email: 'juan@demo.com' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phone duplicates (advisory groups + manual merge)
+// ---------------------------------------------------------------------------
+describe('findPhoneDuplicateGroups', () => {
+  test('groups contacts sharing a phone regardless of format', async () => {
+    const db = makeDb([
+      row({ id: 'a', email: 'ana@demo.com', phone: '+34 600 111 111', name: 'Ana' }),
+      row({ id: 'b', email: 'ana2@demo.com', phone: '600-111-111', name: 'Ana 2' }),
+      row({ id: 'c', email: 'otro@demo.com', phone: '+34 700 222 222' }),
+    ]);
+    const groups = await findPhoneDuplicateGroups('u1', runDeps(db));
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].email, '34600111111');
+    assert.deepEqual(groups[0].contacts.map((c) => c.id), ['a', 'b']);
+  });
+
+  test('ignores cards without a phone and keeps email-only duplicates out', async () => {
+    const db = makeDb([
+      row({ id: 'a', email: 'ana@demo.com', phone: '+34 600 111 111' }),
+      row({ id: 'b', email: 'ana@demo.com', phone: null }),
+      row({ id: 'c', email: 'sin@demo.com', phone: null }),
+    ]);
+    const groups = await findPhoneDuplicateGroups('u1', runDeps(db));
+    assert.equal(groups.length, 0, 'one phone + one phoneless card is not a phone duplicate');
+  });
+});
+
+describe('mergePhoneDuplicates', () => {
+  test('folds both cards into the chosen survivor keeping its own email', async () => {
+    const db = makeDb([
+      row({
+        id: 'keep',
+        email: 'ana@demo.com',
+        phone: '+34 600 111 111',
+        createdAt: new Date('2023-01-01'),
+        name: 'Ana',
+        tags: ['vip'],
+      }),
+      row({
+        id: 'drop',
+        email: 'ana-trabajo@demo.com',
+        phone: '600-111-111',
+        createdAt: new Date('2024-01-01'),
+        company: 'Barbería Demo',
+        tags: ['nuevo'],
+        notes: 'Paga en efectivo',
+      }),
+    ]);
+
+    const result = await mergePhoneDuplicates('u1', '+34 600 111 111', runDeps(db), {
+      primaryId: 'keep',
+    });
+
+    assert.equal(result.merged, 1);
+    assert.equal(result.primaryId, 'keep');
+    assert.equal(result.email, 'ana@demo.com', 'the survivor keeps its own address');
+    assert.equal(db.store.length, 1);
+    const survivor = db.store[0];
+    assert.equal(survivor.id, 'keep');
+    assert.equal(survivor.email, 'ana@demo.com', 'the other card\'s address is NOT adopted');
+    assert.equal(survivor.company, 'Barbería Demo');
+    assert.deepEqual(survivor.tags, ['vip', 'nuevo']);
+    assert.equal(survivor.notes, 'Paga en efectivo');
+    assert.equal(survivor.phone, '+34 600 111 111', 'the survivor\'s own phone spelling stays');
+  });
+
+  test('falls back to the oldest card as survivor', async () => {
+    const db = makeDb([
+      row({ id: 'new', email: 'a@demo.com', phone: '600 111 111', createdAt: new Date('2024-06-01') }),
+      row({ id: 'old', email: 'b@demo.com', phone: '+34600111111', createdAt: new Date('2022-02-02') }),
+    ]);
+    const result = await mergePhoneDuplicates('u1', '600-111-111', runDeps(db));
+    assert.equal(result.primaryId, 'old');
+    assert.equal(db.store.length, 1);
+    assert.equal(db.store[0].id, 'old');
+  });
+
+  test('does nothing with fewer than two cards on the number', async () => {
+    const db = makeDb([row({ id: 'solo', email: 'a@demo.com', phone: '+34 600 111 111' })]);
+    const result = await mergePhoneDuplicates('u1', '600-111-111', runDeps(db));
+    assert.equal(result.merged, 0);
+    assert.equal(db.store.length, 1);
+  });
+
+  test('never throws when the database fails', async () => {
+    const failing = {
+      customer: {
+        findMany: async () => {
+          throw new Error('connection lost');
+        },
+      },
+      campaignRecipient: { updateMany: async () => ({ count: 0 }) },
+    };
+    assert.deepEqual(await mergePhoneDuplicates('u1', '600111111', runDeps(failing)), {
+      merged: 0,
+      primaryId: null,
+      email: null,
+    });
   });
 });

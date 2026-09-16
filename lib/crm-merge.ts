@@ -93,7 +93,8 @@ export interface MergePreview {
 
 /**
  * Build the merge preview (provenance included) for one email out of its rows.
- * Pure: no database, no writes.
+ * An empty `normalizedEmail` previews the rows as given (used by phone groups,
+ * whose cards may hold different addresses). Pure: no database, no writes.
  */
 export function describeCustomerMerge(
   rows: MergeableCustomer[],
@@ -124,6 +125,8 @@ export function describeCustomerMerge(
       .map((row) => row.id),
   }));
 
+  // Primary first, then the duplicates oldest-first (mergeNotes keeps the
+  // survivor's note at the top, so the preview mirrors the merge result).
   const notes: MergePreview['notes'] = [];
   for (const row of ordered) {
     const text = row.notes?.trim();
@@ -200,6 +203,23 @@ export function normalizeEmail(email: string | null | undefined): string {
   return (email || '').trim().toLowerCase();
 }
 
+/**
+ * Phone identity: digits only, with a leading country code made explicit.
+ * `+34 600 111 111`, `600-111-111` (Spanish default when no prefix is given)
+ * and `0034 600111111` all collapse to `34600111111`, so the same mobile typed
+ * in different shapes still points at one person. Landline-style national
+ * numbers keep the `34` assumption at the Spanish default; other prefixes are
+ * compared as-is.
+ */
+export function normalizePhone(phone: string | null | undefined): string {
+  const digits = (phone || '').replace(/[^0-9+]/g, '');
+  if (!digits) return '';
+  let value = digits.startsWith('+') ? digits.slice(1) : digits;
+  if (value.startsWith('00')) value = value.slice(2);
+  if (!value.startsWith('34') && value.length === 9) value = `34${value}`;
+  return value;
+}
+
 const meaningful = (value: string | null | undefined): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
@@ -220,6 +240,44 @@ export function mergeNotes(primary: string | null, others: (string | null)[]): s
 }
 
 /**
+ * Fold `duplicates` into `primary`: first-meaningful fields (the survivor wins,
+ * then the oldest duplicates), unioned tags, concatenated notes and the opt-out
+ * preserved. Pure and email-agnostic — `planCustomerMerge` scopes it to an
+ * address and the phone merge uses it as-is (each card keeps its own email).
+ */
+export function foldCustomerRows(
+  primary: MergeableCustomer,
+  duplicates: MergeableCustomer[]
+): Pick<MergePlan['merged'], 'name' | 'company' | 'phone' | 'photo' | 'notes' | 'tags' | 'marketingOptOut' | 'createdAt'> {
+  // Duplicates are read oldest-first so the oldest value becomes the fallback
+  // whenever the survivor has nothing to offer.
+  const ordered = [primary, ...duplicates];
+  const firstMeaningful = (pick: (row: MergeableCustomer) => string | null) =>
+    ordered.map(pick).find(meaningful)?.trim() ?? null;
+
+  const tags: string[] = [];
+  for (const row of ordered) {
+    for (const tag of row.tags || []) {
+      const value = tag.trim().toLowerCase();
+      if (value && !tags.includes(value)) tags.push(value);
+    }
+  }
+
+  return {
+    name: firstMeaningful((row) => row.name),
+    company: firstMeaningful((row) => row.company),
+    phone: firstMeaningful((row) => row.phone),
+    photo: firstMeaningful((row) => row.photo),
+    notes: mergeNotes(primary.notes, duplicates.map((row) => row.notes)),
+    tags,
+    // Opt-out survives the merge: dropping it would email someone who asked
+    // not to be contacted (RGPD).
+    marketingOptOut: ordered.some((row) => row.marketingOptOut),
+    createdAt: [...ordered].sort(byAge)[0].createdAt,
+  };
+}
+
+/**
  * Plan the merge of every row that belongs to `normalizedEmail`.
  *
  * `preferredPrimaryId` (what the user picked in the CRM) wins when it is part
@@ -234,9 +292,11 @@ export function planCustomerMerge(
   preferredPrimaryId?: string | null
 ): MergePlan | null {
   const email = normalizeEmail(normalizedEmail);
-  if (!email) return null;
-
-  const relevant = rows.filter((row) => normalizeEmail(row.email) === email);
+  // An empty email scopes to every row: that is how the phone merge previews a
+  // group whose cards hold different addresses (the key is the number).
+  const relevant = email
+    ? rows.filter((row) => normalizeEmail(row.email) === email)
+    : rows;
   if (relevant.length === 0) return null;
 
   const preferred = preferredPrimaryId
@@ -247,36 +307,12 @@ export function planCustomerMerge(
     preferred ?? (exact.length > 0 ? exact[0] : [...relevant].sort(byAge)[0]);
   const duplicates = relevant.filter((row) => row.id !== primary.id).sort(byAge);
 
-  // Duplicates are read oldest-first so the oldest value becomes the fallback
-  // whenever the survivor has nothing to offer.
-  const firstMeaningful = (pick: (row: MergeableCustomer) => string | null) =>
-    [primary, ...duplicates].map(pick).find(meaningful)?.trim() ?? null;
-
-  const tags: string[] = [];
-  for (const row of [primary, ...duplicates]) {
-    for (const tag of row.tags || []) {
-      const value = tag.trim().toLowerCase();
-      if (value && !tags.includes(value)) tags.push(value);
-    }
-  }
-
-  const createdAt = [primary, ...duplicates].sort(byAge)[0].createdAt;
-
   return {
     primaryId: primary.id,
     duplicateIds: duplicates.map((row) => row.id),
     merged: {
       email,
-      name: firstMeaningful((row) => row.name),
-      company: firstMeaningful((row) => row.company),
-      phone: firstMeaningful((row) => row.phone),
-      photo: firstMeaningful((row) => row.photo),
-      notes: mergeNotes(primary.notes, duplicates.map((row) => row.notes)),
-      tags,
-      // Opt-out survives the merge: dropping it would email someone who asked
-      // not to be contacted (RGPD).
-      marketingOptOut: [primary, ...duplicates].some((row) => row.marketingOptOut),
-      createdAt,
+      ...foldCustomerRows(primary, duplicates),
     },
   };
 }
@@ -449,7 +485,8 @@ export async function mergeContactIntoAddress(
 
 /**
  * Duplicate groups of one owner, ready for the CRM dialog: every contact of
- * the address plus the preview of what merging them keeps.
+ * the address plus the preview of what merging them keeps. For phone groups
+ * `email` carries the normalized phone instead (the dialog labels it as such).
  */
 export interface DuplicateGroup {
   email: string;
@@ -490,6 +527,101 @@ export async function findDuplicateGroups(
 
   // Oldest groups first: those are the ones that have been split the longest.
   return groups.sort((a, b) => a.preview.createdAt.getTime() - b.preview.createdAt.getTime());
+}
+
+/**
+ * Find the contacts that share a phone number for one owner. Emails are NOT
+ * compared here: same phone with different addresses may well be two people
+ * (a family, a reception desk), so these groups are advisory — the owner sees
+ * both cards and merges them by hand only when they really are one person.
+ * The preview is built for the phone-keyed group so the dialog shows exactly
+ * what folding the cards together keeps (emails stay as they are; the survivor
+ * keeps its own).
+ */
+export async function findPhoneDuplicateGroups(
+  userId: string,
+  deps: CrmMergeDeps = { prisma }
+): Promise<DuplicateGroup[]> {
+  const rows = await deps.prisma.customer.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const byPhone = new Map<string, MergeableCustomer[]>();
+  for (const row of rows) {
+    const phone = normalizePhone(row.phone);
+    if (!phone) continue;
+    const group = byPhone.get(phone);
+    if (group) group.push(row);
+    else byPhone.set(phone, [row]);
+  }
+
+  const groups: DuplicateGroup[] = [];
+  for (const [phone, contacts] of byPhone) {
+    if (contacts.length < 2) continue;
+    const preview = describeCustomerMerge(contacts, '', contacts[0].id);
+    if (!preview) continue;
+    groups.push({ email: phone, contacts, preview });
+  }
+
+  return groups.sort((a, b) => a.preview.createdAt.getTime() - b.preview.createdAt.getTime());
+}
+
+/**
+ * Merge the phone-duplicate group of `phone` for one owner: the user confirmed
+ * from the CRM dialog that the cards are the same person, so every row on that
+ * number collapses into the chosen survivor. The survivor keeps its own email
+ * (the cards are only assumed to be one person for the phone; their addresses
+ * are not re-pointed to it).
+ */
+export async function mergePhoneDuplicates(
+  ownerId: string,
+  phone: string | null | undefined,
+  deps: CrmMergeDeps = { prisma },
+  options: { primaryId?: string | null } = {}
+): Promise<CrmMergeResult> {
+  const normalized = normalizePhone(phone);
+  if (!ownerId || !normalized) return { merged: 0, primaryId: null, email: null };
+
+  try {
+    const candidates = await deps.prisma.customer.findMany({
+      where: { userId: ownerId, phone: { not: null } },
+    });
+    const rows = candidates.filter((row) => normalizePhone(row.phone) === normalized);
+    if (rows.length < 2) return { merged: 0, primaryId: rows[0]?.id ?? null, email: null };
+
+    const survivor =
+      (options.primaryId && rows.find((row) => row.id === options.primaryId)) ||
+      [...rows].sort(byAge)[0];
+    const primaryEmail = normalizeEmail(survivor.email);
+
+    // Fold the duplicates into the survivor without touching the email: the
+    // group is defined by the phone, and each card keeps its own address.
+    const duplicates = rows.filter((row) => row.id !== survivor.id).sort(byAge);
+    await deps.prisma.customer.update({
+      where: { id: survivor.id },
+      data: foldCustomerRows(survivor, duplicates),
+    });
+
+    const duplicateIds = duplicates.map((row) => row.id);
+    try {
+      await deps.prisma.campaignRecipient.updateMany({
+        where: { customerId: { in: duplicateIds } },
+        data: { customerId: survivor.id },
+      });
+    } catch (error) {
+      console.error('CRM phone merge: could not re-point campaign recipients:', error);
+    }
+
+    await deps.prisma.customer.deleteMany({
+      where: { userId: ownerId, id: { in: duplicateIds } },
+    });
+
+    return { merged: duplicateIds.length, primaryId: survivor.id, email: primaryEmail || null };
+  } catch (error) {
+    console.error('CRM phone duplicate merge failed:', error);
+    return { merged: 0, primaryId: null, email: null };
+  }
 }
 
 export interface CrmSweepResult {
