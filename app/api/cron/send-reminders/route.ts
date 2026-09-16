@@ -3,17 +3,20 @@ import { prisma } from '@/lib/db';
 import { sendBookingReminderWithTemplate } from '@/lib/email';
 import { bookingVenueText } from '@/lib/booking-venue';
 import { generateBookingToken } from '@/lib/booking-tokens';
-import { window24h } from '@/lib/reminder-windows';
+import { window24h, window24hDaily } from '@/lib/reminder-windows';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Cron job: send the 24-hour email reminder.
+ * Cron job: send the day-before email reminder (12–36h before the booking).
  *
- * Runs hourly; the query window is wide (±60 min) so an hourly schedule never
- * misses a booking, and `reminder24hSent` guarantees each booking is reminded
- * at most once even if the cron runs more often. Flags are set only after a
- * successful send so transient failures are retried on the next run.
+ * Vercel Hobby only allows DAILY schedules, so the default window is the
+ * 24h-wide daily sweep (window24hDaily): every booking is caught by exactly
+ * one run and reminded 12–36h ahead. Set REMINDER_HOURLY=1 on a Pro account
+ * (with hourly schedules in vercel.json) to switch to the tighter ±60min
+ * window around T−24h. Either way `reminder24hSent` guarantees each booking
+ * is reminded at most once even if the cron runs more often, and flags are
+ * set only after a successful send so transient failures are retried.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -28,9 +31,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { from, to } = window24h(new Date());
+    const { from, to } = process.env.REMINDER_HOURLY === '1'
+      ? window24h(new Date())
+      : window24hDaily(new Date());
 
-    // Bookings starting in the next ~24h (±1h) that have not been reminded yet.
+    // Bookings starting in the sweep window that have not been reminded yet.
     // reminder24hSent defaults to false on new bookings; series reschedules
     // and individual reschedules both reset it.
     const bookings = await prisma.booking.findMany({

@@ -3,17 +3,22 @@ import { prisma } from '@/lib/db';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { sendSystemWhatsAppMessage } from '@/lib/system-whatsapp';
 import { generateBookingToken } from '@/lib/booking-tokens';
-import { window24h, window1h } from '@/lib/reminder-windows';
+import { window24h, window1h, window24hDaily } from '@/lib/reminder-windows';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Cron job: send WhatsApp reminders for upcoming bookings (24h and 1h).
+ * Cron job: send WhatsApp reminders for upcoming bookings (day-before and 1h).
  *
- * Runs hourly; the shared window helpers make the query ranges wide enough
- * that an hourly schedule (with jitter) never misses a booking, while the
- * per-booking flags keep each reminder at most once. Flags flip only after a
- * successful send so transient failures are retried on the next run.
+ * Vercel Hobby only allows DAILY schedules, so the day-before query uses the
+ * 24h-wide daily sweep (window24hDaily): every booking is caught by exactly
+ * one run and reminded 12–36h ahead. Set REMINDER_HOURLY=1 on a Pro account
+ * to use the tighter ±60min window around T−24h. The 1h reminder keeps its
+ * tight window anchored to "now": on a daily schedule it therefore only
+ * reaches bookings starting within the hour after that run — full 1h coverage
+ * requires the hourly cadence. Either way the per-booking flags keep each
+ * reminder at most once, and they flip only after a successful send so
+ * transient failures are retried.
  *
  * Call with: GET /api/cron/whatsapp-reminders
  * Header: Authorization: Bearer $CRON_SECRET
@@ -36,9 +41,12 @@ export async function GET(request: NextRequest) {
     let totalFailed = 0;
     let totalSkipped = 0;
 
-    // === 24-HOUR REMINDERS ===
-    // Bookings starting in the next ~24h (±1h) not yet reminded.
-    const { from: from24h, to: in24h } = window24h(now);
+    // === DAY-BEFORE REMINDERS ===
+    // Bookings starting in the sweep window (12–36h ahead, or ±1h around
+    // T−24h when REMINDER_HOURLY=1) not yet reminded.
+    const { from: from24h, to: in24h } = process.env.REMINDER_HOURLY === '1'
+      ? window24h(now)
+      : window24hDaily(now);
 
     const bookings24h = await prisma.booking.findMany({
       where: {
@@ -94,9 +102,9 @@ export async function GET(request: NextRequest) {
       const rescheduleToken = generateBookingToken(booking.id, 'reschedule');
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://anytimebot.app';
 
-      const message = `📅 *Recordatorio de cita - 24 horas*
+      const message = `📅 *Recordatorio de cita*
 
-Hola ${booking.guestName}, te recordamos que tienes una cita programada para mañana:
+Hola ${booking.guestName}, te recordamos tu cita:
 
 🎯 *${booking.eventType.name}*
 🕐 ${startTimeFormatted}

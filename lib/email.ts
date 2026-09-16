@@ -762,7 +762,7 @@ export async function sendBookingReminder(data: {
         <div style="background-color: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <p style="font-size: 18px; margin-top: 0;">Hola ${guestName},</p>
           
-          <p style="font-size: 16px; color: #555;">Este es un recordatorio amigable de que tienes una reunión programada para mañana:</p>
+          <p style="font-size: 16px; color: #555;">Este es un recordatorio amigable de tu próxima reunión programada:</p>
           
           <div style="background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); padding: 25px; border-radius: 12px; margin: 25px 0; color: white;">
             <h2 style="margin-top: 0; color: white; font-size: 24px;">${eventTitle}</h2>
@@ -815,7 +815,7 @@ export async function sendBookingReminder(data: {
 
   return sendEmail({
     to,
-    subject: `⏰ Recordatorio: ${eventTitle} es mañana`,
+    subject: `⏰ Recordatorio: ${eventTitle}`,
     html,
   });
 }
