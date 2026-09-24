@@ -19,9 +19,12 @@ import { useTranslation } from '@/lib/i18n/hooks';
 // Types only: the API payloads are shared with the route, so the dialog and the
 // 409 body cannot drift apart.
 import type {
+  CreateConflictPayload,
   EmailConflictPayload,
   MergePreviewPayload,
+  PhoneConflictPayload,
 } from '@/lib/crm-merge';
+import { PHONE_ALREADY_EXISTS } from '@/lib/crm-merge';
 import { ImageUploader } from '@/components/ui/image-uploader';
 import {
   Building2,
@@ -37,6 +40,7 @@ import {
   Star,
   Tag,
   Trash2,
+  UserPlus,
   UserRound,
   UsersRound,
   X,
@@ -95,6 +99,16 @@ interface DuplicateGroup {
  * to another contact: both cards plus the preview of what merging them keeps.
  */
 type EmailConflict = EmailConflictPayload;
+
+/**
+ * Payload the API returns with a 409 when the phone being typed already belongs
+ * to another contact. `preview` is only present while editing (both cards are
+ * stored); when a brand-new contact triggers it the cards are shown instead.
+ */
+type PhoneConflict = PhoneConflictPayload;
+
+/** 409 payload while adding a contact by hand onto an email/phone already used. */
+type CreateConflict = CreateConflictPayload;
 
 type Translator = ReturnType<typeof useTranslation>['t'];
 
@@ -180,6 +194,8 @@ export function CustomersList() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [availableTags, setAvailableTags] = useState<{ name: string; count: number }[]>([]);
   const [editing, setEditing] = useState<Customer | null>(null);
+  /** True while the dialog adds a contact by hand (no card behind it yet). */
+  const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -204,6 +220,12 @@ export function CustomersList() {
   const [merging, setMerging] = useState<string | null>(null);
   /** Set when the edited email already belongs to another contact. */
   const [emailConflict, setEmailConflict] = useState<EmailConflict | null>(null);
+  /** Set when the edited phone already belongs to another contact. */
+  const [phoneConflict, setPhoneConflict] = useState<PhoneConflict | null>(null);
+  /** Set when a hand-typed contact lands on an email/phone that already exists. */
+  const [createConflict, setCreateConflict] = useState<CreateConflict | null>(null);
+  /** Existing card the hand-typed data would be added to. */
+  const [createTargetId, setCreateTargetId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -285,8 +307,11 @@ export function CustomersList() {
   };
 
   const openEdit = (customer: Customer) => {
+    setCreating(false);
     setEditing(customer);
     setEmailConflict(null);
+    setPhoneConflict(null);
+    setCreateConflict(null);
     setForm({
       name: customer.name || '',
       email: customer.email || '',
@@ -297,6 +322,27 @@ export function CustomersList() {
       tags: [...customer.tags],
     });
     setTagInput('');
+  };
+
+  /** Add a contact by hand: a walk-in, a phone call, a referral. */
+  const openCreate = () => {
+    setEditing(null);
+    setCreating(true);
+    setEmailConflict(null);
+    setPhoneConflict(null);
+    setCreateConflict(null);
+    setCreateTargetId(null);
+    setForm({ name: '', email: '', company: '', phone: '', photo: '', notes: '', tags: [] });
+    setTagInput('');
+  };
+
+  const closeForm = () => {
+    setEditing(null);
+    setCreating(false);
+    setEmailConflict(null);
+    setPhoneConflict(null);
+    setCreateConflict(null);
+    setCreateTargetId(null);
   };
 
   const addTag = () => {
@@ -356,11 +402,14 @@ export function CustomersList() {
     }
   };
 
-  /** Save the edited card, optionally asking the API to merge on conflict. */
-  const postEdit = async (extra: Record<string, unknown>) => {
-    if (!editing) return null;
-    const response = await fetch(`/api/customers/${editing.id}`, {
-      method: 'PATCH',
+  /**
+   * Save the form — POST when adding a contact, PATCH when editing — optionally
+   * asking the API to merge/adopt on conflict.
+   */
+  const postSave = async (extra: Record<string, unknown>) => {
+    if (!editing && !creating) return null;
+    const response = await fetch(creating ? '/api/customers' : `/api/customers/${editing!.id}`, {
+      method: creating ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, ...extra }),
     });
@@ -368,24 +417,41 @@ export function CustomersList() {
   };
 
   const handleSave = async () => {
-    if (!editing) return;
+    if (!editing && !creating) return;
     setSaving(true);
     try {
-      const result = await postEdit({});
+      const result = await postSave({});
       if (!result) return;
       const { response, data } = result;
 
-      // The address is taken: offer to merge both cards instead of refusing.
+      // The address or the number is taken: offer to fold the cards instead of
+      // refusing the save (on creation, offer to add the data to that card).
       if (response.status === 409 && data.conflict) {
-        setEmailConflict(data.conflict as EmailConflict);
+        if (data.error === PHONE_ALREADY_EXISTS) {
+          if (creating) {
+            setCreateConflict(data.conflict as CreateConflict);
+            setCreateTargetId((data.conflict as CreateConflict).suggestedPrimaryId);
+          } else {
+            setPhoneConflict(data.conflict as PhoneConflict);
+          }
+        } else if (creating) {
+          setCreateConflict(data.conflict as CreateConflict);
+          setCreateTargetId((data.conflict as CreateConflict).suggestedPrimaryId);
+        } else {
+          setEmailConflict(data.conflict as EmailConflict);
+        }
         return;
       }
 
       if (data.success) {
-        toast({ title: t('common.success'), description: t('crm.saved') });
-        setEditing(null);
+        toast({
+          title: t('common.success'),
+          description: creating ? t('crm.created') : t('crm.saved'),
+        });
+        closeForm();
         fetchCustomers(query);
         fetchTags();
+        fetchDuplicates();
       } else {
         toast({
           title: t('common.error'),
@@ -412,9 +478,25 @@ export function CustomersList() {
     if (!editing || !emailConflict || primaryId === emailConflict.preview.primaryId) return;
     setPreviewLoading(true);
     try {
-      const result = await postEdit({ primaryId });
+      const result = await postSave({ primaryId });
       if (result && result.response.status === 409 && result.data.conflict) {
         setEmailConflict(result.data.conflict as EmailConflict);
+      }
+    } catch (error) {
+      // keep the previous preview
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  /** Same dry run for a phone conflict: the preview follows the chosen card. */
+  const choosePhoneConflictPrimary = async (primaryId: string) => {
+    if (!editing || !phoneConflict || primaryId === phoneConflict.preview?.primaryId) return;
+    setPreviewLoading(true);
+    try {
+      const result = await postSave({ primaryId });
+      if (result && result.response.status === 409 && result.data.conflict) {
+        setPhoneConflict(result.data.conflict as PhoneConflict);
       }
     } catch (error) {
       // keep the previous preview
@@ -428,7 +510,7 @@ export function CustomersList() {
     if (!editing || !emailConflict) return;
     setSaving(true);
     try {
-      const result = await postEdit({
+      const result = await postSave({
         mergeOnConflict: true,
         primaryId: emailConflict.preview.primaryId,
       });
@@ -438,7 +520,7 @@ export function CustomersList() {
       if (data.success) {
         toast({ title: t('common.success'), description: t('crm.emailConflictMerged') });
         setEmailConflict(null);
-        setEditing(null);
+        closeForm();
         fetchCustomers(query);
         fetchTags();
         fetchDuplicates();
@@ -453,6 +535,155 @@ export function CustomersList() {
       toast({
         title: t('common.error'),
         description: t('crm.duplicatesMergeFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Confirm a phone merge: fold the cards that share the number into the chosen
+   * one. The survivor keeps its own address, so the save also carries the rest
+   * of the edits (they were part of the dry run that raised the conflict).
+   */
+  const handlePhoneMerge = async () => {
+    if (!editing || !phoneConflict) return;
+    setSaving(true);
+    try {
+      const result = await postSave({
+        mergePhoneOnConflict: true,
+        primaryId: phoneConflict.preview?.primaryId,
+      });
+      if (!result) return;
+      const { data } = result;
+
+      if (data.success) {
+        toast({
+          title: t('common.success'),
+          description: t('crm.phoneConflictMerged', { phone: phoneConflict.phone }),
+        });
+        closeForm();
+        fetchCustomers(query);
+        fetchTags();
+        fetchDuplicates();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.duplicatesMergeFailed'),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.duplicatesMergeFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Save the card with the shared number, without merging anyone. */
+  const handlePhoneKeep = async () => {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      const result = await postSave({ sharedPhoneConfirmed: true });
+      if (!result) return;
+      const { data } = result;
+
+      if (data.success) {
+        toast({ title: t('common.success'), description: t('crm.phoneConflictKept') });
+        closeForm();
+        fetchCustomers(query);
+        fetchTags();
+        fetchDuplicates();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.saveFailed'),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.saveFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * New contact whose email/phone already exists: add the typed values to the
+   * chosen card instead of creating a second one for the same person.
+   */
+  const handleCreateJoin = async () => {
+    if (!creating || !createConflict) return;
+    setSaving(true);
+    try {
+      const result = await postSave({
+        mergeOnConflict: createConflict.kind === 'email',
+        mergePhoneOnConflict: createConflict.kind === 'phone',
+        primaryId: createTargetId || createConflict.suggestedPrimaryId,
+      });
+      if (!result) return;
+      const { data } = result;
+
+      if (data.success) {
+        toast({ title: t('common.success'), description: t('crm.createConflictJoined') });
+        closeForm();
+        fetchCustomers(query);
+        fetchTags();
+        fetchDuplicates();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.saveFailed'),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.saveFailed'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** Create the card anyway: a shared number may be two different people. */
+  const handleCreateAnyway = async () => {
+    if (!creating) return;
+    setSaving(true);
+    try {
+      const result = await postSave({ sharedPhoneConfirmed: true });
+      if (!result) return;
+      const { data } = result;
+
+      if (data.success) {
+        toast({ title: t('common.success'), description: t('crm.created') });
+        closeForm();
+        fetchCustomers(query);
+        fetchTags();
+        fetchDuplicates();
+      } else {
+        toast({
+          title: t('common.error'),
+          description: data.error || t('crm.saveFailed'),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t('common.error'),
+        description: t('crm.saveFailed'),
         variant: 'destructive',
       });
     } finally {
@@ -595,6 +826,14 @@ export function CustomersList() {
         <Button variant="outline" size="sm" onClick={exportCsv} className="shrink-0">
           <Download className="mr-2 h-4 w-4" />
           {t('crm.exportCsv')}
+        </Button>
+        <Button
+          size="sm"
+          onClick={openCreate}
+          className="shrink-0 bg-indigo-600 hover:bg-indigo-700"
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
+          {t('crm.addCustomer')}
         </Button>
       </div>
 
@@ -1105,18 +1344,23 @@ export function CustomersList() {
       </Dialog>
 
       <Dialog
-        open={!!editing}
+        open={!!editing || creating}
         onOpenChange={(open) => {
-          if (!open) {
-            setEditing(null);
-            setEmailConflict(null);
-          }
+          if (!open) closeForm();
         }}
       >
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {emailConflict ? t('crm.emailConflictTitle') : t('crm.editTitle')}
+              {emailConflict
+                ? t('crm.emailConflictTitle')
+                : phoneConflict
+                  ? t('crm.phoneConflictTitle')
+                  : createConflict
+                    ? t('crm.createConflictTitle')
+                    : creating
+                      ? t('crm.createTitle')
+                      : t('crm.editTitle')}
             </DialogTitle>
           </DialogHeader>
 
@@ -1207,19 +1451,197 @@ export function CustomersList() {
             </div>
           )}
 
-          {!emailConflict && (
+          {/* The number is shared with another card: same offer as the email */}
+          {phoneConflict && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/40">
+                <Phone className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  {t('crm.phoneConflictDesc', { phone: phoneConflict.phone })}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {t('crm.emailConflictChoose')}
+                </p>
+                {phoneConflict.contacts.map((contact, index) => {
+                  const chosen = phoneConflict.preview?.primaryId === contact.id;
+                  return (
+                    <label
+                      key={contact.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-2.5 transition-colors ${
+                        chosen
+                          ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-700 dark:bg-indigo-950/40'
+                          : 'border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="phone-conflict-primary"
+                        className="mt-1"
+                        checked={chosen}
+                        disabled={saving || previewLoading}
+                        onChange={() => choosePhoneConflictPrimary(contact.id)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {contact.name || t('crm.duplicatesNoName')}
+                        </p>
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          {contact.email}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                          {contact.company && <span>{contact.company}</span>}
+                          {contact.phone && <span>{contact.phone}</span>}
+                          <span>
+                            {t('crm.duplicatesCreatedAt', {
+                              date: formatDate(contact.createdAt) || '',
+                            })}
+                          </span>
+                          <span>{t('crm.totalBookings', { count: contact.totalBookings })}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                          {index === 0 ? t('crm.emailConflictCurrent') : t('crm.emailConflictExisting')}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                        {chosen ? t('crm.duplicatesKeeping') : ''}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {previewLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('crm.loading')}
+                </div>
+              ) : phoneConflict.preview ? (
+                <MergeResultBlock
+                  preview={phoneConflict.preview}
+                  chosenId={phoneConflict.preview.primaryId}
+                  label={(contactId) => {
+                    const contact = phoneConflict.contacts.find((item) => item.id === contactId);
+                    return contact?.name || contact?.email || '—';
+                  }}
+                  t={t}
+                />
+              ) : null}
+            </div>
+          )}
+
+          {/* New contact landing on an email/number that already exists */}
+          {createConflict && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/40">
+                {createConflict.kind === 'email' ? (
+                  <Mail className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                ) : (
+                  <Phone className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                )}
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  {createConflict.kind === 'email'
+                    ? t('crm.createConflictEmailDesc', { email: createConflict.key })
+                    : t('crm.createConflictPhoneDesc', { phone: createConflict.key })}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {createConflict.kind === 'email'
+                    ? t('crm.createConflictChooseEmail')
+                    : t('crm.createConflictChoosePhone')}
+                </p>
+                {createConflict.contacts.map((contact) => {
+                  const chosen =
+                    (createTargetId || createConflict.suggestedPrimaryId) === contact.id;
+                  return (
+                    <label
+                      key={contact.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-2.5 transition-colors ${
+                        chosen
+                          ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-700 dark:bg-indigo-950/40'
+                          : 'border-gray-200 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900/60'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="create-conflict-target"
+                        className="mt-1"
+                        checked={chosen}
+                        disabled={saving}
+                        onChange={() => setCreateTargetId(contact.id)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {contact.name || t('crm.duplicatesNoName')}
+                        </p>
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                          {contact.email}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                          {contact.company && <span>{contact.company}</span>}
+                          {contact.phone && <span>{contact.phone}</span>}
+                          <span>
+                            {t('crm.duplicatesCreatedAt', {
+                              date: formatDate(contact.createdAt) || '',
+                            })}
+                          </span>
+                          <span>{t('crm.totalBookings', { count: contact.totalBookings })}</span>
+                        </div>
+                        {contact.notes && (
+                          <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                            {contact.notes}
+                          </p>
+                        )}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {contact.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                        {chosen ? t('crm.duplicatesKeeping') : ''}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {createConflict.kind === 'email'
+                  ? t('crm.createConflictEmailKept')
+                  : t('crm.createConflictPhoneKept')}
+              </p>
+            </div>
+          )}
+
+          {!emailConflict && !phoneConflict && !createConflict && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="customer-photo">{t('crm.photo')}</Label>
-              <ImageUploader
-                value={form.photo}
-                onChange={(photo) => setForm({ ...form, photo })}
-                uploadUrl="/api/uploads/customer-photo"
-                round
-                beforeUpload={(fd) => {
-                  if (editing) fd.append('customerId', editing.id);
-                }}
-              />
+              {creating ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {t('crm.photoAfterSave')}
+                </p>
+              ) : (
+                <ImageUploader
+                  value={form.photo}
+                  onChange={(photo) => setForm({ ...form, photo })}
+                  uploadUrl="/api/uploads/customer-photo"
+                  round
+                  beforeUpload={(fd) => {
+                    if (editing) fd.append('customerId', editing.id);
+                  }}
+                />
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -1309,7 +1731,7 @@ export function CustomersList() {
           </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             {emailConflict ? (
               <>
                 <Button
@@ -1332,9 +1754,69 @@ export function CustomersList() {
                   {t('crm.emailConflictMerge')}
                 </Button>
               </>
+            ) : phoneConflict ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setPhoneConflict(null)}
+                  disabled={saving}
+                >
+                  {t('crm.emailConflictBack')}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handlePhoneKeep}
+                  disabled={saving || previewLoading}
+                >
+                  {t('crm.phoneConflictKeep')}
+                </Button>
+                <Button
+                  onClick={handlePhoneMerge}
+                  disabled={saving || previewLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Merge className="mr-2 h-4 w-4" />
+                  )}
+                  {t('crm.phoneConflictMerge')}
+                </Button>
+              </>
+            ) : createConflict ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreateConflict(null)}
+                  disabled={saving}
+                >
+                  {t('crm.emailConflictBack')}
+                </Button>
+                {createConflict.kind === 'phone' && (
+                  <Button
+                    variant="outline"
+                    onClick={handleCreateAnyway}
+                    disabled={saving}
+                  >
+                    {t('crm.createConflictAnyway')}
+                  </Button>
+                )}
+                <Button
+                  onClick={handleCreateJoin}
+                  disabled={saving}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Merge className="mr-2 h-4 w-4" />
+                  )}
+                  {t('crm.createConflictJoin')}
+                </Button>
+              </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setEditing(null)}>
+                <Button variant="outline" onClick={closeForm}>
                   {t('common.cancel')}
                 </Button>
                 <Button

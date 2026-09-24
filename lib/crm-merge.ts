@@ -158,6 +158,14 @@ export interface CrmMergeDeps {
  */
 export const EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS';
 
+/**
+ * Machine-readable code sent with the 409 when the phone being saved already
+ * belongs to another contact. Unlike an email, a shared number is not an error
+ * (a family, a reception desk), so the CRM offers folding the cards as an
+ * option and lets the owner save anyway.
+ */
+export const PHONE_ALREADY_EXISTS = 'PHONE_ALREADY_EXISTS';
+
 /** A `MergePreview` as it crosses the API boundary (dates serialized). */
 export type MergePreviewPayload = Omit<MergePreview, 'createdAt'> & { createdAt: string };
 
@@ -193,6 +201,42 @@ export interface EmailConflictPayload {
   contacts: EmailConflictContactPayload[];
   suggestedPrimaryId: string;
   preview: MergePreviewPayload;
+}
+
+/**
+ * Body of the 409 the CRM receives when the phone being saved already belongs
+ * to another contact of the same owner. `preview` is present only when both
+ * sides are stored cards (the editor); when a brand-new contact triggers it,
+ * the dialog shows the existing cards instead.
+ */
+export interface PhoneConflictPayload {
+  phone: string;
+  contacts: EmailConflictContactPayload[];
+  suggestedPrimaryId: string;
+  preview?: MergePreviewPayload;
+}
+
+/**
+ * Conflict raised while creating a contact by hand: nothing was stored yet, so
+ * the payload carries the contact(s) that already hold the email/phone and the
+ * dialog offers folding the typed values into one of them.
+ */
+export interface CreateConflictPayload {
+  kind: 'email' | 'phone';
+  /** The email/phone that clashed. */
+  key: string;
+  contacts: EmailConflictContactPayload[];
+  suggestedPrimaryId: string;
+}
+
+/** Fields a hand-typed contact carries before it exists as a row. */
+export interface ContactDraft {
+  name?: string | null;
+  company?: string | null;
+  phone?: string | null;
+  photo?: string | null;
+  notes?: string | null;
+  tags?: string[] | null;
 }
 
 /**
@@ -568,36 +612,60 @@ export async function findPhoneDuplicateGroups(
 }
 
 /**
- * Merge the phone-duplicate group of `phone` for one owner: the user confirmed
- * from the CRM dialog that the cards are the same person, so every row on that
- * number collapses into the chosen survivor. The survivor keeps its own email
- * (the cards are only assumed to be one person for the phone; their addresses
- * are not re-pointed to it).
+ * Contacts of one owner whose stored phone normalizes to `phone`, in the shape
+ * they were saved (mixed spellings included). Matching happens in JS because
+ * the column stores whatever the owner typed: `+34 600 111 111` and
+ * `600-111-111` are the same person to `normalizePhone` but two different
+ * strings to the database.
  */
-export async function mergePhoneDuplicates(
+export async function findContactsByPhone(
   ownerId: string,
   phone: string | null | undefined,
+  deps: CrmMergeDeps = { prisma },
+  options: { excludeId?: string | null } = {}
+): Promise<MergeableCustomer[]> {
+  const normalized = normalizePhone(phone);
+  if (!ownerId || !normalized) return [];
+
+  const candidates = await deps.prisma.customer.findMany({
+    where: { userId: ownerId, phone: { not: null } },
+  });
+  return candidates.filter(
+    (row) => row.id !== options.excludeId && normalizePhone(row.phone) === normalized
+  );
+}
+
+/**
+ * Collapse a known set of cards that share a phone into the chosen survivor.
+ * Unlike the email merge the addresses are left alone: the group is defined by
+ * the number, so the survivor keeps its own email and the others disappear with
+ * theirs. Never throws — a CRM tidy-up must not break the flow that triggered
+ * it.
+ */
+export async function mergePhoneRows(
+  ownerId: string,
+  phone: string | null | undefined,
+  rows: MergeableCustomer[],
   deps: CrmMergeDeps = { prisma },
   options: { primaryId?: string | null } = {}
 ): Promise<CrmMergeResult> {
   const normalized = normalizePhone(phone);
   if (!ownerId || !normalized) return { merged: 0, primaryId: null, email: null };
 
-  try {
-    const candidates = await deps.prisma.customer.findMany({
-      where: { userId: ownerId, phone: { not: null } },
-    });
-    const rows = candidates.filter((row) => normalizePhone(row.phone) === normalized);
-    if (rows.length < 2) return { merged: 0, primaryId: rows[0]?.id ?? null, email: null };
+  const relevant = rows.filter((row) => normalizePhone(row.phone) === normalized);
+  if (relevant.length < 2) {
+    return { merged: 0, primaryId: relevant[0]?.id ?? null, email: null };
+  }
 
+  try {
     const survivor =
-      (options.primaryId && rows.find((row) => row.id === options.primaryId)) ||
-      [...rows].sort(byAge)[0];
+      (options.primaryId && relevant.find((row) => row.id === options.primaryId)) ||
+      [...relevant].sort(byAge)[0];
     const primaryEmail = normalizeEmail(survivor.email);
 
     // Fold the duplicates into the survivor without touching the email: the
     // group is defined by the phone, and each card keeps its own address.
-    const duplicates = rows.filter((row) => row.id !== survivor.id).sort(byAge);
+    const duplicates = relevant.filter((row) => row.id !== survivor.id).sort(byAge);
     await deps.prisma.customer.update({
       where: { id: survivor.id },
       data: foldCustomerRows(survivor, duplicates),
@@ -621,6 +689,105 @@ export async function mergePhoneDuplicates(
   } catch (error) {
     console.error('CRM phone duplicate merge failed:', error);
     return { merged: 0, primaryId: null, email: null };
+  }
+}
+
+/**
+ * Merge the phone-duplicate group of `phone` for one owner: the user confirmed
+ * from the CRM dialog that the cards are the same person, so every row on that
+ * number collapses into the chosen survivor. The survivor keeps its own email
+ * (the cards are only assumed to be one person for the phone; their addresses
+ * are not re-pointed to it).
+ */
+export async function mergePhoneDuplicates(
+  ownerId: string,
+  phone: string | null | undefined,
+  deps: CrmMergeDeps = { prisma },
+  options: { primaryId?: string | null } = {}
+): Promise<CrmMergeResult> {
+  const normalized = normalizePhone(phone);
+  if (!ownerId || !normalized) return { merged: 0, primaryId: null, email: null };
+
+  try {
+    const rows = await findContactsByPhone(ownerId, phone, deps);
+    return await mergePhoneRows(ownerId, phone, rows, deps, options);
+  } catch (error) {
+    console.error('CRM phone duplicate merge failed:', error);
+    return { merged: 0, primaryId: null, email: null };
+  }
+}
+
+/**
+ * Merge a card that is being re-pointed to a number another contact of the same
+ * owner already holds (the CRM phone editor, where a plain save used to just
+ * coexist with the other card). `edited` is the row as it will look after the
+ * save — typed phone and pending field changes included — so those values win;
+ * the stored cards on that number fold into it. The edited card is the default
+ * survivor.
+ */
+export async function mergeContactIntoPhone(
+  ownerId: string,
+  edited: MergeableCustomer,
+  phone: string | null | undefined,
+  deps: CrmMergeDeps = { prisma },
+  options: { primaryId?: string | null } = {}
+): Promise<CrmMergeResult> {
+  const normalized = normalizePhone(phone);
+  if (!ownerId || !normalized || !edited?.id) {
+    return { merged: 0, primaryId: edited?.id ?? null, email: null };
+  }
+
+  try {
+    const others = await findContactsByPhone(ownerId, phone, deps, { excludeId: edited.id });
+    if (others.length === 0) return { merged: 0, primaryId: edited.id, email: null };
+
+    const group: MergeableCustomer[] = [{ ...edited, phone: phone ?? null }, ...others];
+    return await mergePhoneRows(ownerId, phone, group, deps, {
+      primaryId: options.primaryId ?? edited.id,
+    });
+  } catch (error) {
+    console.error('CRM phone change merge failed:', error);
+    return { merged: 0, primaryId: null, email: null };
+  }
+}
+
+/**
+ * Fold the values of a hand-typed contact into a card that already exists (the
+ * CRM "new contact" dialog hitting an email or phone the owner already has).
+ * The typed values win, everything already stored is the fallback, tags and
+ * notes are unioned and the opt-out is preserved; the card keeps its own email,
+ * because that address is what its booking history is linked to.
+ */
+export async function adoptDraftIntoContact(
+  ownerId: string,
+  existing: MergeableCustomer,
+  draft: ContactDraft,
+  deps: CrmMergeDeps = { prisma }
+): Promise<MergeableCustomer | null> {
+  if (!ownerId || !existing?.id) return null;
+
+  const trimmed = (value: string | null | undefined) => value?.trim() || null;
+  const asRow: MergeableCustomer = {
+    ...existing,
+    name: trimmed(draft.name),
+    company: trimmed(draft.company),
+    phone: trimmed(draft.phone),
+    photo: trimmed(draft.photo),
+    notes: trimmed(draft.notes),
+    tags: (draft.tags || [])
+      .filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+      .map((tag) => tag.trim().toLowerCase())
+      .slice(0, 20),
+  };
+
+  try {
+    return await deps.prisma.customer.update({
+      where: { id: existing.id },
+      data: foldCustomerRows(asRow, [existing]),
+    });
+  } catch (error) {
+    console.error('CRM draft adoption failed:', error);
+    return null;
   }
 }
 

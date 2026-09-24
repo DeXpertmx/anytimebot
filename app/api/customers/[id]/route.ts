@@ -7,12 +7,17 @@ import { storageKeyFromUrl } from '@/lib/storage-url';
 import {
   describeCustomerMerge,
   mergeContactIntoAddress,
+  mergeContactIntoPhone,
+  findContactsByPhone,
   normalizeEmail,
+  normalizePhone,
   EMAIL_ALREADY_EXISTS,
-  type EmailConflictContactPayload,
+  PHONE_ALREADY_EXISTS,
   type EmailConflictPayload,
   type MergeableCustomer,
+  type PhoneConflictPayload,
 } from '@/lib/crm-merge';
+import { buildConflictContact } from '@/lib/crm-conflict';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,50 +32,6 @@ async function deleteCustomerPhoto(photo: string | null | undefined) {
   if (key) {
     await deleteObject(key).catch(() => undefined);
   }
-}
-
-/**
- * One side of an email conflict, ready for the CRM dialog: the contact fields
- * plus the booking history of the address that card currently holds (bookings
- * link to the CRM by guest email), so the owner can see which one has the
- * history behind it.
- *
- * `shownEmail` may differ from `historyEmail`: the card being edited shows the
- * address the user just typed while its history still sits on the old one.
- */
-async function conflictContact(
-  row: MergeableCustomer,
-  shownEmail: string,
-  historyEmail: string
-): Promise<EmailConflictContactPayload> {
-  const where = {
-    eventType: { bookingPage: { userId: row.userId } },
-    guestEmail: { equals: historyEmail, mode: 'insensitive' as const },
-  };
-  const [totalBookings, last] = await Promise.all([
-    prisma.booking.count({ where }),
-    prisma.booking.findFirst({
-      where,
-      orderBy: { startTime: 'desc' },
-      select: { startTime: true },
-    }),
-  ]);
-
-  return {
-    id: row.id,
-    email: shownEmail,
-    name: row.name,
-    company: row.company,
-    phone: row.phone,
-    photo: row.photo,
-    notes: row.notes,
-    tags: row.tags,
-    marketingOptOut: row.marketingOptOut,
-    createdAt: row.createdAt.toISOString(),
-    historyEmail,
-    totalBookings,
-    lastBookingAt: last?.startTime?.toISOString() ?? null,
-  };
 }
 
 // PATCH /api/customers/[id] - update notes, tags, name, email, company or phone
@@ -176,8 +137,8 @@ export async function PATCH(
             const conflict: EmailConflictPayload = {
               email,
               contacts: await Promise.all([
-                conflictContact(patched, email, normalizeEmail(owned.email)),
-                ...clashes.map((row) => conflictContact(row, row.email, normalizeEmail(row.email))),
+                buildConflictContact(patched, email, normalizeEmail(owned.email)),
+                ...clashes.map((row) => buildConflictContact(row, row.email, normalizeEmail(row.email))),
               ]),
               suggestedPrimaryId: params.id,
               preview: { ...preview, createdAt: preview.createdAt.toISOString() },
@@ -214,6 +175,106 @@ export async function PATCH(
         }
 
         data.email = email;
+      }
+    }
+
+    // Phone change: a shared number is normal (a family, a reception desk), so a
+    // clash never blocks the save on its own — the CRM offers folding both cards
+    // when the owner confirms they are the same person, and a plain save
+    // otherwise (`sharedPhoneConfirmed`). Only a *new* number is checked: a card
+    // that already shares its phone must stay editable without nagging.
+    if (typeof body.phone === 'string') {
+      const phone = body.phone.trim();
+      const isNewNumber = normalizePhone(phone) !== normalizePhone(owned.phone);
+      const others =
+        phone && isNewNumber
+          ? await findContactsByPhone(userId, phone, { prisma }, { excludeId: params.id })
+          : [];
+
+      if (others.length > 0) {
+        const patched: MergeableCustomer = { ...owned, ...data, phone };
+        const group: MergeableCustomer[] = [patched, ...others];
+        const allowed = new Set(group.map((row) => row.id));
+        const choice = typeof body.primaryId === 'string' ? body.primaryId : null;
+        if (choice && !allowed.has(choice)) {
+          return NextResponse.json(
+            { success: false, error: 'Contact not found in this merge group' },
+            { status: 400 }
+          );
+        }
+        // Default survivor: the card being edited (it holds the new values).
+        const preferred = choice ?? params.id;
+
+        if (body.mergePhoneOnConflict === true) {
+          const result = await mergeContactIntoPhone(userId, patched, phone, { prisma }, {
+            primaryId: preferred,
+          });
+          if (result.merged === 0 || !result.primaryId) {
+            return NextResponse.json(
+              { success: false, error: 'Internal server error' },
+              { status: 500 }
+            );
+          }
+
+          // The phone merge writes fields, tags and notes but never an address:
+          // an email typed in the same save is applied afterwards, and only when
+          // no other card holds it (this group was chosen by phone, not email).
+          if (typeof data.email === 'string' && data.email !== normalizeEmail(owned.email)) {
+            const taken = (
+              await prisma.customer.findMany({
+                where: {
+                  userId,
+                  id: { not: result.primaryId },
+                  email: { contains: data.email, mode: 'insensitive' },
+                },
+              })
+            ).some((row) => normalizeEmail(row.email) === data.email);
+            if (!taken) {
+              await prisma.customer.update({
+                where: { id: result.primaryId },
+                data: { email: data.email },
+              });
+            }
+          }
+
+          const customer = await prisma.customer.findUnique({ where: { id: result.primaryId } });
+          if (owned.photo && owned.photo !== customer?.photo) {
+            await deleteCustomerPhoto(owned.photo);
+          }
+
+          console.info(
+            `CRM merge (phone): owner ${userId} merged ${result.merged} card(s) into ${result.primaryId} on ${phone}`
+          );
+
+          return NextResponse.json({ success: true, data: { ...result, customer } });
+        }
+
+        if (body.sharedPhoneConfirmed !== true) {
+          // Dry run: the dialog shows what folding both cards keeps and who
+          // holds the identity, and nothing is written until the owner decides.
+          const preview = describeCustomerMerge(group, '', preferred);
+          if (!preview) {
+            return NextResponse.json(
+              { success: false, error: 'Internal server error' },
+              { status: 500 }
+            );
+          }
+
+          const conflict: PhoneConflictPayload = {
+            phone,
+            contacts: await Promise.all([
+              buildConflictContact(patched, normalizeEmail(owned.email), normalizeEmail(owned.email)),
+              ...others.map((row) => buildConflictContact(row, row.email, normalizeEmail(row.email))),
+            ]),
+            suggestedPrimaryId: params.id,
+            preview: { ...preview, createdAt: preview.createdAt.toISOString() },
+          };
+
+          return NextResponse.json(
+            { success: false, error: PHONE_ALREADY_EXISTS, conflict },
+            { status: 409 }
+          );
+        }
       }
     }
 

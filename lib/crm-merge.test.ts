@@ -19,6 +19,9 @@ import {
   mergeDuplicateCustomers,
   mergeContactIntoAddress,
   mergePhoneDuplicates,
+  mergeContactIntoPhone,
+  findContactsByPhone,
+  adoptDraftIntoContact,
   sweepDuplicateCustomers,
   type MergeableCustomer,
 } from './crm-merge';
@@ -684,5 +687,176 @@ describe('mergePhoneDuplicates', () => {
       primaryId: null,
       email: null,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phone conflicts while saving a card by hand
+// ---------------------------------------------------------------------------
+describe('findContactsByPhone', () => {
+  test('matches any spelling of the number and skips the edited card', async () => {
+    const db = makeDb([
+      row({ id: 'edit', email: 'a@demo.com', phone: '+34 600 111 111' }),
+      row({ id: 'other', email: 'b@demo.com', phone: '600-111-111' }),
+      row({ id: 'otro', email: 'c@demo.com', phone: '+34 700 000 000' }),
+      row({ id: 'sin', email: 'd@demo.com', phone: null }),
+    ]);
+
+    const found = await findContactsByPhone('u1', '0034 600-111-111', runDeps(db), {
+      excludeId: 'edit',
+    });
+    assert.deepEqual(found.map((r) => r.id), ['other']);
+  });
+
+  test('returns nothing for an empty phone', async () => {
+    const db = makeDb([row({ id: 'a', phone: '600111111' })]);
+    assert.deepEqual(await findContactsByPhone('u1', '   ', runDeps(db)), []);
+  });
+});
+
+describe('mergeContactIntoPhone', () => {
+  const cards = () => [
+    row({
+      id: 'edit',
+      email: 'nuevo@demo.com',
+      phone: null,
+      name: 'Cliente Telefono',
+      tags: ['nuevo'],
+      createdAt: new Date('2023-01-01'),
+    }),
+    row({
+      id: 'old',
+      email: 'viejo@demo.com',
+      phone: '+34 600 222 333',
+      company: 'Peluquería Uno',
+      tags: ['vip'],
+      notes: 'Llegó por Instagram',
+      createdAt: new Date('2022-01-01'),
+    }),
+  ];
+
+  test('folds the stored card into the edited one, keeping what was typed', async () => {
+    const db = makeDb(cards());
+    const edited = { ...db.store[0], phone: '600-222-333' };
+
+    const result = await mergeContactIntoPhone('u1', edited, '600-222-333', runDeps(db));
+
+    assert.equal(result.merged, 1);
+    assert.equal(result.primaryId, 'edit');
+    assert.equal(db.store.length, 1);
+    const survivor = db.store[0];
+    assert.equal(survivor.id, 'edit');
+    assert.equal(survivor.email, 'nuevo@demo.com', 'the edited card keeps its own address');
+    assert.equal(survivor.phone, '600-222-333', 'the typed spelling is the one saved');
+    assert.equal(survivor.company, 'Peluquería Uno', "the other card's data is adopted");
+    assert.deepEqual(survivor.tags, ['nuevo', 'vip']);
+    assert.equal(survivor.notes, 'Llegó por Instagram');
+  });
+
+  test('honours the card the user chose to keep', async () => {
+    const db = makeDb(cards());
+    const edited = { ...db.store[0], phone: '600-222-333' };
+
+    const result = await mergeContactIntoPhone('u1', edited, '600-222-333', runDeps(db), {
+      primaryId: 'old',
+    });
+
+    assert.equal(result.primaryId, 'old');
+    assert.equal(result.email, 'viejo@demo.com');
+    assert.equal(db.store.length, 1);
+    assert.equal(db.store[0].id, 'old');
+    assert.equal(db.store[0].name, 'Cliente Telefono', 'the edited values are still kept');
+    assert.deepEqual(db.store[0].tags, ['vip', 'nuevo']);
+  });
+
+  test('does nothing when no other card holds the number', async () => {
+    const db = makeDb([row({ id: 'solo', email: 'a@demo.com', phone: null })]);
+    const edited = { ...db.store[0], phone: '600-222-333' };
+    const result = await mergeContactIntoPhone('u1', edited, '600-222-333', runDeps(db));
+    assert.deepEqual(result, { merged: 0, primaryId: 'solo', email: null });
+    assert.equal(db.store.length, 1);
+  });
+
+  test('never throws when the database fails', async () => {
+    const failing = {
+      customer: {
+        findMany: async () => {
+          throw new Error('connection lost');
+        },
+      },
+      campaignRecipient: { updateMany: async () => ({ count: 0 }) },
+    };
+    assert.deepEqual(
+      await mergeContactIntoPhone('u1', row({ id: 'edit' }), '600222333', runDeps(failing)),
+      { merged: 0, primaryId: null, email: null }
+    );
+  });
+});
+
+describe('adoptDraftIntoContact', () => {
+  const stored = () =>
+    row({
+      id: 'card',
+      email: 'ana@demo.com',
+      name: 'Ana',
+      company: null,
+      phone: null,
+      tags: ['vip'],
+      notes: 'Prefiere por las tardes',
+      marketingOptOut: true,
+      createdAt: new Date('2022-05-05'),
+    });
+
+  test('adds the typed values, unions tags/notes and keeps the stored identity', async () => {
+    const db = makeDb([stored()]);
+
+    const updated = await adoptDraftIntoContact(
+      'u1',
+      db.store[0],
+      {
+        name: 'Ana López',
+        company: 'Barbería Demo',
+        phone: '600 111 111',
+        notes: 'Vino por Instagram',
+        tags: ['Nuevo', 'nuevo'],
+      },
+      runDeps(db)
+    );
+
+    assert.equal(updated?.id, 'card');
+    const card = db.store[0];
+    assert.equal(card.email, 'ana@demo.com', 'the address its history hangs on is untouched');
+    assert.equal(card.name, 'Ana López');
+    assert.equal(card.company, 'Barbería Demo');
+    assert.equal(card.phone, '600 111 111');
+    assert.deepEqual(card.tags, ['nuevo', 'vip'], 'typed tags go first, duplicates dropped');
+    assert.equal(card.notes, 'Vino por Instagram\n\nPrefiere por las tardes');
+    assert.equal(card.marketingOptOut, true, 'the opt-out survives');
+    assert.equal(card.createdAt.getTime(), new Date('2022-05-05').getTime());
+  });
+
+  test('a blank draft keeps whatever the card already had', async () => {
+    const db = makeDb([stored()]);
+    await adoptDraftIntoContact(
+      'u1',
+      db.store[0],
+      { name: '   ', company: null, phone: null, notes: '', tags: [] },
+      runDeps(db)
+    );
+    assert.equal(db.store[0].name, 'Ana');
+    assert.equal(db.store[0].notes, 'Prefiere por las tardes');
+    assert.deepEqual(db.store[0].tags, ['vip']);
+  });
+
+  test('never throws when the database fails', async () => {
+    const failing = {
+      customer: {
+        update: async () => {
+          throw new Error('connection lost');
+        },
+      },
+      campaignRecipient: { updateMany: async () => ({ count: 0 }) },
+    };
+    assert.equal(await adoptDraftIntoContact('u1', row({ id: 'card' }), { name: 'X' }, runDeps(failing)), null);
   });
 });
