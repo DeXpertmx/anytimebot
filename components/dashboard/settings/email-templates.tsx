@@ -8,6 +8,22 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Edit2, Save, X, Plus, Trash2, Eye } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+
+const templateVariables = [
+  'guestName',
+  'eventTitle',
+  'startTime',
+  'duration',
+  'location',
+  'videoLink',
+  'timezone',
+  'cancelUrl',
+  'rescheduleUrl',
+  'meetingPageUrl',
+  'bookingId',
+  'hoursBefore',
+];
 
 interface EmailTemplate {
   id: string;
@@ -142,6 +158,73 @@ const defaultTemplates: Record<string, { subject: string; htmlBody: string }> = 
   },
 };
 
+const defaultSampleData: Record<string, string> = {
+  guestName: 'Juan Pérez',
+  eventTitle: 'Consulta de ejemplo',
+  startTime: 'lunes, 1 de septiembre de 2026, 10:00',
+  duration: '30',
+  location: 'Videollamada',
+  videoLink: 'https://meet.google.com/abc-defg-hij',
+  timezone: 'America/Mexico_City',
+  cancelUrl: '#',
+  rescheduleUrl: '#',
+  meetingPageUrl: '#',
+  bookingId: 'booking_123',
+  hoursBefore: '24',
+};
+
+const sampleFieldLabels: Record<string, string> = {
+  guestName: 'Nombre del cliente',
+  eventTitle: 'Título del evento',
+  startTime: 'Fecha y hora',
+  duration: 'Duración (min)',
+  location: 'Ubicación',
+  videoLink: 'Enlace de video',
+  timezone: 'Zona horaria',
+  cancelUrl: 'URL de cancelación',
+  rescheduleUrl: 'URL de reprogramación',
+  meetingPageUrl: 'URL del evento',
+  bookingId: 'ID de reserva',
+  hoursBefore: 'Horas antes',
+};
+
+/**
+ * Resolves the template syntax used in the emails: conditional blocks
+ * ({{#if key}}...{{/if}}) followed by simple variable substitution.
+ */
+function renderTemplate(html: string, data: Record<string, string>) {
+  let output = html.replace(
+    /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
+    (_match, key: string, inner: string) => (data[key] ? inner : '')
+  );
+
+  for (const [key, value] of Object.entries(data)) {
+    output = output.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+  }
+
+  return output;
+}
+
+/**
+ * Renders the email inside an isolated iframe so the full document (head, body
+ * styles, media queries) behaves like it will in a real email client. The
+ * iframe is sandboxed to block scripts.
+ */
+function EmailPreview({ html, label, height = 560 }: { html: string; label?: string; height?: number }) {
+  return (
+    <div className="overflow-hidden rounded-lg border">
+      {label && <div className="border-b bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">{label}</div>}
+      <iframe
+        title={label ?? 'Vista previa'}
+        srcDoc={html}
+        sandbox=""
+        style={{ height }}
+        className="w-full bg-white"
+      />
+    </div>
+  );
+}
+
 export function EmailTemplates() {
   const { toast } = useToast();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -150,6 +233,14 @@ export function EmailTemplates() {
   const [editForm, setEditForm] = useState({ subject: '', htmlBody: '' });
   const [saving, setSaving] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [sampleData, setSampleData] = useState<Record<string, string>>(defaultSampleData);
+  // Debounced so the preview iframe does not reload on every single keystroke.
+  const [liveHtml, setLiveHtml] = useState('');
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setLiveHtml(editForm.htmlBody), 200);
+    return () => clearTimeout(timeout);
+  }, [editForm.htmlBody]);
 
   useEffect(() => {
     fetchTemplates();
@@ -249,29 +340,7 @@ export function EmailTemplates() {
     }
   };
 
-  const renderPreview = (htmlBody: string) => {
-    // Replace template variables with sample data for preview
-    const sampleData: Record<string, string> = {
-      guestName: 'Juan Pérez',
-      eventTitle: 'Consulta de ejemplo',
-      startTime: 'lunes, 1 de septiembre de 2026, 10:00',
-      duration: '30',
-      location: 'Videollamada',
-      videoLink: 'https://meet.google.com/abc-defg-hij',
-      timezone: 'America/Mexico_City',
-      cancelUrl: '#',
-      rescheduleUrl: '#',
-      meetingPageUrl: '#',
-      bookingId: 'booking_123',
-      hoursBefore: '24',
-    };
-
-    let preview = htmlBody;
-    for (const [key, value] of Object.entries(sampleData)) {
-      preview = preview.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-    }
-    return preview;
-  };
+  const renderPreview = (htmlBody: string) => renderTemplate(htmlBody, sampleData);
 
   if (loading) {
     return <div className="text-center py-8">Cargando plantillas...</div>;
@@ -333,14 +402,44 @@ export function EmailTemplates() {
                       placeholder="Asunto del email"
                     />
                   </div>
-                  <div>
-                    <Label>Cuerpo HTML</Label>
-                    <textarea
-                      value={editForm.htmlBody}
-                      onChange={(e) => setEditForm({ ...editForm, htmlBody: e.target.value })}
-                      rows={15}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none"
-                    />
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <div>
+                      <Label>Cuerpo del email</Label>
+                      <p className="mb-2 text-xs text-gray-500">
+                        Edita el contenido visualmente. Usa el botón <span className="font-medium">Variable</span> para insertar
+                        datos dinámicos, o cambia a <span className="font-medium">HTML</span> si necesitas ver el código.
+                      </p>
+                      <RichTextEditor
+                        value={editForm.htmlBody}
+                        onChange={(htmlBody) => setEditForm((prev) => ({ ...prev, htmlBody }))}
+                        variables={templateVariables}
+                        minHeight={420}
+                      />
+                    </div>
+                    <div>
+                      <Label>Vista previa en vivo</Label>
+                      <p className="mb-2 text-xs text-gray-500">
+                        Se actualiza mientras editas, con datos de ejemplo que puedes ajustar abajo.
+                      </p>
+                      <details className="mb-2 rounded-lg border bg-gray-50">
+                        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-700">
+                          Datos de ejemplo
+                        </summary>
+                        <div className="grid grid-cols-2 gap-2 p-3">
+                          {Object.keys(defaultSampleData).map((key) => (
+                            <div key={key}>
+                              <label className="text-[11px] text-gray-500">{sampleFieldLabels[key]}</label>
+                              <Input
+                                value={sampleData[key] ?? ''}
+                                onChange={(e) => setSampleData((prev) => ({ ...prev, [key]: e.target.value }))}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                      <EmailPreview html={renderPreview(liveHtml || editForm.htmlBody)} label="Datos de ejemplo" height={620} />
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={() => handleSave(templateType.value)} disabled={saving}>
@@ -357,15 +456,10 @@ export function EmailTemplates() {
 
               {isPreviewing && (
                 <div className="mt-4">
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700">
-                      Vista previa (con datos de ejemplo)
-                    </div>
-                    <div
-                      className="p-4 bg-white"
-                      dangerouslySetInnerHTML={{ __html: renderPreview(existing?.htmlBody || defaultTemplates[templateType.value].htmlBody) }}
-                    />
-                  </div>
+                  <EmailPreview
+                    html={renderPreview(existing?.htmlBody || defaultTemplates[templateType.value].htmlBody)}
+                    label="Vista previa (con datos de ejemplo)"
+                  />
                 </div>
               )}
 
