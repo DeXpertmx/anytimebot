@@ -1,6 +1,9 @@
 /* Anytimebot service worker — conservative: static assets cache-first,
    pages network-first with cache fallback. */
-const CACHE = 'anytimebot-v3';
+// Bump this on each deploy: the activate handler deletes any cache whose name
+// differs, dropping stale /_next/static/ entries that would otherwise be served
+// cache-first.
+const CACHE = 'anytimebot-v4';
 const OFFLINE_URL = '/offline';
 const PRECACHE = [
   '/manifest.webmanifest',
