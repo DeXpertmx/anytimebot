@@ -29,6 +29,7 @@ import {
   Store,
   Megaphone,
   ListChecks,
+  Banknote,
 } from 'lucide-react';
 
 interface NavItem {
@@ -86,6 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: 'billing',
     items: [
+      { nameKey: 'payments', href: '/dashboard/payments', icon: Banknote },
       { nameKey: 'revenue', href: '/dashboard/revenue', icon: Wallet },
       { nameKey: 'invoices', href: '/dashboard/invoices', icon: Receipt },
       { nameKey: 'memberships', href: '/dashboard/memberships', icon: BadgeCheck },

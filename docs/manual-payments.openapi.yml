@@ -1,0 +1,369 @@
+openapi: 3.0.3
+info:
+  title: Anytimebot — Pagos manuales y ventas no agendadas
+  version: 1.0.0
+  description: |
+    Módulo de ventas y cobros manuales. Todos los importes van en **céntimos
+    enteros** (`amountCents`) y la moneda es la del tenant en minúsculas.
+    Los pagos nunca se borran: se anulan (con motivo) o se reembolsan.
+    Stripe solo interviene en pagos online (`CARD_ONLINE` con
+    `stripePaymentIntent` real); los métodos manuales jamás llaman a Stripe.
+    Autenticación: cookie de sesión NextAuth (dashboard).
+servers:
+  - url: https://anytimebot.app
+    description: Producción
+  - url: http://localhost:3000
+    description: Desarrollo
+tags:
+  - name: orders
+  - name: payments
+  - name: cash
+  - name: reports
+components:
+  schemas:
+    ErrorEnvelope:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error: { type: string }
+    OrderItemInput:
+      type: object
+      required: [description, unitCents]
+      properties:
+        description: { type: string }
+        quantity: { type: integer, minimum: 1, default: 1 }
+        unitCents: { type: integer, minimum: 0 }
+        taxRateBps: { type: integer, nullable: true, description: "Informativo. 2100 = 21 %." }
+    Balance:
+      type: object
+      properties:
+        total: { type: integer }
+        paid: { type: integer }
+        refunded: { type: integer }
+        net: { type: integer }
+        due: { type: integer }
+        state: { type: string, enum: [UNPAID, PARTIAL, PAID, OVERPAID] }
+    Order:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [ISSUED, VOID] }
+        currency: { type: string }
+        bookingId: { type: string, nullable: true }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/OrderItemInput' }
+        payments:
+          type: array
+          items: { $ref: '#/components/schemas/Payment' }
+        receiptNumber: { type: string, nullable: true, example: "REC-2026-000123" }
+        balance: { $ref: '#/components/schemas/Balance' }
+    Payment:
+      type: object
+      properties:
+        id: { type: string }
+        method: { type: string, enum: [CASH, CARD_ONSITE, TRANSFER, BIZUM, OTHER, CARD_ONLINE] }
+        amountCents: { type: integer, minimum: 1 }
+        currency: { type: string }
+        status: { type: string, enum: [COMPLETED, ANNULLED] }
+        reference: { type: string, nullable: true }
+        refundCents: { type: integer }
+        annulledReason: { type: string, nullable: true }
+        createdByName: { type: string }
+        createdAt: { type: string, format: date-time }
+  securitySchemes:
+    nextAuthCookie:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+security:
+  - nextAuthCookie: []
+paths:
+  /api/orders:
+    get:
+      tags: [orders]
+      summary: Listar ventas (paginado)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: status, in: query, schema: { type: string, enum: [ISSUED, VOID] } }
+      responses:
+        '200':
+          description: Lista con saldo por orden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Order' }
+                  meta:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      pageSize: { type: integer }
+                      total: { type: integer }
+    post:
+      tags: [orders]
+      summary: Venta rápida (sin cita)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/OrderItemInput' }
+                customerId: { type: string, nullable: true }
+                locationId: { type: string, nullable: true }
+                note: { type: string, nullable: true }
+                payment:
+                  type: object
+                  nullable: true
+                  properties:
+                    method: { type: string, enum: [CASH, CARD_ONSITE, TRANSFER, BIZUM, OTHER] }
+                    amountCents: { type: integer, minimum: 1 }
+                    reference: { type: string, nullable: true }
+                    idempotencyKey: { type: string, nullable: true }
+      responses:
+        '201': { description: Venta creada (con recibo secuencial) }
+        '400': { description: Ítems o importes no válidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+  /api/orders/{id}:
+    get:
+      tags: [orders]
+      summary: Detalle de la venta con pagos y movimientos de caja
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Detalle }
+        '404': { description: No encontrada }
+    post:
+      tags: [orders]
+      summary: Anular venta (motivo obligatorio; bloqueada si hay cobros efectivos)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: Venta anulada (VOID) }
+        '409': { description: Tiene cobros efectivos o ya está anulada }
+  /api/orders/{id}/payments:
+    get:
+      tags: [payments]
+      summary: Historial de pagos de una venta
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Pagos + saldo }
+    post:
+      tags: [payments]
+      summary: Añadir pago (total o parcial; idempotente)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, amountCents]
+              properties:
+                method: { type: string, enum: [CASH, CARD_ONSITE, TRANSFER, BIZUM, OTHER] }
+                amountCents: { type: integer, minimum: 1 }
+                reference: { type: string, nullable: true }
+                idempotencyKey:
+                  type: string
+                  nullable: true
+                  description: Clave generada por el cliente; repetirla devuelve el pago original (sin doble cobro).
+      responses:
+        '200': { description: Pago añadido o repetición idempotente }
+        '404': { description: Venta no encontrada }
+        '409': { description: Venta anulada }
+  /api/bookings/{id}/payments:
+    get:
+      tags: [payments]
+      summary: Orden e historial de pagos de una cita
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Cita + orden + balance }
+    post:
+      tags: [payments]
+      summary: Registrar cobro manual en una cita (multi-pago / parcial)
+      description: >
+        Crea (o reutiliza) la orden de la cita —absorbiendo un cobro Stripe
+        histórico como espejo CARD_ONLINE— y añade el pago. Con
+        `complete: true` y saldo completo, finaliza la cita (factura + avisos).
+        Sincroniza las columnas planas legacy cuando el saldo llega a PAID.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, amountCents]
+              properties:
+                method: { type: string, enum: [CASH, CARD_ONSITE, TRANSFER, BIZUM, OTHER] }
+                amountCents: { type: integer, minimum: 1 }
+                reference: { type: string, nullable: true }
+                idempotencyKey: { type: string, nullable: true }
+                complete: { type: boolean, default: false }
+      responses:
+        '200': { description: Pago registrado (data.balance = saldo de la orden) }
+        '400': { description: Método o importe no válido }
+    delete:
+      tags: [payments]
+      summary: Anular los cobros manuales de la cita
+      description: Nunca toca pagos CARD_ONLINE (esos se reembolsan en Stripe).
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Cobros anulados }
+        '409': { description: Solo hay pagos de Stripe }
+  /api/payments/{id}:
+    get:
+      tags: [payments]
+      summary: Pago individual (vista de recibo)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Pago con su orden }
+    post:
+      tags: [payments]
+      summary: Anular o reembolsar un pago
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, reason]
+              properties:
+                action: { type: string, enum: [annul, refund] }
+                reason: { type: string }
+                amountCents:
+                  type: integer
+                  description: Solo para refund; por defecto reembolsa todo lo pendiente.
+      responses:
+        '200': { description: Pago actualizado (nunca borrado) }
+        '400': { description: Reembolso mayor que lo pendiente }
+        '409': { description: Pago ya anulado o con reembolsos previos (annul) }
+  /api/cash-sessions:
+    get:
+      tags: [cash]
+      summary: Caja abierta actual (con saldo esperado en vivo) + historial
+      parameters: [{ name: locationId, in: query, schema: { type: string, nullable: true } }]
+      responses:
+        '200': { description: Sesión actual y últimos 20 turnos cerrados }
+    post:
+      tags: [cash]
+      summary: Abrir turno de caja
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                openingCents: { type: integer, minimum: 0 }
+                locationId: { type: string, nullable: true }
+                note: { type: string, nullable: true }
+      responses:
+        '201': { description: Turno abierto }
+        '409': { description: Ya hay una caja abierta para esa sucursal }
+  /api/cash-sessions/{id}/close:
+    post:
+      tags: [cash]
+      summary: Cierre con arqueo (congela el período)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [countedCents]
+              properties:
+                countedCents: { type: integer, minimum: 0 }
+                note: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Resumen del arqueo (esperado, contado, diferencia, por método)
+        '409': { description: Ya cerrada }
+  /api/cash-sessions/{id}/movements:
+    get:
+      tags: [cash]
+      summary: Historial de movimientos del turno
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Movimientos }
+    post:
+      tags: [cash]
+      summary: Ingreso/retiro/ajuste manual de efectivo
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, direction, amountCents, concept]
+              properties:
+                type: { type: string, enum: [DEPOSIT, WITHDRAWAL, ADJUSTMENT] }
+                direction: { type: string, enum: [IN, OUT] }
+                amountCents: { type: integer, minimum: 1 }
+                concept: { type: string }
+      responses:
+        '201': { description: Movimiento registrado }
+        '409': { description: El período está cerrado }
+  /api/reports/payments:
+    get:
+      tags: [reports]
+      summary: Reporte de pagos (bruto, reembolsos, neto) agrupado
+      parameters:
+        - { name: groupBy, in: query, schema: { type: string, enum: [method, staff, location, day], default: method } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200':
+          description: Filas agregadas + totales (o CSV con BOM y ; como separador)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      groupBy: { type: string }
+                      rows:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key: { type: string }
+                            label: { type: string }
+                            grossCents: { type: integer }
+                            refundCents: { type: integer }
+                            netCents: { type: integer }
+                            count: { type: integer }
+                      totals:
+                        type: object
+                        properties:
+                          grossCents: { type: integer }
+                          refundCents: { type: integer }
+                          netCents: { type: integer }
+                          count: { type: integer }
+                      currency: { type: string }
+            text/csv:
+              schema: { type: string }

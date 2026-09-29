@@ -147,6 +147,11 @@ model User {
   coupons             Coupon[]
   campaigns           Campaign[]
   polls               AvailabilityPoll[]
+  // Manual sales / payments module
+  orders              Order[]
+  paymentsCreated     Payment[]         @relation("PaymentsCreatedBy")
+  cashSessions        CashSession[]
+  cashMovementsMade   CashMovement[]    @relation("CashMovementsCreatedBy")
 
   @@map("users")
 }
@@ -208,6 +213,7 @@ model Customer {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[] // Payment orders linked to this CRM contact
 
   @@unique([userId, email])
   @@index([userId, createdAt])
@@ -761,6 +767,8 @@ model Location {
   bookings          Booking[]
   defaultEventTypes EventType[] @relation("EventTypeDefaultLocation")
   eventTypeLinks    EventTypeLocation[]
+  orders            Order[]
+  cashSessions      CashSession[]
 
   @@index([userId, isActive])
   @@map("locations")
@@ -882,6 +890,7 @@ model Booking {
   meetingBriefings MeetingBriefing[]
   feedback         Feedback?
   invoice          Invoice?
+  orders           Order[] // Payment orders linked to this appointment
 
   @@index([seriesId])
   @@index([resourceId])
@@ -1470,4 +1479,246 @@ model IntegrationConnection {
   @@unique([userId, provider])
   @@index([provider])
   @@map("integration_connections")
+}
+
+// -----------------------------------------------------------------------------
+// Manual sales & payments (ventas rápidas + cobros manuales de citas)
+//
+// Money model: amounts are integers in cents (same as Booking.paymentAmount),
+// currency is the tenant's operating currency (users.currency, lowercase).
+// Payments are never deleted: mistakes are annulled with a reason (soft record)
+// and money returned by hand is a refund. Stripe is only touched by the Stripe
+// webhook — manual payments (CASH/CARD_ONSITE/TRANSFER/BIZUM/OTHER) never go
+// through Stripe, and CARD_ONLINE rows only exist linked to a real Stripe
+// PaymentIntent.
+// -----------------------------------------------------------------------------
+
+// A sale: a quick counter sale (bookingId = null) or the chargeable document
+// behind an appointment (bookingId set). One order can be settled with several
+// payments (partial + mixed methods); a Stripe-paid booking plus a cash top-up
+// live in the same order.
+model Order {
+  id            String      @id @default(cuid())
+  userId        String      @map("user_id") // Tenant that owns the sale
+  bookingId     String?     @map("booking_id") // Null = quick sale not tied to an appointment
+  customerId    String?     @map("customer_id") // Optional CRM contact
+  locationId    String?     @map("location_id") // Branch where the sale happened
+  status        OrderStatus @default(ISSUED)
+  currency      String // lowercase ISO-4217, tenant-wide (decision B3)
+  note          String?
+  createdById   String      @map("created_by_id") // Staff member who recorded it
+  createdByName String      @map("created_by_name") // Historical snapshot
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking      Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  customer     Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  location     Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+  payments     Payment[]
+  applications PaymentApplication[] @relation("OrderApplications")
+  receipt      Receipt?
+
+  @@index([userId, createdAt])
+  @@index([bookingId])
+  @@index([customerId])
+  @@index([locationId])
+  @@map("orders")
+}
+
+// A line of the sale. Snapshot of name/price so later edits to services never
+// rewrite history (same pattern as Booking's location/resource name columns).
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String  @map("order_id")
+  description String
+  quantity    Int     @default(1) // >= 1
+  unitCents   Int     @map("unit_cents") // >= 0
+  taxRateBps  Int?    @map("tax_rate_bps") // Informative only, e.g. 2100 = 21 % (no fiscal calc)
+  position    Int     @default(0)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// Money actually collected, in whole or in part. Never deleted: mistakes are
+// annulled (ANNULLED + reason + actor), returns are refunds (refundCents > 0).
+// CARD_ONLINE rows are written by the Stripe webhook/booking flow and always
+// carry a real stripePaymentIntent; manual methods leave it null.
+model Payment {
+  id             String              @id @default(cuid())
+  userId         String              @map("user_id") // Denormalized tenant for reports
+  orderId        String              @map("order_id")
+  method         PaymentMethod // Reuses the existing enum; CARD_ONLINE only for real Stripe charges
+  amountCents    Int                 @map("amount_cents") // > 0, enforced in the domain layer
+  currency       String // lowercase ISO-4217, equals the order's
+  status         PaymentRecordStatus @default(COMPLETED)
+  reference      String? // Operation number, cheque number, etc.
+  stripePaymentIntent String?        @map("stripe_payment_intent") // CARD_ONLINE only; null = never touched Stripe
+
+  // Annulment (never DELETE)
+  annulledReason String?   @map("annulled_reason") @db.Text
+  annulledById   String?   @map("annulled_by_id")
+  annulledAt     DateTime? @map("annulled_at")
+
+  // Manual refund (money returned outside Stripe for manual payments; Stripe
+  // refunds for CARD_ONLINE keep their Stripe-side record too)
+  refundCents  Int       @default(0) @map("refund_cents")
+  refundReason String?   @map("refund_reason") @db.Text
+  refundedAt   DateTime? @map("refunded_at")
+
+  // Idempotency: client-generated key; a repeated POST returns the same row
+  // instead of charging twice. Null keys are allowed (unique ignores NULLs).
+  idempotencyKey String? @map("idempotency_key")
+
+  createdById   String   @map("created_by_id")
+  createdByName String   @map("created_by_name") // Historical snapshot
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order        Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy    User                 @relation("PaymentsCreatedBy", fields: [createdById], references: [id])
+  applications PaymentApplication[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([orderId])
+  @@map("payments")
+}
+
+// How much of a payment settles which order. Today one payment always targets
+// one order (1 row), but combined payments across orders stay possible without
+// a migration.
+model PaymentApplication {
+  id           String @id @default(cuid())
+  paymentId    String @map("payment_id")
+  orderId      String @map("order_id")
+  appliedCents Int    @map("applied_cents") // > 0, <= payment.amountCents
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  order   Order   @relation("OrderApplications", fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@map("payment_applications")
+}
+
+// A cash drawer shift (decision B2: one per branch; null location = tenant
+// with a single physical drawer). Closing computes the expected balance from
+// cash movements and freezes the period (lib/cash.ts enforces it).
+model CashSession {
+  id              String            @id @default(cuid())
+  userId          String            @map("user_id")
+  locationId      String?           @map("location_id")
+  status          CashSessionStatus @default(OPEN)
+  openingCents    Int               @map("opening_cents") // Float counted at open
+  expectedCents   Int?              @map("expected_cents") // Computed on close
+  countedCents    Int?              @map("counted_cents") // Physically counted on close
+  differenceCents Int?              @map("difference_cents") // counted - expected
+  note            String?
+  openedById      String            @map("opened_by_id")
+  closedById      String?           @map("closed_by_id")
+  openedAt        DateTime          @default(now()) @map("opened_at")
+  closedAt        DateTime?         @map("closed_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  movements CashMovement[]
+
+  @@index([userId, status])
+  @@index([userId, openedAt])
+  @@map("cash_sessions")
+}
+
+// Every cash drawer event: sales paid in cash, refunds handed back, manual
+// deposits/withdrawals. paymentId/orderId are informational links (no FK) so
+// the drawer history survives even if related rows are ever archived.
+model CashMovement {
+  id          String           @id @default(cuid())
+  userId      String           @map("user_id")
+  sessionId   String           @map("session_id")
+  direction   CashDirection // IN = money in, OUT = money out
+  type        CashMovementType
+  method      PaymentMethod // Drawer math only sums CASH rows
+  amountCents Int              @map("amount_cents") // > 0; direction decides the sign
+  concept     String
+  paymentId   String?          @map("payment_id")
+  orderId     String?          @map("order_id")
+  createdById String           @map("created_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  session  CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy User       @relation("CashMovementsCreatedBy", fields: [createdById], references: [id])
+
+  @@index([sessionId, createdAt])
+  @@index([userId, createdAt])
+  @@map("cash_movements")
+}
+
+// Sequential per-tenant receipt (decision B5: format REC-2026-000123 from
+// series + zero-padded number). The sequence is derived from this table, so a
+// rebuild from backups keeps it consistent.
+model Receipt {
+  id      String   @id @default(cuid())
+  orderId String   @unique @map("order_id")
+  userId  String   @map("user_id")
+  series  String   @default("REC")
+  number  Int // Per (userId, series) sequence, 1-based
+  issuedAt DateTime @default(now()) @map("issued_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, series, number])
+  @@map("receipts")
+}
+
+// Immutable, tenant-scoped audit trail (sister of AdminAuditLog, which is the
+// platform-admin one). No FK on actorId on purpose: the log must survive user
+// deletion untouched. Written on every state change of the module.
+model TenantAuditLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id") // Tenant the event belongs to
+  actorId   String?  @map("actor_id") // Who did it (null = system)
+  actorName String?  @map("actor_name") // Historical snapshot
+  action    String // ORDER_CREATE, PAYMENT_ADD, PAYMENT_ANNUL, PAYMENT_REFUND, ORDER_VOID, CASH_OPEN, CASH_CLOSE...
+  targetId  String?  @map("target_id") // Order/Payment/session id
+  details   Json // Before/after payload
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([targetId])
+  @@map("tenant_audit_logs")
+}
+
+enum OrderStatus {
+  ISSUED
+  VOID
+}
+
+enum PaymentRecordStatus {
+  COMPLETED
+  ANNULLED
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashDirection {
+  IN
+  OUT
+}
+
+enum CashMovementType {
+  SALE
+  REFUND
+  DEPOSIT
+  WITHDRAWAL
+  ADJUSTMENT
 }

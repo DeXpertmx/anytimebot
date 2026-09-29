@@ -147,7 +147,8 @@
       "system": "System",
       "billing": "Billing"
     },
-    "resellerPanel": "Reseller panel"
+    "resellerPanel": "Reseller panel",
+    "payments": "Payments & cash"
   },
   "auth": {
     "signIn": "Sign In",
@@ -524,14 +525,14 @@
     "start": "From",
     "end": "To",
     "creating": "Saving...",
-  "created": "Block added successfully",
-  "createFailed": "Failed to add the block",
+    "created": "Block added successfully",
+    "createFailed": "Failed to add the block",
     "dateRequired": "Start and end dates are required",
     "endBeforeStart": "End date must be on or after start date",
     "empty": "No blocks scheduled",
     "emptyDesc": "Your guests will be able to book every available day",
-  "deleted": "Block deleted successfully",
-  "deleteFailed": "Failed to delete the block",
+    "deleted": "Block deleted successfully",
+    "deleteFailed": "Failed to delete the block",
     "resourceLabel": "Resource (optional)",
     "scopeAll": "Entire schedule (all rooms and chairs)",
     "scopeHint": "Pick a resource to close just that room or chair for the day(s); the rest of your schedule stays open.",

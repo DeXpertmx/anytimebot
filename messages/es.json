@@ -147,7 +147,8 @@
       "system": "Sistema",
       "billing": "Facturación"
     },
-    "resellerPanel": "Panel de reseller"
+    "resellerPanel": "Panel de reseller",
+    "payments": "Pagos y caja"
   },
   "auth": {
     "signIn": "Iniciar Sesión",

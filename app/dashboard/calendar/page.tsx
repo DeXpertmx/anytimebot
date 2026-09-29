@@ -335,33 +335,31 @@ export default function CalendarPage() {
   };
 
   // Record money collected in person (cash, card terminal, transfer, Bizum).
-  // Nothing goes to Stripe: the booking is simply marked as paid and, when
-  // "finalizar" is checked, closed (which emits its invoice).
+  // Nothing goes to Stripe: the booking's order accumulates the payment (partial
+  // or full) and, when "finalizar" is checked and the balance is complete, the
+  // appointment is closed (which emits its invoice).
   const handleRecordPayment = async () => {
     if (!selectedBooking) return;
     const raw = payAmount.trim().replace(',', '.');
     const cents = raw ? Math.round(Number(raw) * 100) : undefined;
-    if (cents !== undefined && (!Number.isFinite(cents) || cents < 0)) {
+    if (cents !== undefined && (!Number.isFinite(cents) || cents <= 0)) {
       toast.error('Importe no válido');
       return;
     }
     setPaySaving(true);
     try {
-      const res = await fetch(`/api/bookings/${selectedBooking.id}/payment`, {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: payMethod, amountCents: cents, complete: payComplete }),
+        body: JSON.stringify({ method: payMethod, amountCents: cents, complete: payComplete, idempotencyKey: crypto.randomUUID() }),
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Cobro registrado (${data.data.methodLabel})`);
+        toast.success('Cobro registrado');
         if (data.data.finalizeWarning) toast.error(data.data.finalizeWarning);
         setSelectedBooking(prev => prev ? {
           ...prev,
-          paymentStatus: 'PAID',
-          paymentMethod: payMethod,
-          paymentAmount: data.data.booking?.paymentAmount ?? cents ?? prev.paymentAmount,
-          paymentCurrency: data.data.booking?.paymentCurrency ?? prev.paymentCurrency,
+          paymentStatus: data.data.balance?.state === 'PAID' ? 'PAID' : prev.paymentStatus,
           status: data.data.completed ? 'COMPLETED' : prev.status,
         } : prev);
         load();
@@ -375,14 +373,14 @@ export default function CalendarPage() {
     }
   };
 
-  // Annul a payment recorded by mistake (in-person payments only).
+  // Annul the manual payments recorded on the appointment (in-person only).
   const handleAnnullPayment = async (booking: Booking) => {
     if (!window.confirm('¿Anular el cobro registrado? La reserva quedará como no cobrada.')) {
       return;
     }
     setPaySaving(true);
     try {
-      const res = await fetch(`/api/bookings/${booking.id}/payment`, { method: 'DELETE' });
+      const res = await fetch(`/api/bookings/${booking.id}/payments`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         toast.success('Cobro anulado');
@@ -951,6 +949,15 @@ export default function CalendarPage() {
                 {selectedBooking.paymentStatus === 'REFUNDED' && (
                   <p className="mt-1 text-xs text-slate-500">Se devolvió el importe completo al método de pago del cliente.</p>
                 )}
+
+                <a
+                  href="/dashboard/payments"
+                  className="mt-2 block text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Ver historial de pagos →
+                </a>
               </div>
 
               {/* Customer history */}
