@@ -13,8 +13,10 @@ en céntimos, aislamiento por `userId`, auditoría inmutable).
 - **Caja**: turnos con fondo inicial, entradas/salidas, arqueo y **congelación del período** al cerrar.
 - **Reportes** por método, empleado, sucursal y día, con export CSV (BOM + `;`, listo para Excel).
 - **Auditoría inmutable** (`TenantAuditLog`) de cada operación.
-- **Stripe intacto**: solo existe como espejo de lectura (`CARD_ONLINE` con `stripePaymentIntent`
-  real). Ningún pago manual toca Stripe y ningún webhook escribe métodos manuales.
+- **Stripe intacto**: solo existe como espejo (`CARD_ONLINE` con `stripePaymentIntent` real).
+  Ningún pago manual toca Stripe y ningún webhook escribe métodos manuales.
+- **Reembolsos de Stripe reflejados**: el webhook `charge.refunded` escribe `refundCents` en la
+  fila espejo `CARD_ONLINE` (`lib/stripe-refunds.ts`), con reembolsos parciales acumulativos.
 
 ## Modelo de datos (`prisma/schema.prisma`, migración `20260929100000_add_manual_sales`)
 
@@ -41,6 +43,8 @@ El enum `PaymentMethod` existente se reutiliza (`CARD_ONLINE` reservado a Stripe
 5. Mutaciones dentro de **transacciones Prisma** (pago + aplicación + movimiento de caja atómicos).
 6. **Cierre de caja congela el período**: los movimientos posteriores van al turno siguiente (`409` en cerrados).
 7. **Stripe solo online**: espejo de lectura; Stripe+efectivo conviven en la misma orden de la cita.
+   Los reembolsos hechos en Stripe (panel o `POST /api/bookings/[id]/refund`) se reflejan en la fila
+   espejo como `refundCents`; si la orden aún no existía, se materializa desde la cita.
 8. Decisions B1–B5: permisos por rol de equipo (matriz lista, dueño hoy), caja por sucursal,
    una moneda por tenant, cobro simple de `Booking` migrado al modelo nuevo, recibos `REC-…`.
 
@@ -60,6 +64,10 @@ GET/POST /api/cash-sessions/[id]/movements  historial / ingreso-retiro-ajuste
 GET /api/reports/payments?groupBy=&from=&to=&format=json|csv
 ```
 
+Webhook (no público, firmado por Stripe): `charge.refunded` en `POST /api/stripe/webhook` —
+actualiza `payments.refundCents` de la fila `CARD_ONLINE` del cargo. Es idempotente porque usa el
+acumulado `charge.amount_refunded` (nunca suma) y no crea movimientos de caja.
+
 Respuestas `{ success, data }`; errores `{ success: false, error }` con 400/401/403/404/409.
 
 ## UI
@@ -69,7 +77,8 @@ Respuestas `{ success, data }`; errores `{ success: false, error }` con 400/401/
   movimientos, arqueo) y Reportes (agrupación + CSV).
 - **Calendario**: el panel «Cobro» del modal de cita usa el flujo nuevo; los pagos parciales dejan
   la cita pendiente y el saldo completo la marca PAID (con facturación si se marca «Finalizar»).
-  «Anular cobro» anula los pagos manuales de la cita; los de Stripe se reembolsan desde Stripe.
+  «Anular cobro» anula los pagos manuales de la cita; los de Stripe se reembolsan desde Stripe y el
+  reembolso aparece en el historial (como `refundCents`) en cuanto llega el webhook.
 - Las columnas planas de `Booking` (`paymentStatus/paymentMethod/…`) se mantienen sincronizadas
   como indicador rápido; **el saldo de la orden es la fuente de verdad del dinero**.
 
@@ -93,11 +102,12 @@ sesiones de miembros de equipo basta conectar su `TeamMemberRole` en `getActor()
 - `lib/orders.test.ts` — validación de ítems, totales, saldos (parcial/pagado/reembolsado/anulado), numeración de recibos, creación con recibo secuencial, bloqueo de anulación con cobros efectivos.
 - `lib/payments.test.ts` — validación de importes/métodos, **idempotencia**, rechazo de órdenes anuladas y moneda distinta, tolerancia a caja no abierta, anulación con motivo, reembolsos parciales hasta el límite.
 - `lib/cash.test.ts` — aritmética de cajón (solo CASH), diferencia de arqueo, congelación del período, reapertura del siguiente turno.
+- `lib/stripe-refunds.test.ts` — espejo de reembolsos de Stripe: acumulado idempotente (reintentos sin doble registro), tope en el importe cobrado, materialización de la orden + fila `CARD_ONLINE` cuando el reembolso llega antes de abrir el historial.
 
 ## Checklist de despliegue
 
 1. `npx prisma validate` y `npx tsc --noEmit` en verde (hecho en esta rama).
-2. `npm test` (396 tests, incluidos 22 nuevos) en verde.
+2. `npm test` (413 tests, incluidos los 32 del módulo) en verde.
 3. Push a `main` → Vercel ejecuta `prisma migrate deploy` automáticamente en el build
    (`20260929100000_add_manual_sales` es **aditiva**: 32 CREATE, 0 DROP — sin riesgo para datos).
 4. Tras el deploy: verificar en producción que `/dashboard/payments` carga y que el sidebar muestra

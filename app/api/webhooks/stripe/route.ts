@@ -5,6 +5,7 @@ import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { prisma as db } from '@/lib/db';
 import Stripe from 'stripe';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
+import { mirrorStripeRefund, stripeChargeRefundFrom } from '@/lib/stripe-refunds';
 import { updateUserPlanQuotas } from '@/lib/plans';
 import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
 
@@ -83,7 +84,11 @@ export async function POST(request: NextRequest) {
       }
 
       case 'charge.refunded': {
-        await revokeFoundersBasicRefund(event.data.object as Stripe.Charge);
+        const charge = event.data.object as Stripe.Charge;
+        await revokeFoundersBasicRefund(charge);
+        // Booking payments collected online keep a CARD_ONLINE mirror row in
+        // `payments`; the refund lands there as refundCents.
+        await mirrorChargeRefund(charge);
         break;
       }
 
@@ -164,6 +169,29 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error processing webhook:', error);
     return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+  }
+}
+
+/**
+ * Mirror a Stripe refund onto the payments table. Idempotent (the charge
+ * carries the cumulative amount refunded) and never throws, so a failure cannot
+ * make Stripe retry a refund that is already recorded.
+ */
+async function mirrorChargeRefund(charge: Stripe.Charge) {
+  const refund = stripeChargeRefundFrom(charge);
+  try {
+    const outcome = await mirrorStripeRefund(refund);
+    if (outcome.status === 'not-found') {
+      console.warn(
+        `Stripe refund not mirrored: no payment or booking for intent ${refund.paymentIntentId}`,
+      );
+      return;
+    }
+    console.log(
+      `✅ Stripe refund mirrored (${outcome.status}): ${outcome.paymentId} → ${outcome.refundCents} cents`,
+    );
+  } catch (error) {
+    console.error('Error mirroring Stripe refund on payments:', error);
   }
 }
 

@@ -10,6 +10,7 @@ import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
 import { sendMembershipWelcome, sendMembershipOverdue } from '@/lib/email';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
+import { mirrorStripeRefund, stripeChargeRefundFrom } from '@/lib/stripe-refunds';
 import { parseServiceItems } from '@/lib/multi-service';
 
 export async function POST(req: NextRequest) {
@@ -98,6 +99,10 @@ export async function POST(req: NextRequest) {
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
         await revokeFoundersBasicRefund(charge);
+        // Refunds of online booking payments land on the `payments` mirror as
+        // refundCents (see lib/stripe-refunds.ts). Covers partial refunds too:
+        // the charge carries the cumulative amount refunded.
+        await mirrorChargeRefund(charge);
         break;
       }
 
@@ -112,6 +117,29 @@ export async function POST(req: NextRequest) {
       { error: 'Webhook handler failed' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Mirror a Stripe refund onto the tenant's payment history. Never throws: a
+ * failure here must not make Stripe retry a refund we already know about.
+ */
+async function mirrorChargeRefund(charge: Stripe.Charge) {
+  const refund = stripeChargeRefundFrom(charge);
+  try {
+    const outcome = await mirrorStripeRefund(refund);
+    if (outcome.status === 'not-found') {
+      console.warn(
+        `Stripe refund not mirrored: no payment or booking for intent ${refund.paymentIntentId}`,
+      );
+      return;
+    }
+    const materialized = outcome.status === 'recorded' && outcome.created ? ' (order materialized)' : '';
+    console.log(
+      `✅ Stripe refund mirrored (${outcome.status}): ${outcome.paymentId} → ${outcome.refundCents} cents${materialized}`,
+    );
+  } catch (error) {
+    console.error('Error mirroring Stripe refund on payments:', error);
   }
 }
 

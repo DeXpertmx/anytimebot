@@ -15,7 +15,8 @@ import { isManualPaymentMethod } from '@/lib/payment-methods';
  *    money back (OUT). No open session is never a hard error: tenants are not
  *    forced to use the drawer, it just skips the movement;
  *  - manual methods never touch Stripe. CARD_ONLINE rows are mirror records
- *    of real Stripe charges only (Stripe refunds are also mirrored here).
+ *    of real Stripe charges only, and Stripe refunds land on them through
+ *    lib/stripe-refunds.ts (the webhook), never through this module.
  */
 
 export interface PaymentDeps {
