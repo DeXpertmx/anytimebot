@@ -12,6 +12,7 @@ import {
   generateCandidateInstants,
   computeDayOffers,
   isInsideDayWindows,
+  partialBlockWindow,
   type DayWindow,
   type EngineResource,
 } from '../lib/availability-engine';
@@ -296,5 +297,89 @@ describe('computeDayOffers — resource mode', () => {
       overlapsByResource: byResource,
     });
     assert.ok(result.every((o) => o.resourceId === 'r1'));
+  });
+});
+
+describe('partialBlockWindow — a "few hours" absence is a daily window', () => {
+  // The real-world case: a course stored 24 sep 16:00 → 23 oct 20:00 (Madrid).
+  const course = {
+    start: new Date('2026-09-24T14:00:00.000Z'), // 16:00 Madrid
+    end: new Date('2026-10-23T18:00:00.000Z'), // 20:00 Madrid
+  };
+
+  test('every day of the range closes the same hours, not the whole day', () => {
+    const win = partialBlockWindow(course, '2026-10-07', 'Europe/Madrid');
+    assert.ok(win);
+    assert.equal(win!.start.toISOString(), '2026-10-07T14:00:00.000Z');
+    assert.equal(win!.end.toISOString(), '2026-10-07T18:00:00.000Z');
+  });
+
+  test('the boundary days match the instants the owner picked', () => {
+    assert.equal(
+      partialBlockWindow(course, '2026-09-24', 'Europe/Madrid')!.start.toISOString(),
+      course.start.toISOString()
+    );
+    assert.equal(
+      partialBlockWindow(course, '2026-10-23', 'Europe/Madrid')!.end.toISOString(),
+      course.end.toISOString()
+    );
+  });
+
+  test('days outside the range are untouched', () => {
+    assert.equal(partialBlockWindow(course, '2026-09-23', 'Europe/Madrid'), null);
+    assert.equal(partialBlockWindow(course, '2026-10-24', 'Europe/Madrid'), null);
+  });
+
+  test('a single-day lunch break keeps its exact instants', () => {
+    const lunch = {
+      start: new Date('2026-09-07T12:00:00.000Z'),
+      end: new Date('2026-09-07T14:00:00.000Z'),
+    };
+    const win = partialBlockWindow(lunch, '2026-09-07', 'Europe/Madrid');
+    assert.equal(win!.start.toISOString(), '2026-09-07T12:00:00.000Z');
+    assert.equal(win!.end.toISOString(), '2026-09-07T14:00:00.000Z');
+    assert.equal(partialBlockWindow(lunch, '2026-09-08', 'Europe/Madrid'), null);
+  });
+
+  test('an overnight block is not a daily window (callers fall back to the instants)', () => {
+    const night = {
+      start: new Date('2026-09-24T20:00:00.000Z'), // 22:00 Madrid
+      end: new Date('2026-09-25T02:00:00.000Z'), // 04:00 Madrid, next day
+    };
+    assert.equal(partialBlockWindow(night, '2026-09-24', 'Europe/Madrid'), null);
+  });
+});
+
+describe('a month-long "few hours" block leaves the rest of the day bookable', () => {
+  test('morning slots survive while the course hours stay closed', () => {
+    const course = {
+      start: new Date('2026-09-24T14:00:00.000Z'), // 16:00 Madrid
+      end: new Date('2026-10-23T18:00:00.000Z'), // 20:00 Madrid
+    };
+    const day = '2026-10-07'; // Wednesday
+    const dayOffers = computeDayOffers({
+      guestDate: day,
+      guestTz: 'Europe/Madrid',
+      anchorTz: 'Europe/Madrid',
+      displayTz: 'Europe/Madrid',
+      pageOpenWindows: [window(3, '09:00', '14:00'), window(3, '15:00', '16:30')],
+      resources: [],
+      slotInterval: 15,
+      durationMinutes: 45,
+      overlapsByResource: emptyOverlaps,
+    });
+    const win = partialBlockWindow(course, day, 'Europe/Madrid')!;
+    const free = dayOffers.filter(
+      (o) =>
+        !(
+          o.instant < win.end &&
+          new Date(o.instant.getTime() + 45 * 60_000) > win.start
+        )
+    );
+    // Before the fix the raw month-long range filtered every single slot out.
+    assert.ok(free.length > 0);
+    assert.equal(free[0].time, '09:00');
+    assert.ok(free.some((o) => o.time === '13:15'));
+    assert.ok(free.every((o) => o.time < '16:00'));
   });
 });

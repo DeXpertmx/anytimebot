@@ -87,6 +87,22 @@ describe('formatBlockWindow', () => {
     assert.match(label, /·/);
     assert.match(label, /14:00/);
     assert.match(label, /16:00/); // 12:00–14:00 UTC = 14:00–16:00 in Madrid
+    assert.doesNotMatch(label, / – /); // single day: no date range to show
+  });
+
+  test('a partial block spanning several days keeps its full date range', () => {
+    // The 16:00–20:00 hours are blocked on every day of the range, so the label
+    // must not hide the end date (a month-long course, not one afternoon).
+    const label = formatBlockWindow({
+      allDay: false,
+      start: '2026-09-24T14:00:00.000Z', // 24 sept 16:00 Madrid
+      end: '2026-10-23T18:00:00.000Z', // 23 oct 20:00 Madrid
+    });
+    assert.match(label, /24/);
+    assert.match(label, /23/);
+    assert.match(label, / – /); // both ends of the date range are shown
+    assert.match(label, /16:00/);
+    assert.match(label, /20:00/);
   });
 });
 

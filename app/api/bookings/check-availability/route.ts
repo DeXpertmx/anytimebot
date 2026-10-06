@@ -6,7 +6,8 @@ import {
   computeDayOffers,
   daySpanInTz,
   weekdayOfYmd,
-  instantOverlapsRange,
+  partialBlockWindow,
+  ymdOf,
   type DayWindow,
   type EngineResource,
 } from '@/lib/availability-engine';
@@ -194,24 +195,33 @@ async function checkAvailability(
 
     // ── Time off ────────────────────────────────────────────────────────────
     // Owner-wide absences (resourceId = null) come in two flavours: whole days
-    // (vacations) and time ranges (a lunch break, an errand). Whole days close
-    // the calendar outright; ranges only remove the slots they overlap, so the
-    // rest of the day stays bookable.
+    // (vacations) and partial-hour blocks (a lunch break, a course). Whole days
+    // close the calendar outright; a "few hours" block is a DAILY window — the
+    // picked hours are blocked on every day of its date range — so a course
+    // stored 24 sep 16:00 → 23 oct 20:00 keeps the mornings bookable. That is
+    // also what the dashboard calendar draws and what the dialog promises.
     const timeOffs = await prisma.timeOff.findMany({
       where: {
         userId: eventType.bookingPage.userId,
         start: { lte: range.end },
         end: { gte: range.start },
       },
-      select: { resourceId: true, start: true, end: true },
+      select: { resourceId: true, start: true, end: true, allDay: true },
     });
 
-    const ownerTimeOffs = timeOffs
+    const ownerBlocks = timeOffs
       .filter((t) => !t.resourceId)
-      .map((t) => ({ start: new Date(t.start), end: new Date(t.end) }));
+      .map((t) => ({
+        start: new Date(t.start),
+        end: new Date(t.end),
+        allDay: t.allDay,
+      }));
 
-    const ownerBlockedDay = ownerTimeOffs.some(
-      (t) => t.start <= range.start && t.end >= range.end
+    // The clock the absence was picked in: the owner's own timezone.
+    const ownerTz = eventType.bookingPage.user.timezone || anchorTz;
+
+    const ownerBlockedDay = ownerBlocks.some(
+      (t) => t.allDay !== false && t.start <= range.start && t.end >= range.end
     );
     if (ownerBlockedDay) {
       return {
@@ -357,11 +367,19 @@ async function checkAvailability(
         });
       }
 
-      // Owner-wide absence overlapping this slot (partial-hour block).
-      if (!hasConflict && ownerTimeOffs.length > 0) {
-        hasConflict = ownerTimeOffs.some(
-          (off) => slotStart < off.end && slotEnd > off.start
-        );
+      // Owner-wide absence touching this slot: whole days block outright, a
+      // partial block only its own daily window (falling back to the raw range
+      // for an overnight block that has no daily window).
+      if (!hasConflict && ownerBlocks.length > 0) {
+        hasConflict = ownerBlocks.some((off) => {
+          if (off.allDay !== false) {
+            return slotStart < off.end && slotEnd > off.start;
+          }
+          const window = partialBlockWindow(off, ymdOf(slotStart, ownerTz), ownerTz);
+          return window
+            ? slotStart < window.end && slotEnd > window.start
+            : slotStart < off.end && slotEnd > off.start;
+        });
       }
 
       // Check if this slot conflicts with any Google Calendar event
@@ -395,9 +413,10 @@ async function checkAvailability(
       availableSlots: allSlots.filter((slot) => slot.available).map((slot) => slot.time),
       allSlots,
       date,
-      // Whole day closed (vacation) — a partial-hour block leaves this false so
-      // the public page does not claim the day is unavailable.
-      ...(availableCount === 0 && ownerTimeOffs.length > 0 ? { timeOff: true } : {}),
+      // Day closed by an absence: no slot survived. A partial-hour block only
+      // sets this when its window happened to cover the whole open schedule,
+      // so a lunch break no longer claims the day is unavailable.
+      ...(availableCount === 0 && ownerBlocks.length > 0 ? { timeOff: true } : {}),
       dayOfWeek: weekdayOfYmd(date, rangeTz),
       eventType: {
         name: combinedName(eventTypes),

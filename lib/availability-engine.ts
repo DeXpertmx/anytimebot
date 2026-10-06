@@ -354,3 +354,38 @@ export function computeDayOffers(opts: ComputeDayOffersOptions): DayOffer[] {
 export function instantOverlapsRange(timeOffStart: Date, timeOffEnd: Date, start: Date, end: Date): boolean {
   return timeOffStart.getTime() < end.getTime() && timeOffEnd.getTime() > start.getTime();
 }
+
+/**
+ * Window that a *partial* absence ("only a few hours") closes on one calendar
+ * day — `dayStr` being a day of the OWNER's own wall clock (`tz`).
+ *
+ * Partial blocks are DAILY windows: the hours the owner picked are blocked on
+ * every day of the date range, so a course stored as 24 sep 16:00 → 23 oct
+ * 20:00 closes 16:00–20:00 on each of those days and leaves the morning
+ * bookable. (Honouring the range as one continuous closure — the previous
+ * behaviour — silently closed every day it touched.)
+ *
+ * Returns `null` when the day falls outside the block's date range, or when the
+ * stored instants are not a daily window (an overnight block, whose end hour is
+ * not after its start hour). Callers then fall back to the raw instant range.
+ */
+export function partialBlockWindow(
+  block: { start: Date; end: Date },
+  dayStr: string,
+  tz: string
+): { start: Date; end: Date } | null {
+  const start = new Date(block.start);
+  const end = new Date(block.end);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+
+  const startMinutes = wallClockOf(start, tz).minutes;
+  const endMinutes = wallClockOf(end, tz).minutes;
+  if (endMinutes <= startMinutes) return null; // overnight block: not a daily window
+
+  if (dayStr < ymdOf(start, tz) || dayStr > ymdOf(end, tz)) return null;
+
+  return {
+    start: wallClockToInstant(dayStr, minutesToHhmm(startMinutes), tz),
+    end: wallClockToInstant(dayStr, minutesToHhmm(endMinutes), tz),
+  };
+}

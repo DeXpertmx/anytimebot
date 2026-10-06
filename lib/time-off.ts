@@ -55,15 +55,19 @@ export function blockDayLabel(value: string | Date): string {
 
 /**
  * Human window for a block: `20 sep 2026` for whole days,
- * `20 sep 2026 · 14:00–16:00` for partial ones.
+ * `20 sep 2026 · 14:00–16:00` for partial ones. A partial block that spans
+ * several days keeps its full date range (`24 sep 2026 – 23 oct 2026 ·
+ * 14:00–16:00`), since those hours are blocked on every day of the range —
+ * showing only the first day would hide how long the block lasts.
  */
 export function formatBlockWindow(block: TimeOffLike): string {
+  const start = blockDayLabel(block.start);
+  const end = blockDayLabel(block.end);
+  const range = start === end ? start : `${start} – ${end}`;
   if (isWholeDayBlock(block)) {
-    const start = blockDayLabel(block.start);
-    const end = blockDayLabel(block.end);
-    return start === end ? start : `${start} – ${end}`;
+    return range;
   }
-  return `${blockDayLabel(block.start)} · ${blockClockTime(block.start)}–${blockClockTime(block.end)}`;
+  return `${range} · ${blockClockTime(block.start)}–${blockClockTime(block.end)}`;
 }
 
 /** Do two instant ranges overlap? (Half-open: touching edges do not count.) */
