@@ -9,13 +9,15 @@
 // "stripe.credentials"), the stored values take precedence over environment
 // variables:
 //   Live: STRIPE_SECRET_KEY_LIVE / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE /
-//         STRIPE_WEBHOOK_SECRET_LIVE / STRIPE_PRICE_PRO_LIVE / STRIPE_PRICE_TEAM_LIVE
+//         STRIPE_WEBHOOK_SECRET_LIVE / STRIPE_PRICE_FOUNDER_LIVE /
+//         STRIPE_PRICE_PRO_LIVE / STRIPE_PRICE_TEAM_LIVE / STRIPE_PRICE_ENTERPRISE_LIVE
 //   Test: STRIPE_SECRET_KEY_TEST / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST /
-//         STRIPE_WEBHOOK_SECRET_TEST / STRIPE_PRICE_PRO_TEST / STRIPE_PRICE_TEAM_TEST
+//         STRIPE_WEBHOOK_SECRET_TEST / STRIPE_PRICE_FOUNDER_TEST /
+//         STRIPE_PRICE_PRO_TEST / STRIPE_PRICE_TEAM_TEST / STRIPE_PRICE_ENTERPRISE_TEST
 //
 // The legacy unprefixed variables (STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-// STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO, STRIPE_PRICE_TEAM) are used as the live
-// fallback, which keeps existing deployments working unchanged.
+// STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_*) are used as the live fallback, which
+// keeps existing deployments working unchanged.
 
 import { prisma } from '@/lib/db';
 
@@ -28,8 +30,10 @@ export interface StripeModeCredentials {
   secretKey: string;
   publishableKey: string;
   webhookSecret: string;
+  priceFounder: string;
   pricePro: string;
   priceTeam: string;
+  priceEnterprise: string;
 }
 
 type StoredCredentials = Partial<Record<StripeMode, Partial<StripeModeCredentials>>>;
@@ -145,7 +149,7 @@ export async function isModeConfigured(mode: StripeMode): Promise<boolean> {
 
 export async function getStripePriceId(
   mode: StripeMode,
-  plan: 'PRO' | 'TEAM',
+  plan: 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE',
 ): Promise<string | undefined> {
   const suffix = mode === 'test' ? '_TEST' : '_LIVE';
   const envPrice =
@@ -155,8 +159,24 @@ export async function getStripePriceId(
 
   const stored = (await getCredentialsRecord())?.[mode];
   if (!stored) return envPrice;
-  const storedPrice = plan === 'PRO' ? stored.pricePro : stored.priceTeam;
+  const storedPrice = storedPriceForPlan(stored, plan);
   return storedPrice || envPrice;
+}
+
+function storedPriceForPlan(
+  stored: Partial<StripeModeCredentials>,
+  plan: 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE',
+): string | undefined {
+  switch (plan) {
+    case 'FOUNDER':
+      return stored.priceFounder;
+    case 'PRO':
+      return stored.pricePro;
+    case 'TEAM':
+      return stored.priceTeam;
+    case 'ENTERPRISE':
+      return stored.priceEnterprise;
+  }
 }
 
 /**

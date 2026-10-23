@@ -30,7 +30,7 @@ async function initializeQuotas() {
       continue;
     }
 
-    const plan = user.plan as 'FREE' | 'BASIC' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+    const plan = user.plan as 'FREE' | 'BASIC' | 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE';
     const quotas = PLAN_CONFIG[plan]?.quotas;
 
     if (!quotas) {

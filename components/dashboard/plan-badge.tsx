@@ -1,11 +1,11 @@
 
 'use client';
 
-import { Crown, Zap, Users, Sparkles } from 'lucide-react';
+import { Crown, Zap, Users, Sparkles, Flame } from 'lucide-react';
 import Link from 'next/link';
 
 interface PlanBadgeProps {
-  plan: 'FREE' | 'BASIC' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+  plan: 'FREE' | 'BASIC' | 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE';
   showUpgrade?: boolean;
 }
 
@@ -22,6 +22,12 @@ export function PlanBadge({ plan, showUpgrade = true }: PlanBadgeProps) {
       label: 'Básico',
       color: 'bg-emerald-100 text-emerald-700 border-emerald-300',
       iconColor: 'text-emerald-600',
+    },
+    FOUNDER: {
+      icon: Flame,
+      label: 'Coach Fundador',
+      color: 'bg-amber-100 text-amber-800 border-amber-300',
+      iconColor: 'text-amber-600',
     },
     PRO: {
       icon: Zap,

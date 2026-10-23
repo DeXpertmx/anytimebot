@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { getResellerBySlug, getResellerPlanPrices, extractRefFromUrl, RESELLER_REF_COOKIE, resolvePublicPriceCents, type ResellerContext } from '@/lib/resellers';
+import { FOUNDER_SEATS } from '@/lib/plans';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { BrandLogo } from '@/components/brand-logo';
 
@@ -30,7 +31,7 @@ interface PricingPageProps {
  */
 async function resolveResellerContext(searchParams?: { [key: string]: string | string[] | undefined }): Promise<{
   reseller: ResellerContext | null;
-  prices: Partial<Record<'BASIC' | 'PRO' | 'TEAM', number>>;
+  prices: Partial<Record<'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE', number>>;
 }> {
   const cookieStore = cookies();
 
@@ -100,14 +101,19 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
 
   const { reseller, prices } = await resolveResellerContext(searchParams);
 
+  // Founder seats left for the launch offer (never negative).
+  const activeFounders = await prisma.user.count({ where: { plan: 'FOUNDER' } });
+  const founderSeatsLeft = Math.max(FOUNDER_SEATS - activeFounders, 0);
+
   // Build per-plan public prices (euros) for the client component.
   const resellerPricing: ResellerPricing | null = reseller
     ? {
         resellerName: reseller.name,
         prices: {
-          basic: resolvePublicPriceCents('BASIC', prices) / 100,
+          founder: resolvePublicPriceCents('FOUNDER', prices) / 100,
           pro: resolvePublicPriceCents('PRO', prices) / 100,
           team: resolvePublicPriceCents('TEAM', prices) / 100,
+          enterprise: resolvePublicPriceCents('ENTERPRISE', prices) / 100,
         },
       }
     : null;
@@ -160,6 +166,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
         hasActiveSubscription={hasActiveSubscription}
         isLoggedIn={!!session}
         resellerPricing={resellerPricing}
+        founderSeatsLeft={founderSeatsLeft}
       />
     </div>
   );

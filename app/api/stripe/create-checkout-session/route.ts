@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
 import { getStripeMode, getStripeKeys, getStripePriceId } from '@/lib/stripe-mode';
-import { updateUserPlanQuotas, type PlanTier } from '@/lib/plans';
+import { updateUserPlanQuotas, isPaidPlanTier, canClaimFounderSeat, FOUNDER_SEATS, PAID_PLAN_TIERS, type PlanTier } from '@/lib/plans';
 import { getResellerBySlug, getResellerPlanPrices, resolvePublicPriceCents, OFFICIAL_PRICE_CENTS } from '@/lib/resellers';
 
 export async function POST(req: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const priceId = typeof body.priceId === 'string' ? body.priceId : '';
     const plan = (requestedPlan || planFromPriceId(priceId)) as PlanTier;
 
-    if (!['BASIC', 'PRO', 'TEAM'].includes(plan)) {
+    if (!isPaidPlanTier(plan)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
@@ -42,8 +42,6 @@ export async function POST(req: NextRequest) {
         resellerId: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
-        foundersBasicCheckoutSessionId: true,
-        foundersBasicPaymentIntentId: true,
       },
     });
 
@@ -62,8 +60,8 @@ export async function POST(req: NextRequest) {
       });
       if (reseller?.isActive) {
         const planPrices = await getResellerPlanPrices(user.resellerId);
-        const resolved = resolvePublicPriceCents(plan as 'BASIC' | 'PRO' | 'TEAM', planPrices);
-        const official = OFFICIAL_PRICE_CENTS[plan as 'BASIC' | 'PRO' | 'TEAM'] ?? 0;
+        const resolved = resolvePublicPriceCents(plan, planPrices);
+        const official = OFFICIAL_PRICE_CENTS[plan] ?? 0;
         if (resolved > 0 && resolved !== official) {
           resellerPublicCents = resolved;
         }
@@ -72,11 +70,22 @@ export async function POST(req: NextRequest) {
 
     const confirmed = body.confirmed === true;
 
-    if (plan === 'BASIC' && user.plan === 'BASIC') {
-      return NextResponse.json({ error: 'Founders Basic is already active' }, { status: 409 });
-    }
-    if (plan === 'BASIC' && user.plan !== 'FREE') {
-      return NextResponse.json({ error: 'Founders Basic is only available before upgrading to a subscription plan' }, { status: 409 });
+    // "Coach Fundador" is a capped launch offer: never sell a seat once the
+    // seats run out, and never sell one twice to the same user.
+    if (plan === 'FOUNDER') {
+      if (user.plan === 'FOUNDER') {
+        return NextResponse.json({ error: 'Your founder seat is already active' }, { status: 409 });
+      }
+      const activeFounders = await prisma.user.count({ where: { plan: 'FOUNDER' } });
+      if (!canClaimFounderSeat(activeFounders)) {
+        return NextResponse.json(
+          {
+            error: `The ${FOUNDER_SEATS} founder seats are sold out. Join the Pro plan instead.`,
+            soldOut: true,
+          },
+          { status: 409 },
+        );
+      }
     }
 
     let customerId = user.stripeCustomerId;
@@ -95,64 +104,10 @@ export async function POST(req: NextRequest) {
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
 
-    if (plan === 'BASIC') {
-      // Reuse an open session so repeated clicks cannot create multiple charges
-      // before Stripe delivers the webhook for the first payment.
-      if (user.foundersBasicCheckoutSessionId && !user.foundersBasicPaymentIntentId) {
-        try {
-          const existingSession = await stripe.checkout.sessions.retrieve(user.foundersBasicCheckoutSessionId);
-          if (existingSession.status === 'open' && existingSession.url) {
-            return NextResponse.json({
-              sessionId: existingSession.id,
-              url: existingSession.url,
-              publishableKey,
-            });
-          }
-        } catch (error) {
-          console.warn('Could not reuse existing Founders Basic checkout session:', error);
-        }
-      }
-
-      const checkoutSession = await stripe.checkout.sessions.create({
-        customer: customerId,
-        mode: 'payment',
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'eur',
-              product_data: {
-                name: 'Anytimebot Básico de fundadores',
-                description: 'Acceso de pago único a las funciones esenciales de reservas',
-              },
-              unit_amount: resellerPublicCents ?? 2900,
-            },
-            quantity: 1,
-          },
-        ],
-        success_url: `${origin}/dashboard?payment=success&plan=BASIC&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/pricing?payment=cancelled`,
-        metadata: {
-          userId: user.id,
-          plan: 'BASIC',
-          ...(user.resellerId ? { resellerId: user.resellerId } : {}),
-        },
-      });
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { foundersBasicCheckoutSessionId: checkoutSession.id },
-      });
-
-      return NextResponse.json({ sessionId: checkoutSession.id, url: checkoutSession.url, publishableKey });
-    }
-
     // Never trust a client-supplied Price ID. Resolve subscription prices only
     // from server-side configuration: the reseller's public price (dynamic
     // price_data) or the official price ID for the active mode.
-    const subscriptionPriceId = plan === 'PRO'
-      ? await getStripePriceId(mode, 'PRO')
-      : await getStripePriceId(mode, 'TEAM');
+    const subscriptionPriceId = await getStripePriceId(mode, plan);
     if (!subscriptionPriceId && !resellerPublicCents) {
       return NextResponse.json({ error: `Stripe price is not configured for ${plan} in ${mode} mode` }, { status: 503 });
     }
@@ -289,6 +244,15 @@ export async function POST(req: NextRequest) {
         plan,
         ...(user.resellerId ? { resellerId: user.resellerId } : {}),
       },
+      // Copy the plan onto the subscription too: reseller subscriptions use an
+      // inline price with no official ID, so the webhook needs the metadata to
+      // resolve the plan on later subscription.updated events.
+      subscription_data: {
+        metadata: {
+          userId: user.id,
+          plan,
+        },
+      },
     });
 
     return NextResponse.json({ sessionId: checkoutSession.id, url: checkoutSession.url, publishableKey });
@@ -302,7 +266,9 @@ export async function POST(req: NextRequest) {
 }
 
 function planFromPriceId(priceId: string): PlanTier | '' {
-  if (priceId && priceId === process.env.STRIPE_PRICE_TEAM) return 'TEAM';
-  if (priceId && priceId === process.env.STRIPE_PRICE_PRO) return 'PRO';
+  if (!priceId) return '';
+  for (const plan of PAID_PLAN_TIERS) {
+    if (priceId === process.env[`STRIPE_PRICE_${plan}`]) return plan;
+  }
   return '';
 }

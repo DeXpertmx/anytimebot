@@ -28,8 +28,10 @@ interface StripeModeStatus {
       secretKey: boolean;
       publishableKey: boolean;
       webhookSecret: boolean;
+      priceFounder: boolean;
       pricePro: boolean;
       priceTeam: boolean;
+      priceEnterprise: boolean;
     }
   >;
 }
@@ -38,24 +40,30 @@ interface StripeCredentialsForm {
   secretKey: string;
   publishableKey: string;
   webhookSecret: string;
+  priceFounder: string;
   pricePro: string;
   priceTeam: string;
+  priceEnterprise: string;
 }
 
 const MISSING_ITEMS = [
   { key: 'secretKey', label: 'Secret key' },
   { key: 'publishableKey', label: 'Publishable key' },
   { key: 'webhookSecret', label: 'Webhook secret' },
+  { key: 'priceFounder', label: 'Coach Fundador price ID' },
   { key: 'pricePro', label: 'Pro price ID' },
   { key: 'priceTeam', label: 'Team price ID' },
+  { key: 'priceEnterprise', label: 'Enterprise price ID' },
 ] as const;
 
 const CREDENTIAL_FIELDS: Array<{ key: keyof StripeCredentialsForm; label: string; sensitive?: boolean; placeholder: string }> = [
   { key: 'secretKey', label: 'Secret key', sensitive: true, placeholder: 'sk_live_... or sk_test_...' },
   { key: 'publishableKey', label: 'Publishable key', placeholder: 'pk_live_... or pk_test_...' },
   { key: 'webhookSecret', label: 'Webhook secret', sensitive: true, placeholder: 'whsec_...' },
+  { key: 'priceFounder', label: 'Coach Fundador price ID', placeholder: 'price_...' },
   { key: 'pricePro', label: 'Pro price ID', placeholder: 'price_...' },
   { key: 'priceTeam', label: 'Team price ID', placeholder: 'price_...' },
+  { key: 'priceEnterprise', label: 'Enterprise price ID', placeholder: 'price_...' },
 ];
 
 interface SmokeEventStatus {
@@ -81,8 +89,10 @@ const EMPTY_FORM: StripeCredentialsForm = {
   secretKey: '',
   publishableKey: '',
   webhookSecret: '',
+  priceFounder: '',
   pricePro: '',
   priceTeam: '',
+  priceEnterprise: '',
 };
 
 export default function SettingsPage() {
@@ -124,8 +134,10 @@ export default function SettingsPage() {
       else if (token.startsWith('whsec_')) found.webhookSecret = token;
       else if (token.startsWith('price_')) priceIds.push(token);
     }
-    if (priceIds[0]) found.pricePro = priceIds[0];
-    if (priceIds[1]) found.priceTeam = priceIds[1];
+    if (priceIds[0]) found.priceFounder = priceIds[0];
+    if (priceIds[1]) found.pricePro = priceIds[1];
+    if (priceIds[2]) found.priceTeam = priceIds[2];
+    if (priceIds[3]) found.priceEnterprise = priceIds[3];
     return found;
   };
 
@@ -746,7 +758,7 @@ export default function SettingsPage() {
           <p className="text-xs text-muted-foreground">
             Credentials saved here take precedence over environment variables. Env fallbacks:
             STRIPE_SECRET_KEY(_LIVE)/_TEST, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY(_LIVE)/_TEST,
-            STRIPE_WEBHOOK_SECRET(_LIVE)/_TEST, STRIPE_PRICE_PRO/TEAM(_LIVE)/_TEST.
+            STRIPE_WEBHOOK_SECRET(_LIVE)/_TEST, STRIPE_PRICE_FOUNDER/PRO/TEAM/ENTERPRISE(_LIVE)/_TEST.
           </p>
         </CardContent>
       </Card>

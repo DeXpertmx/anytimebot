@@ -7,7 +7,8 @@ import Stripe from 'stripe';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
 import { mirrorStripeRefund, stripeChargeRefundFrom } from '@/lib/stripe-refunds';
 import { updateUserPlanQuotas } from '@/lib/plans';
-import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
+import { getWebhookSecretCandidates, type StripeMode } from '@/lib/stripe-mode';
+import { resolvePaidPlan } from '@/lib/plan-pricing';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
           await activateFoundersBasicPurchase(session);
         } else if (userId && session.subscription) {
           const subscriptionId = session.subscription as string;
-          const plan = session.metadata?.plan === 'TEAM' ? 'TEAM' : 'PRO';
+          const plan = (await resolvePaidPlan(eventMode, null, session.metadata?.plan)) ?? 'PRO';
 
           await db.user.update({
             where: { id: userId },
@@ -103,14 +104,10 @@ export async function POST(request: NextRequest) {
           const priceId = subscription.items.data[0]?.price.id;
           // Reseller subscriptions use dynamic price_data, so the price ID is
           // not one of the official ones. The checkout metadata (copied onto
-          // the subscription) carries the plan; fall back to the price ID map.
-          const metaPlan = subscription.metadata?.plan;
+          // the subscription) carries the plan; fall back to it when the price
+          // ID is not an official one.
           const plan =
-            metaPlan === 'TEAM' || metaPlan === 'PRO'
-              ? metaPlan
-              : priceId === (await getStripePriceId(eventMode, 'TEAM'))
-                ? 'TEAM'
-                : 'PRO';
+            (await resolvePaidPlan(eventMode, priceId, subscription.metadata?.plan)) ?? 'PRO';
           const status = mapSubscriptionStatus(subscription.status);
           const periodEndSeconds = getSubscriptionPeriodEnd(subscription);
           const periodEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000) : null;

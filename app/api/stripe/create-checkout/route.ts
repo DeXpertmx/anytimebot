@@ -1,77 +1,28 @@
-
 export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getStripe, PLANS } from '@/lib/stripe';
-import { getStripeMode } from '@/lib/stripe-mode';
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || !(session.user as any)?.email || !(session.user as any)?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://anytimebot.app';
-
-    const mode = await getStripeMode();
-    const stripe = await getStripe(mode);
-
-    // Create or get Stripe customer
-    let customerId = (session.user as any).stripeCustomerId;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: (session.user as any).email,
-        metadata: {
-          userId: (session.user as any).id,
-        },
-      });
-      customerId = customer.id;
-
-      // Update user with customer ID
-      const { prisma: db } = await import('@/lib/db');
-      await db.user.update({
-        where: { id: (session.user as any).id },
-        data: { stripeCustomerId: customerId },
-      });
-    }
-
-    // Create checkout session
-    const checkoutSession = await stripe.checkout.sessions.create({
-      customer: customerId,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'ANYTIMEBOT Premium',
-              description: 'Unlimited bookings and advanced AI features',
-            },
-            unit_amount: PLANS.PREMIUM.price * 100, // Convert to cents
-            recurring: {
-              interval: 'month',
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'subscription',
-      success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pricing`,
-      metadata: {
-        userId: (session.user as any).id,
-      },
-    });
-
-    return NextResponse.json({ url: checkoutSession.url });
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 }
-    );
-  }
+/**
+ * Retired legacy checkout endpoint.
+ *
+ * This route used to create a live Stripe subscription for the old
+ * "ANYTIMEBOT Premium" plan at 29 USD/month with no `plan` in the Checkout
+ * metadata. With the current catalog the price is unknown to
+ * `resolvePaidPlan()`, so the subscription webhooks fell back to PRO: anyone
+ * reaching this URL would have been charged 29 USD/month for Pro, bypassing the
+ * Coach Fundador offer, its 20-seat limit and the EUR price list.
+ *
+ * Nothing in the app calls it any more (the pricing page and the upgrade modal
+ * use `/api/stripe/create-checkout-session`), but a stale client still can, so
+ * the route answers 410 Gone instead of selling a plan that no longer exists.
+ */
+export async function POST() {
+  return NextResponse.json(
+    {
+      error:
+        'This checkout endpoint has been retired. Use /api/stripe/create-checkout-session with one of the current plans (FOUNDER, PRO, TEAM, ENTERPRISE).',
+      plansUrl: '/pricing',
+    },
+    { status: 410 }
+  );
 }

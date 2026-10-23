@@ -24,8 +24,10 @@ export type StripeModeStatus = {
       secretKey: boolean;
       publishableKey: boolean;
       webhookSecret: boolean;
+      priceFounder: boolean;
       pricePro: boolean;
       priceTeam: boolean;
+      priceEnterprise: boolean;
     }
   >;
 };
@@ -83,8 +85,10 @@ async function statusFor(mode: StripeMode): Promise<StripeModeStatus> {
       secretKey: Boolean(keys.secretKey),
       publishableKey: Boolean(keys.publishableKey),
       webhookSecret: Boolean(keys.webhookSecret),
+      priceFounder: Boolean(await getStripePriceId(m, 'FOUNDER')),
       pricePro: Boolean(await getStripePriceId(m, 'PRO')),
       priceTeam: Boolean(await getStripePriceId(m, 'TEAM')),
+      priceEnterprise: Boolean(await getStripePriceId(m, 'ENTERPRISE')),
     };
   };
 

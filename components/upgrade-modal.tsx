@@ -11,7 +11,7 @@ interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   reason: string;
-  recommendedPlan?: 'PRO' | 'TEAM';
+  recommendedPlan?: 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE';
 }
 
 export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' }: UpgradeModalProps) {
@@ -98,7 +98,7 @@ export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' 
 
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="flex items-baseline justify-center mb-4">
-              <span className="text-4xl font-bold text-gray-900">${plan.price}</span>
+              <span className="text-4xl font-bold text-gray-900">€{plan.price}</span>
               <span className="text-gray-600 ml-2">/month</span>
             </div>
 
@@ -118,7 +118,7 @@ export function UpgradeModal({ isOpen, onClose, reason, recommendedPlan = 'PRO' 
               disabled={loading}
               className="w-full py-3 px-4 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Cargando...' : `Mejorar a ${plan.name} - $${plan.price}/mes`}
+              {loading ? 'Cargando...' : `Mejorar a ${plan.name} - €${plan.price}/mes`}
             </button>
 
             <button

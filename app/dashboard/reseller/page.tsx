@@ -16,10 +16,11 @@ interface PanelData {
   customers: Array<{ id: string; name: string | null; email: string; plan: string; hideBotAI: boolean }>;
 }
 
-const PLANS: Array<{ key: 'BASIC' | 'PRO' | 'TEAM'; label: string; billing: string }> = [
-  { key: 'BASIC', label: 'Básico (pago único)', billing: 'una vez' },
+const PLANS: Array<{ key: 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE'; label: string; billing: string }> = [
+  { key: 'FOUNDER', label: 'Coach Fundador', billing: 'al mes' },
   { key: 'PRO', label: 'Pro', billing: 'al mes' },
   { key: 'TEAM', label: 'Team', billing: 'al mes' },
+  { key: 'ENTERPRISE', label: 'Enterprise', billing: 'al mes' },
 ];
 
 const currency = (cents: number) => (cents / 100).toFixed(2);

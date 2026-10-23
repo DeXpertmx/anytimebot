@@ -98,14 +98,17 @@ export async function calculateMRR() {
   activeSubscriptions.forEach((sub) => {
     const plan = sub.user.plan;
     switch (plan) {
+      case 'FOUNDER':
+        mrr += 9;
+        break;
       case 'PRO':
         mrr += 19;
         break;
       case 'TEAM':
-        mrr += 49;
+        mrr += 39;
         break;
       case 'ENTERPRISE':
-        // Custom pricing, would need to be tracked separately
+        mrr += 79;
         break;
     }
   });

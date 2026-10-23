@@ -16,13 +16,15 @@ export const RESELLER_REF_QUERY = 'ref';
 /** Official public prices in cents (single source of truth for resellers). */
 export const OFFICIAL_PRICE_CENTS: Record<SubscriptionPlan, number> = {
   FREE: 0,
-  BASIC: 2900, // 29 € one-time
+  BASIC: 2900, // Legacy 29 € one-time (kept for existing holders)
+  FOUNDER: 900, // 9 €/month launch offer (locked)
   PRO: 1900, // 19 €/month
   TEAM: 3900, // 39 €/month
-  ENTERPRISE: 0, // custom pricing
+  ENTERPRISE: 7900, // 79 €/month
 };
 
-export const PAID_PLANS: SubscriptionPlan[] = ['BASIC', 'PRO', 'TEAM'];
+/** Plans a reseller can price and sell. Excludes FREE and the legacy BASIC. */
+export const PAID_PLANS: SubscriptionPlan[] = ['FOUNDER', 'PRO', 'TEAM', 'ENTERPRISE'];
 
 export interface ResellerContext {
   id: string;

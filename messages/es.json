@@ -658,7 +658,7 @@
     "basicPromoTitle": "🎉 Crea tu calendario con Anytimebot",
     "basicPromoText": "Paga una sola vez y ten tu agenda profesional para siempre: páginas de reserva con tu propia marca, recordatorios automáticos y más clientes, cuando los necesites.",
     "comparisonSubtitle": "Una comparación clara de lo que incluye cada plan.",
-    "launchNote": "Oferta de fundadores: el plan Básico está pensado para los primeros clientes. Las funciones y límites se muestran de forma transparente antes de contratar.",
+    "launchNote": "Oferta de lanzamiento: las 20 plazas de Coach Fundador incluyen todo el plan Pro a 9 €/mes con el precio bloqueado. Cuando se agoten, el precio para nuevos clientes será de 19 €/mes.",
     "checkoutError": "No se pudo iniciar el proceso de pago. Inténtalo de nuevo.",
     "paymentUnavailable": "El sistema de pago no está disponible en este momento.",
     "planChangeConfirm": "¿Confirmas el cambio de plan?",
@@ -672,31 +672,16 @@
     "comparisonTitle": "Comparación de Características",
     "faqTitle": "Preguntas Frecuentes",
     "plans": {
-      "basic": {
-        "name": "Básico de fundadores",
-        "description": "Todo lo necesario para empezar a recibir reservas.",
-        "cta": "Empezar con Básico",
-        "features": [
-          "1 usuario",
-          "Hasta 5 páginas de reserva",
-          "Hasta 1.000 clientes",
-          "Reservas y calendario",
-          "Sincronización con Google Calendar",
-          "Confirmaciones por email",
-          "Sin chatbot, equipos ni opiniones"
-        ]
-      },
       "free": {
-        "name": "Básico de fundadores",
-        "description": "Todo lo necesario para empezar a recibir reservas.",
-        "cta": "Empezar con Básico",
+        "name": "Gratis",
+        "description": "Para empezar a recibir reservas sin coste",
+        "cta": "Empezar gratis",
         "features": [
-          "1 usuario",
-          "Hasta 5 páginas de reserva",
-          "Hasta 1.000 clientes",
-          "Reservas y calendario",
+          "1 página de reserva",
           "Sincronización con Google Calendar",
-          "Confirmaciones por email"
+          "Widget web + enlace directo",
+          "Enlaces de video externos (Zoom/Google Meet)",
+          "Notificaciones por email básicas"
         ]
       },
       "pro": {
@@ -734,18 +719,31 @@
       },
       "enterprise": {
         "name": "Empresa",
-        "description": "Soluciones personalizadas para grandes organizaciones",
-        "cta": "Contactar Ventas",
+        "description": "Para clínicas y negocios con varias sedes",
+        "cta": "Actualizar a Empresa",
         "features": [
-          "Todo Ilimitado",
-          "Entrenamiento IA Personalizado",
-          "Solución White-Label",
-          "SSO y Seguridad Avanzada",
-          "Integraciones Personalizadas",
-          "Gerente de Cuenta Dedicado",
-          "Soporte Prioritario 24/7",
-          "Garantías SLA",
-          "Términos de Contrato Personalizados"
+          "Todo lo del plan Equipo",
+          "Usuarios y capacidad ampliados",
+          "IA, video y documentos ampliados",
+          "Múltiples sedes",
+          "SSO y seguridad avanzada",
+          "Soporte dedicado",
+          "Onboarding personalizado",
+          "Garantías SLA"
+        ]
+      },
+      "founder": {
+        "name": "Coach Fundador",
+        "description": "Oferta de lanzamiento para coaches y consultores",
+        "cta": "Reservar mi plaza",
+        "features": [
+          "Todo lo del plan Pro",
+          "Precio de fundador bloqueado de por vida",
+          "Asistente IA (300/mes)",
+          "5 documentos de entrenamiento",
+          "Salas de video (100 min/mes)",
+          "Grabación y transcripción",
+          "Integración con WhatsApp"
         ]
       }
     },
@@ -774,15 +772,16 @@
       "free": "Gratis",
       "pro": "Pro",
       "team": "Equipo",
-      "enterprise": "Empresa"
+      "enterprise": "Empresa",
+      "unlimited": "Ilimitado"
     },
     "value": {
       "whatsappTitle": "WhatsApp como canal de reservas",
       "whatsappText": "Tus clientes pueden reservar desde el canal que ya utilizan cada día.",
       "botTitle": "IA cuando la necesites",
       "botText": "El plan Pro incorpora un asistente que responde y ayuda a convertir conversaciones en citas.",
-      "launchTitle": "Empieza sin compromiso complejo",
-      "launchText": "El plan Básico de fundadores ofrece una entrada sencilla para validar tu negocio."
+      "launchTitle": "Empieza con la oferta de fundador",
+      "launchText": "Las 20 primeras plazas de Coach Fundador incluyen todo el plan Pro a 9 €/mes, con el precio bloqueado de por vida."
     },
     "faq": [
       {
@@ -806,7 +805,13 @@
         "answer": "¡Sí! El plan gratuito admite enlaces de video externos de Zoom, Google Meet y Microsoft Teams. Las Smart Video Rooms con grabación/transcripción integradas requieren Pro o superior."
       }
     ],
-    "resellerProvidedBy": "Precios ofrecidos por {{name}}"
+    "resellerProvidedBy": "Precios ofrecidos por {{name}}",
+    "founderBanner": "Lanzamiento: solo 20 plazas de Coach Fundador a 9 €/mes para siempre. Cuando se agoten, el precio para nuevos clientes sube a 19 €/mes.",
+    "founderBadge": "Oferta de lanzamiento",
+    "founderSeatsLeft": "Quedan {{count}} plazas",
+    "founderSoldOut": "Plazas agotadas: el precio para nuevos clientes ya es 19 €/mes.",
+    "founderSoldOutCta": "Plazas agotadas",
+    "founderPromoText": "A cambio de feedback semanal el primer mes y un testimonio si el producto te funciona."
   },
   "support": {
     "title": "Soporte por tickets",
@@ -839,7 +844,7 @@
   "commercial": {
     "title": "Condiciones comerciales",
     "paymentTerms": "Pagos y planes",
-    "paymentTermsText": "El plan Básico de fundadores se ofrece como pago único de 29 €. Los planes Pro y Equipo se ofrecen mediante suscripción mensual al precio mostrado antes de confirmar el pago.",
+    "paymentTermsText": "Coach Fundador es una suscripción mensual de 9 € con el precio bloqueado mientras permanezca activa, limitada a 20 plazas. Pro (19 €), Equipo (39 €) y Empresa (79 €) se ofrecen mediante suscripción mensual al precio mostrado antes de confirmar el pago. El plan Básico de fundadores de 29 € (pago único) está retirado de la venta; quienes lo contrataron conservan su acceso.",
     "refunds": "Reembolsos",
     "refundsText": "Puedes solicitar un reembolso dentro de los 14 días siguientes a la compra, salvo que la ley aplicable establezca un plazo más favorable. Las solicitudes se tramitan mediante un ticket de soporte.",
     "cancellation": "Cancelación",

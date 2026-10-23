@@ -1,20 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Zap, Bot, Users, CalendarDays, MessageCircle, ArrowRight } from 'lucide-react';
+import { Check, X, Zap, Bot, Users, CalendarDays, MessageCircle, ArrowRight, Flame, Building2 } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { useTranslation } from '@/lib/i18n/hooks';
 
 
-type PaidPlan = 'BASIC' | 'PRO' | 'TEAM';
-type PlanKey = 'basic' | 'pro' | 'team';
+type PaidPlan = 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+type PlanKey = 'founder' | 'pro' | 'team' | 'enterprise';
 
 export interface ResellerPricing {
   resellerName: string;
   prices: {
-    basic: number;
+    founder: number;
     pro: number;
     team: number;
+    enterprise: number;
   };
 }
 
@@ -23,9 +24,10 @@ interface PricingContentProps {
   hasActiveSubscription: boolean;
   isLoggedIn: boolean;
   resellerPricing?: ResellerPricing | null;
+  founderSeatsLeft: number;
 }
 
-const PLAN_ORDER: PlanKey[] = ['basic', 'pro', 'team'];
+const PLAN_ORDER: PlanKey[] = ['founder', 'pro', 'team', 'enterprise'];
 
 const PLAN_DETAILS: Record<PlanKey, {
   price: number;
@@ -33,12 +35,13 @@ const PLAN_DETAILS: Record<PlanKey, {
   icon: typeof CalendarDays;
   highlighted?: boolean;
 }> = {
-  basic: { price: 29, billingKey: 'oneTime', icon: CalendarDays },
-  pro: { price: 19, billingKey: 'perMonth', icon: Bot, highlighted: true },
+  founder: { price: 9, billingKey: 'perMonth', icon: Flame, highlighted: true },
+  pro: { price: 19, billingKey: 'perMonth', icon: Bot },
   team: { price: 39, billingKey: 'perMonth', icon: Users },
+  enterprise: { price: 79, billingKey: 'perMonth', icon: Building2 },
 };
 
-export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn, resellerPricing }: PricingContentProps) {
+export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn, resellerPricing, founderSeatsLeft }: PricingContentProps) {
   const [loading, setLoading] = useState<PlanKey | null>(null);
   const { t } = useTranslation();
 
@@ -60,47 +63,14 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn,
       return;
     }
 
-    if (planKey === 'basic' && currentPlan === 'BASIC') {
-      window.location.href = '/dashboard';
-      return;
-    }
-
-    if (planKey === 'basic') {
-      setLoading(planKey);
-      try {
-        const response = await fetch('/api/stripe/create-checkout-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan: 'BASIC' }),
-        });
-        const data = await response.json();
-        if (!response.ok || data.error) {
-          alert(data.error || t('pricing.checkoutError'));
-          return;
-        }
-        // Redirect to the Stripe-hosted checkout URL. This avoids depending on
-        // the publishable key matching the session mode on the client.
-        if (data.url) {
-          window.location.href = data.url;
-          return;
-        }
-        const stripe = await loadStripe(data.publishableKey || '');
-        if (!stripe) {
-          alert(t('pricing.paymentUnavailable'));
-          return;
-        }
-        const result = await (stripe as any).redirectToCheckout({ sessionId: data.sessionId });
-        if (result?.error) alert(result.error.message);
-      } catch (error) {
-        console.error('Basic checkout error:', error);
-        alert(t('pricing.checkoutError'));
-      } finally {
-        setLoading(null);
-      }
-      return;
-    }
-
     const paidPlan = planKey.toUpperCase() as PaidPlan;
+
+    // A founder seat may sell out between page load and click; fail gracefully.
+    if (paidPlan === 'FOUNDER' && currentPlan !== 'FOUNDER' && founderSeatsLeft <= 0) {
+      alert(t('pricing.founderSoldOut'));
+      return;
+    }
+
     if (paidPlan === currentPlan && hasActiveSubscription) {
       window.location.href = '/dashboard';
       return;
@@ -124,7 +94,7 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn,
       // Plan change on an existing subscription: ask for explicit confirmation
       // before switching the recurring price (Stripe prorates the difference).
       if (data.requiresConfirmation) {
-        const currentPlanName = t(`pricing.plans.${planKey === 'team' ? 'pro' : 'team'}.name`);
+        const currentPlanName = planLabelFor(currentPlan);
         const targetPlanName = t(`pricing.plans.${planKey}.name`);
         const message =
           `${t('pricing.planChangeConfirm')}\n\n` +
@@ -177,11 +147,12 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn,
   };
 
   const planLabel = (planKey: PlanKey) => t(`pricing.plans.${planKey}.name`);
-  const isCurrent = (planKey: PlanKey) => {
-    // FREE is the legacy onboarding state; it is not the paid Founders Basic plan.
-    if (planKey === 'basic') return currentPlan === 'BASIC';
-    return currentPlan === planKey.toUpperCase() && hasActiveSubscription;
+  const planLabelFor = (plan: string) => {
+    const key = plan.toLowerCase() as PlanKey;
+    return PLAN_ORDER.includes(key) ? planLabel(key) : plan;
   };
+  const isCurrent = (planKey: PlanKey) =>
+    currentPlan === planKey.toUpperCase() && hasActiveSubscription;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -197,29 +168,38 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn,
         </p>
       </section>
 
-      <section className="mx-auto mt-12 grid max-w-6xl gap-6 lg:grid-cols-3" aria-label={t('pricing.plansLabel')}>
+      <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-center">
+        <p className="text-sm font-semibold text-amber-900">
+          {t('pricing.founderBanner')}
+        </p>
+      </div>
+
+      <section className="mx-auto mt-12 grid max-w-7xl gap-6 lg:grid-cols-4" aria-label={t('pricing.plansLabel')}>
         {PLAN_ORDER.map((planKey) => {
           const details = PLAN_DETAILS[planKey];
           const Icon = details.icon;
           const current = isCurrent(planKey);
+          const soldOut = planKey === 'founder' && !current && founderSeatsLeft <= 0;
           const features = t(`pricing.plans.${planKey}.features`, { returnObjects: true }) as string[];
 
           return (
             <article
               key={planKey}
               className={`relative flex flex-col border bg-white p-7 shadow-sm transition-shadow hover:shadow-md ${
-                details.highlighted ? 'border-indigo-500 shadow-indigo-100' : 'border-gray-200'
+                details.highlighted ? 'border-amber-400 shadow-amber-100' : 'border-gray-200'
               }`}
             >
               {details.highlighted && (
-                <div className="absolute inset-x-0 top-0 bg-indigo-600 px-4 py-2 text-center text-xs font-bold uppercase tracking-wide text-white">
-                  {t('pricing.mostPopular')}
+                <div className="absolute inset-x-0 top-0 bg-amber-500 px-4 py-2 text-center text-xs font-bold uppercase tracking-wide text-white">
+                  {t('pricing.founderBadge')}
                 </div>
               )}
 
               <div className={details.highlighted ? 'pt-5' : ''}>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center bg-indigo-50 text-indigo-600">
+                  <div className={`flex h-10 w-10 items-center justify-center ${
+                    details.highlighted ? 'bg-amber-50 text-amber-600' : 'bg-indigo-50 text-indigo-600'
+                  }`}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
@@ -242,24 +222,32 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn,
                 <button
                   type="button"
                   onClick={() => handlePlanAction(planKey)}
-                  disabled={current || loading !== null}
+                  disabled={current || loading !== null || soldOut}
                   className={`mt-7 flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     details.highlighted
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      ? 'bg-amber-500 text-white hover:bg-amber-600'
                       : 'bg-gray-950 text-white hover:bg-gray-800'
                   }`}
                 >
-                  {loading === planKey ? t('common.loading') : current ? t('pricing.currentPlan') : t(`pricing.plans.${planKey}.cta`)}
-                  {!current && loading !== planKey && <ArrowRight className="h-4 w-4" />}
+                  {loading === planKey
+                    ? t('common.loading')
+                    : current
+                      ? t('pricing.currentPlan')
+                      : soldOut
+                        ? t('pricing.founderSoldOutCta')
+                        : t(`pricing.plans.${planKey}.cta`)}
+                  {!current && !soldOut && loading !== planKey && <ArrowRight className="h-4 w-4" />}
                 </button>
 
-                {planKey === 'basic' && (
-                  <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                    <p className="text-sm font-bold text-emerald-900">
-                      {t('pricing.basicPromoTitle')}
+                {planKey === 'founder' && (
+                  <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-bold text-amber-900">
+                      {founderSeatsLeft > 0
+                        ? t('pricing.founderSeatsLeft', { count: founderSeatsLeft })
+                        : t('pricing.founderSoldOut')}
                     </p>
-                    <p className="mt-1 text-sm text-emerald-800">
-                      {t('pricing.basicPromoText')}
+                    <p className="mt-1 text-sm text-amber-800">
+                      {t('pricing.founderPromoText')}
                     </p>
                   </div>
                 )}
@@ -294,14 +282,16 @@ export function PricingContent({ currentPlan, hasActiveSubscription, isLoggedIn,
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              <ComparisonRow label={t('pricing.comparisonTable.bookingPages')} values={['5', '10', '50']} />
-              <ComparisonRow label={t('pricing.comparisonTable.customers')} values={['1.000', t('pricing.comparisonTable.moreCapacity'), t('pricing.comparisonTable.moreCapacity')]} />
-              <ComparisonRow label={t('pricing.comparisonTable.googleCalendar')} values={[true, true, true]} />
-              <ComparisonRow label={t('pricing.comparisonTable.aiAssistant')} values={[false, t('pricing.comparisonTable.aiPro'), t('pricing.comparisonTable.aiTeam')]} />
-              <ComparisonRow label={t('pricing.comparisonTable.whatsapp')} values={[false, true, true]} />
-              <ComparisonRow label={t('pricing.comparisonTable.customerFeedback')} values={[false, true, true]} />
-              <ComparisonRow label={t('pricing.comparisonTable.teamScheduling')} values={[false, false, t('pricing.comparisonTable.upToFiveUsers')]} />
-              <ComparisonRow label={t('pricing.comparisonTable.payments')} values={[true, true, true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.bookingPages')} values={['10', '10', '50', t('pricing.comparisonTable.moreCapacity')]} />
+              <ComparisonRow label={t('pricing.comparisonTable.customers')} values={['10.000', '10.000', '50.000', t('pricing.comparisonTable.moreCapacity')]} />
+              <ComparisonRow label={t('pricing.comparisonTable.googleCalendar')} values={[true, true, true, true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.aiAssistant')} values={[t('pricing.comparisonTable.aiPro'), t('pricing.comparisonTable.aiPro'), t('pricing.comparisonTable.aiTeam'), t('pricing.comparisonTable.unlimited')]} />
+              <ComparisonRow label={t('pricing.comparisonTable.whatsapp')} values={[true, true, true, true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.customerFeedback')} values={[true, true, true, true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.teamScheduling')} values={[false, false, t('pricing.comparisonTable.upToFiveUsers'), true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.payments')} values={[true, true, true, true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.sso')} values={[false, false, false, true]} />
+              <ComparisonRow label={t('pricing.comparisonTable.dedicatedSupport')} values={[false, false, false, true]} />
             </tbody>
           </table>
         </div>

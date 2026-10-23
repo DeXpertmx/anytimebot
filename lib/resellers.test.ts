@@ -14,8 +14,12 @@ describe('wholesalePriceCents', () => {
     assert.equal(wholesalePriceCents('PRO', 40), 1140);
     // TEAM 39 €, 25% -> 29.25 € = 2925 cents
     assert.equal(wholesalePriceCents('TEAM', 25), 2925);
-    // BASIC 29 €, 0% -> 29 €
+    // BASIC 29 €, 0% -> 29 € (legacy plan, kept for existing holders)
     assert.equal(wholesalePriceCents('BASIC', 0), 2900);
+    // FOUNDER 9 €, 0% -> 9 €
+    assert.equal(wholesalePriceCents('FOUNDER', 0), 900);
+    // ENTERPRISE 79 €, 25% -> 59.25 € = 5925 cents
+    assert.equal(wholesalePriceCents('ENTERPRISE', 25), 5925);
   });
 
   test('clamps discount to 0-100', () => {
@@ -39,6 +43,11 @@ describe('resolvePublicPriceCents', () => {
   test('ignores zero/negative reseller prices (falls back to official)', () => {
     assert.equal(resolvePublicPriceCents('PRO', { PRO: 0 }), OFFICIAL_PRICE_CENTS.PRO);
     assert.equal(resolvePublicPriceCents('PRO', { PRO: -5 }), OFFICIAL_PRICE_CENTS.PRO);
+  });
+
+  test('official launch prices are 9 € for Founder and 79 € for Enterprise', () => {
+    assert.equal(OFFICIAL_PRICE_CENTS.FOUNDER, 900);
+    assert.equal(OFFICIAL_PRICE_CENTS.ENTERPRISE, 7900);
   });
 });
 

@@ -658,7 +658,7 @@
     "basicPromoTitle": "🎉 Create your calendar with Anytimebot",
     "basicPromoText": "Pay once and keep your professional calendar forever: branded booking pages, automatic reminders and more customers — whenever you need them.",
     "comparisonSubtitle": "A clear comparison of what each plan includes.",
-    "launchNote": "Founders offer: the Basic plan is designed for our first customers. Features and limits are shown clearly before you subscribe.",
+    "launchNote": "Launch offer: the 20 Founding Coach seats include everything in Pro at €9/month with the price locked. When they run out, the price for new customers will be €19/month.",
     "checkoutError": "We couldn't start checkout. Please try again.",
     "paymentUnavailable": "The payment system is currently unavailable.",
     "planChangeConfirm": "Confirm plan change?",
@@ -672,31 +672,16 @@
     "comparisonTitle": "Feature Comparison",
     "faqTitle": "Frequently Asked Questions",
     "plans": {
-      "basic": {
-        "name": "Founders Basic",
-        "description": "Everything you need to start accepting bookings.",
-        "cta": "Start with Basic",
-        "features": [
-          "1 user",
-          "Up to 5 booking pages",
-          "Up to 1,000 customers",
-          "Bookings and calendar",
-          "Google Calendar sync",
-          "Email confirmations",
-          "No chatbot, teams, or reviews"
-        ]
-      },
       "free": {
-        "name": "Founders Basic",
-        "description": "Everything you need to start accepting bookings.",
-        "cta": "Start with Basic",
+        "name": "Free",
+        "description": "Start accepting bookings at no cost",
+        "cta": "Get started",
         "features": [
-          "1 user",
-          "Up to 5 booking pages",
-          "Up to 1,000 customers",
-          "Bookings and calendar",
+          "1 booking page",
           "Google Calendar sync",
-          "Email confirmations"
+          "Web widget + direct link",
+          "External video links (Zoom/Google Meet)",
+          "Basic email notifications"
         ]
       },
       "pro": {
@@ -734,18 +719,31 @@
       },
       "enterprise": {
         "name": "Enterprise",
-        "description": "Custom solutions for large organizations",
-        "cta": "Contact Sales",
+        "description": "For clinics and multi-location businesses",
+        "cta": "Upgrade to Enterprise",
         "features": [
-          "Unlimited Everything",
-          "Custom AI Training",
-          "White-Label Solution",
-          "SSO & Advanced Security",
-          "Custom Integrations",
-          "Dedicated Account Manager",
-          "24/7 Priority Support",
-          "SLA Guarantees",
-          "Custom Contract Terms"
+          "Everything in Team",
+          "Expanded users and capacity",
+          "Expanded AI, video and documents",
+          "Multiple locations",
+          "SSO & advanced security",
+          "Dedicated support",
+          "Personalized onboarding",
+          "SLA guarantees"
+        ]
+      },
+      "founder": {
+        "name": "Founding Coach",
+        "description": "Launch offer for coaches and consultants",
+        "cta": "Claim my seat",
+        "features": [
+          "Everything in Pro",
+          "Founder price locked for life",
+          "AI Assistant (300/mo)",
+          "5 training documents",
+          "Video rooms (100 min/mo)",
+          "Recording & transcription",
+          "WhatsApp integration"
         ]
       }
     },
@@ -774,15 +772,16 @@
       "free": "Free",
       "pro": "Pro",
       "team": "Team",
-      "enterprise": "Enterprise"
+      "enterprise": "Enterprise",
+      "unlimited": "Unlimited"
     },
     "value": {
       "whatsappTitle": "WhatsApp as a booking channel",
       "whatsappText": "Let customers book through the channel they already use every day.",
       "botTitle": "AI when you need it",
       "botText": "The Pro plan adds an assistant that answers questions and turns conversations into bookings.",
-      "launchTitle": "Start without complexity",
-      "launchText": "The Founders Basic plan gives you a simple way to validate your business."
+      "launchTitle": "Start with the founder offer",
+      "launchText": "The first 20 Founding Coach seats include everything in Pro at €9/month, with the price locked for life."
     },
     "faq": [
       {
@@ -806,7 +805,13 @@
         "answer": "Yes! The free plan supports external video links from Zoom, Google Meet, and Microsoft Teams. Smart Video Rooms with built-in recording/transcription require Pro or higher."
       }
     ],
-    "resellerProvidedBy": "Prices provided by {{name}}"
+    "resellerProvidedBy": "Prices provided by {{name}}",
+    "founderBanner": "Launch: only 20 Founding Coach seats at €9/month, locked forever. When they run out, the price for new customers goes up to €19/month.",
+    "founderBadge": "Launch offer",
+    "founderSeatsLeft": "{{count}} seats left",
+    "founderSoldOut": "Sold out: the price for new customers is now €19/month.",
+    "founderSoldOutCta": "Sold out",
+    "founderPromoText": "In exchange for weekly feedback during the first month and a testimonial if the product works for you."
   },
   "support": {
     "title": "Ticket support",
@@ -839,7 +844,7 @@
   "commercial": {
     "title": "Commercial terms",
     "paymentTerms": "Payments and plans",
-    "paymentTermsText": "The Founders Basic plan is offered as a one-time payment of €29. Pro and Team are offered as monthly subscriptions at the price shown before you confirm payment.",
+    "paymentTermsText": "Founding Coach is a monthly subscription of €9 with the price locked while it stays active, limited to 20 seats. Pro (€19), Team (€39) and Enterprise (€79) are offered as monthly subscriptions at the price shown before you confirm payment. The €29 one-time Founders Basic plan is retired; existing holders keep their access.",
     "refunds": "Refunds",
     "refundsText": "You may request a refund within 14 days of purchase, unless applicable law provides a longer period. Requests are handled through a support ticket.",
     "cancellation": "Cancellation",

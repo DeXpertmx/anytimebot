@@ -1283,9 +1283,13 @@ enum FormFieldType {
   TEXTAREA
 }
 
+// BASIC is the legacy one-time "Founders Basic" plan (29 €): kept for existing
+// holders, no longer sold. FOUNDER is the "Coach Fundador" launch offer
+// (9 €/mo locked while active, capped seats, Pro-level features).
 enum SubscriptionPlan {
   FREE
   BASIC
+  FOUNDER
   PRO
   TEAM
   ENTERPRISE

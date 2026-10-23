@@ -13,8 +13,9 @@ El selector está en `/admin/settings` → **Stripe Mode** y no requiere redeplo
 - **Credenciales de test** — guardadas en la base vía el panel admin (con prioridad sobre env).
 - **Credenciales live** — actualmente viven en **variables de entorno de Vercel**:
   `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM` (las variantes legacy sin sufijo se usan como live fallback;
-  las variantes `_LIVE` también son válidas si prefieres separarlas).
+  `STRIPE_PRICE_FOUNDER`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`, `STRIPE_PRICE_ENTERPRISE`
+  (las variantes legacy sin sufijo se usan como live fallback; las variantes `_LIVE` también son
+  válidas si prefieres separarlas).
   > Estas variables están **marcadas como sensibles** en Vercel: `vercel env pull` las devuelve como
   > `[SENSITIVE]` a propósito. Eso es correcto y esperado — no significa que falten.
 
@@ -32,8 +33,20 @@ Comprobado contra la API de Stripe desde el runtime de producción:
 | Price PRO | `price_1UAc…cXo` — **19,00 €/mes**, activo, "Anytimebot Pro", livemode |
 | Price TEAM | `price_1UAc…ioi` — **39,00 €/mes**, activo, "Anytimebot Team", livemode |
 
-Los precios **coinciden con la oferta comercial** (Básico 29 € único vía checkout con `metadata.plan=BASIC`;
-Pro 19 €/mes; Equipo 39 €/mes). **No hay que crear nada en Stripe ni cambiar price IDs.**
+### Oferta actual (a partir de 2026-10-10)
+
+| Plan | Precio | Price ID | Acción en Stripe |
+|---|---|---|---|
+| **Coach Fundador** | 9 €/mes (bloqueado, 20 plazas) | `STRIPE_PRICE_FOUNDER` | **Crear** (recurring mensual) |
+| Pro | 19 €/mes | `STRIPE_PRICE_PRO` | Ya existe |
+| Team | 39 €/mes | `STRIPE_PRICE_TEAM` | Ya existe |
+| Enterprise | 79 €/mes | `STRIPE_PRICE_ENTERPRISE` | **Crear** (recurring mensual) |
+| Básico de fundadores | 29 € pago único | — | **Retirado de la venta** (los clientes existentes conservan su acceso) |
+
+**Antes de activar live hay que crear en Stripe los dos precios nuevos** (Fundador 9 €/mes y
+Enterprise 79 €/mes) y guardar sus `price_…` en las variables/credenciales correspondientes. Sin ellos,
+el checkout de esos planes responde `503` (`Stripe price is not configured…`) y la página de precios
+sigue mostrándolos pero no permite comprarlos.
 
 ---
 
@@ -59,16 +72,16 @@ Eventos que debe suscribir (idénticos a los de test):
 Copia el **signing secret** (`whsec_live_…`) del endpoint. El sistema distingue test/live solo por la
 firma (`whsec`), así que **no hace falta una URL distinta**: la misma URL sirve para ambos modos.
 
-> ⚠️ El Básico de fundadores (29 €) es un **pago único** (one-time) que se activa con
-> `checkout.session.completed` + `metadata.plan=BASIC`. Pro/Equipo son suscripciones mensuales
-> (`customer.subscription.*`). Verifica que los 6 eventos estén activos; en el primer despliegue de
-> pruebas faltaba `checkout.session.completed` y los planes no se activaban.
+> ⚠️ Todos los planes de la oferta actual (Coach Fundador, Pro, Equipo, Empresa) son **suscripciones
+> mensuales** y se procesan vía `customer.subscription.*`. El plan **Básico de fundadores (29 €, pago
+> único)** está retirado: ya no se vende, pero el código sigue reconociendo `metadata.plan=BASIC` para
+> los clientes existentes (`lib/founders-basic.ts`). Verifica que los 6 eventos estén activos.
 
 ### 2. Comprobar las credenciales live en el panel admin
 
 Entra en `/admin/settings` → **Stripe Mode** → apartado **Production (live)**:
 
-- Debe mostrar los campos en verde / "SET" (secret, publishable, webhook secret, price PRO, price TEAM).
+- Debe mostrar los campos en verde / "SET" (secret, publishable, webhook secret, price FOUNDER, price PRO, price TEAM, price ENTERPRISE).
 - Si prefieres gestionarlas desde la base (como en test), pulsa **Add credentials** en live e introdúcelas;
   mientras no lo hagas, el sistema usa las env vars de Vercel (actualmente correctas).
 
@@ -81,14 +94,15 @@ El panel bloquea el cambio si falta configuración. Al activarse, *todos* los pa
 
 ### 4. Prueba real en baja escala
 
-- Compra el **Básico (29 €)** con una tarjeta real desde `/pricing` → debe volver al dashboard con el
-  banner "Pago recibido con éxito" y el plan **BASIC** (cuotas: 5 páginas, 1.000 clientes).
+- Compra el **Coach Fundador (9 €/mes)** con una tarjeta real desde `/pricing` (con menos de 20 plazas
+  ocupadas) → debe volver al dashboard con el banner "Pago recibido con éxito" y el plan **FOUNDER**
+  (cuotas equivalentes a Pro).
+- Simula 20 plazas ocupadas (o espera a agotarlas) → el botón de Coach Fundador se deshabilita y el
+  checkout responde `409` (`Seats are sold out`).
 - Compra **Pro (19 €/mes)** → plan **PRO** activo con fecha de renovación.
-- Haz **upgrade a Equipo (39 €)** → debe pedir confirmación y **cobrar solo la diferencia prorrateada**
-  (Stripe aplica el crédito del periodo ya pagado).
-- **Cancela** la suscripción desde el Stripe Customer Portal → el plan baja a **BASIC** conservando la
-  compra de fundadores.
-- **Reembolsa** la compra del Básico (si se requiere) → el plan baja a **FREE** y se revocan las cuotas.
+- Haz **upgrade a Equipo (39 €)** o **Empresa (79 €)** → debe pedir confirmación y **cobrar solo la
+  diferencia prorrateada** (Stripe aplica el crédito del periodo ya pagado).
+- **Cancela** la suscripción desde el Stripe Customer Portal → el plan baja a **FREE**.
 
 ### 5. Verificación post-activación
 
@@ -112,10 +126,13 @@ flag en `SystemSetting`, reversión instantánea.
 - **No** pongas las claves live en `.env.local`, commits ni issues. Vercel ya las guarda como sensibles.
 - Rota `whsec_live_…` si aparece en logs o tickets (Stripe permite regenerar el secret del endpoint).
 - Si algún día cambias los precios (p. ej. 19 → 24 €), crea el precio nuevo en Stripe live y actualiza
-  `STRIPE_PRICE_PRO`/`STRIPE_PRICE_TEAM` (o las credenciales guardadas en admin) **antes** de activarlo;
-  los clientes nuevos verán el precio nuevo y los existentes conservan su suscripción.
-- El Básico de fundadores se compra una sola vez por cuenta y solo desde plan `FREE`. Si necesitas
-  permitir recompra o cambios de precio del Básico en el futuro, revisa `lib/founders-basic.ts`.
+  `STRIPE_PRICE_*` (o las credenciales guardadas en admin) **antes** de activarlo; los clientes nuevos
+  verán el precio nuevo y los existentes conservan su suscripción.
+- El precio bloqueado de Coach Fundador es el Price ID `STRIPE_PRICE_FOUNDER`: **no lo rotes mientras la
+  oferta siga viva**, o las suscripciones nuevas dejarían de ser al precio de lanzamiento. El cupo de 20
+  plazas se calcula contando usuarios con `plan = FOUNDER` en el checkout (`lib/plans.ts`).
+- El plan **Básico de fundadores** (29 € pago único) ya no se vende; se conserva el código de entitlement
+  para no romper a los clientes que lo compraron (`lib/founders-basic.ts`).
 ---
 
 ## Stripe Connect — pagos directos al negocio (por tenant)

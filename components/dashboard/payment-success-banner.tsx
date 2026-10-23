@@ -5,8 +5,10 @@ import { CheckCircle2, X } from 'lucide-react';
 
 const PLAN_LABELS: Record<string, string> = {
   BASIC: 'Básico de fundadores',
+  FOUNDER: 'Coach Fundador',
   PRO: 'Pro',
   TEAM: 'Equipo',
+  ENTERPRISE: 'Empresa',
 };
 
 /**

@@ -13,14 +13,16 @@ const CREDENTIAL_FIELDS: Array<keyof StripeModeCredentials> = [
   'secretKey',
   'publishableKey',
   'webhookSecret',
+  'priceFounder',
   'pricePro',
   'priceTeam',
+  'priceEnterprise',
 ];
 
 /**
  * POST /api/admin/stripe-credentials
  * Body: { mode: 'live' | 'test', clear?: true } or
- *       { mode: 'live' | 'test', credentials: { secretKey?, publishableKey?, webhookSecret?, pricePro?, priceTeam? } }
+ *       { mode: 'live' | 'test', credentials: { secretKey?, publishableKey?, webhookSecret?, priceFounder?, pricePro?, priceTeam?, priceEnterprise? } }
  */
 export async function POST(request: NextRequest) {
   try {

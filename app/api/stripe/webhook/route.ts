@@ -6,7 +6,9 @@ import { prisma } from '@/lib/db';
 import Stripe from 'stripe';
 import { updateUserPlanQuotas, initializeUserQuotas } from '@/lib/plans';
 import { getStripe, getSubscriptionPeriodEnd } from '@/lib/stripe';
-import { getWebhookSecretCandidates, getStripePriceId, type StripeMode } from '@/lib/stripe-mode';
+import { getWebhookSecretCandidates, type StripeMode } from '@/lib/stripe-mode';
+import { resolvePaidPlan } from '@/lib/plan-pricing';
+import type { PaidPlanTier } from '@/lib/plans';
 import { notifyAdminNewPaidBooking } from '@/lib/system-whatsapp';
 import { sendMembershipWelcome, sendMembershipOverdue } from '@/lib/email';
 import { activateFoundersBasicPurchase, revokeFoundersBasicRefund } from '@/lib/founders-basic';
@@ -507,11 +509,10 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session, eventMod
   const subscription = await (await getStripe(eventMode)).subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0]?.price.id;
 
-  // Determine plan from price ID (mode aware)
-  let plan: 'PRO' | 'TEAM' = 'PRO';
-  if (priceId === (await getStripePriceId(eventMode, 'TEAM'))) {
-    plan = 'TEAM';
-  }
+  // Prefer the price ID (mode aware and unforgeable); fall back to the checkout
+  // metadata for reseller subscriptions, whose price is dynamic.
+  const plan: PaidPlanTier =
+    (await resolvePaidPlan(eventMode, priceId, session.metadata?.plan)) ?? 'PRO';
 
   // Update user
   const periodEnd = getSubscriptionPeriodEnd(subscription);
@@ -542,10 +543,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, even
   }
 
   const priceId = subscription.items.data[0]?.price.id;
-  let plan: 'PRO' | 'TEAM' = 'PRO';
-  if (priceId === (await getStripePriceId(eventMode, 'TEAM'))) {
-    plan = 'TEAM';
-  }
+  const plan: PaidPlanTier =
+    (await resolvePaidPlan(eventMode, priceId, subscription.metadata?.plan)) ?? 'PRO';
 
   const periodEnd = getSubscriptionPeriodEnd(subscription);
   await prisma.user.update({

@@ -1,7 +1,26 @@
 
 // Plan Configuration and Quota Management
 
-export type PlanTier = 'FREE' | 'BASIC' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+export type PlanTier = 'FREE' | 'BASIC' | 'FOUNDER' | 'PRO' | 'TEAM' | 'ENTERPRISE';
+
+/**
+ * Plans sold as a recurring subscription. BASIC is intentionally excluded: it
+ * is the legacy one-time "Founders Basic" entitlement kept for existing holders.
+ */
+export const PAID_PLAN_TIERS = ['FOUNDER', 'PRO', 'TEAM', 'ENTERPRISE'] as const;
+export type PaidPlanTier = (typeof PAID_PLAN_TIERS)[number];
+
+export function isPaidPlanTier(value: unknown): value is PaidPlanTier {
+  return typeof value === 'string' && (PAID_PLAN_TIERS as readonly string[]).includes(value);
+}
+
+/** Seats available for the "Coach Fundador" launch offer (9 €/mo locked). */
+export const FOUNDER_SEATS = 20;
+
+/** Whether a new founder seat can still be claimed, given the active count. */
+export function canClaimFounderSeat(activeFounders: number, seats: number = FOUNDER_SEATS): boolean {
+  return Math.max(activeFounders, 0) < seats;
+}
 
 export interface PlanQuotas {
   bookingPages: number;
@@ -93,6 +112,40 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
     },
     cta: 'Get Started',
   },
+  FOUNDER: {
+    name: 'Coach Fundador',
+    price: 9,
+    priceId: process.env.STRIPE_PRICE_FOUNDER || 'price_founder',
+    description: 'Launch offer for coaches and consultants: everything in Pro, locked forever',
+    features: [
+      'Everything in Pro',
+      'Founder price locked for life',
+      'Anytime Assistant (trainable chatbot)',
+      'Up to 5 documents for AI training',
+      'Anytime Meeting Rooms (100 min/mo)',
+      'Video recording + transcription',
+      'WhatsApp integration',
+      '300 AI interactions/mo',
+    ],
+    quotas: {
+      bookingPages: 10,
+      maxCustomers: 10000,
+      aiInteractions: 300,
+      botDocuments: 5,
+      videoMinutes: 100,
+      videoRecording: true,
+      videoTranscription: true,
+      whatsappMessages: 1000,
+      telegramMessages: 0,
+      teamMembers: 1,
+      teamScheduling: false,
+      canUseWhatsApp: true,
+      canUseTelegram: false,
+      canUseEvolution: true,
+      canUseTwilio: false,
+    },
+    cta: 'Claim my founder seat',
+  },
   PRO: {
     name: 'Pro',
     price: 19,
@@ -165,9 +218,12 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
   },
   ENTERPRISE: {
     name: 'Enterprise',
-    price: 0, // Custom pricing
-    description: 'For large organizations',
+    price: 79,
+    priceId: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise',
+    description: 'For clinics and multi-location businesses',
+    cta: 'Upgrade to Enterprise',
     features: [
+      'Everything in Team, plus:',
       'Unlimited everything',
       'Unlimited team members',
       'Unlimited AI interactions',
@@ -196,14 +252,15 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       canUseEvolution: true,
       canUseTwilio: true,
     },
-    cta: 'Contact Sales',
   },
 };
 
 // Stripe Price IDs - Set these in .env
 export const STRIPE_PRICES = {
+  FOUNDER: process.env.STRIPE_PRICE_FOUNDER || 'price_founder_placeholder',
   PRO: process.env.STRIPE_PRICE_PRO || 'price_pro_placeholder',
   TEAM: process.env.STRIPE_PRICE_TEAM || 'price_team_placeholder',
+  ENTERPRISE: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise_placeholder',
 };
 
 // Helper to get plan details
