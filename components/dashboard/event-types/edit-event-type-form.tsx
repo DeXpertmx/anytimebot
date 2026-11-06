@@ -462,7 +462,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
         </CardContent>
       </Card>
 
-      {/* Smart Video Rooms */}
+      {/* Video call */}
       {formData.location === 'video' && (
         <Card>
           <CardHeader>
@@ -482,6 +482,9 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="DAILY">
+                    {t('eventTypes.dailyRoom', 'Sala de vídeo integrada (Daily)')}
+                  </SelectItem>
                   <SelectItem value="GOOGLE_MEET">{t('eventTypes.googleMeet')}</SelectItem>
                   <SelectItem value="ZOOM">{t('eventTypes.zoom')}</SelectItem>
                   <SelectItem value="TEAMS">{t('eventTypes.teams')}</SelectItem>
@@ -493,7 +496,7 @@ export function EditEventTypeForm({ eventType, bookingPages }: EditEventTypeForm
               </p>
             </div>
 
-            {false && formData.videoProvider === 'DAILY' && (
+            {formData.videoProvider === 'DAILY' && (
               <>
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                   <div className="space-y-0.5">

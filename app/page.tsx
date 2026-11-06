@@ -8,7 +8,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'ANYTIMEBOT - Plataforma de Scheduling con IA y WhatsApp | Agenda Inteligente',
-  description: 'La plataforma de agendamiento más avanzada con IA personalizable, WhatsApp Bot nativo, Smart Video Rooms, Pre-Meeting Intelligence Briefs y Team Scheduling. Automatiza tus citas y aumenta tu productividad.',
+  description: 'La plataforma de agendamiento más avanzada con IA personalizable, WhatsApp Bot nativo, cobros y caja, Pre-Meeting Intelligence Briefs y Team Scheduling. Automatiza tus citas y aumenta tu productividad.',
   keywords: 'scheduling, agendamiento, calendario, whatsapp bot, AI assistant, video meetings, team scheduling, booking automation, smart calendar, meeting intelligence',
   openGraph: {
     title: 'ANYTIMEBOT - Scheduling Inteligente con IA',

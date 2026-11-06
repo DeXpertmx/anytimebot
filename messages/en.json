@@ -2,7 +2,7 @@
   "landing": {
     "title": "AI-Powered Scheduling",
     "subtitle": "Powered by WhatsApp",
-    "description": "The most advanced scheduling platform on the market. Native WhatsApp Bot, AI-powered Smart Video Rooms, Pre-Meeting Intelligence Briefs, Advanced Team Scheduling and much more. Everything the competition doesn't have.",
+    "description": "The most advanced scheduling platform on the market. Native WhatsApp Bot, integrated payments and cash drawer, Pre-Meeting Intelligence Briefs, Advanced Team Scheduling and much more. Everything the competition doesn't have.",
     "getStarted": "Get Started",
     "signIn": "Sign In",
     "readyToStart": "Ready for the scheduling revolution?",
@@ -22,10 +22,10 @@
         "description": "The only AI assistant fully integrated with WhatsApp. Schedule appointments by chatting naturally, without leaving your clients' favorite app",
         "badge": "EXCLUSIVE"
       },
-      "smartVideoRooms": {
-        "title": "AI-Powered Smart Video Rooms",
-        "description": "Intelligent video conferencing rooms with Daily.co, automatic transcriptions, sentiment analysis and cloud recordings",
-        "badge": "EXCLUSIVE"
+      "payments": {
+        "title": "Integrated payments and cash drawer",
+        "description": "Take payments online, in cash, by card on site, by transfer or Bizum, with cash drawer reconciliation, invoices and revenue reports.",
+        "badge": "INCLUDED"
       },
       "preMeetingBriefs": {
         "title": "Pre-Meeting Intelligence Briefs",
@@ -78,7 +78,6 @@
       "anytimebot": "ANYTIMEBOT",
       "others": "Others",
       "whatsappNative": "Native WhatsApp Bot",
-      "smartVideo": "AI Smart Video Rooms",
       "preMeetingAI": "Pre-Meeting Intelligence",
       "postMeetingAuto": "Post-Meeting Automation",
       "intelligentRouting": "Intelligent Routing",
@@ -241,7 +240,7 @@
     "videoProviderHint": "Select the video conferencing provider for this event type.",
     "dailyRecommended": "Daily.co (Recommended)",
     "dailyRecommendedFull": "Daily.co (Recommended - Native Integration)",
-    "dailyHint": "Daily.co provides native video rooms with AI features. Other providers use external links.",
+    "dailyHint": "Choose \"Built-in video room\" to meet inside Anytimebot (connect your Daily account in Integrations → Video calls). You can also use Google Meet, Zoom, Teams or your own link.",
     "googleMeet": "Google Meet",
     "zoom": "Zoom",
     "teams": "Microsoft Teams",
@@ -267,8 +266,8 @@
     "currencyEur": "EUR - Euro",
     "currencyMxn": "MXN - Mexican Peso",
     "currencyGbp": "GBP - British Pound",
-    "smartVideoRooms": "Smart Video Rooms",
-    "smartVideoRoomsDesc": "Configure native video conferencing with AI-powered features",
+    "smartVideoRooms": "Video call",
+    "smartVideoRoomsDesc": "Configure the video call link",
     "enableEmbeddedVideo": "Enable Embedded Video",
     "enableEmbeddedVideoDesc": "Embed video call directly in Anytimebot (requires Daily.co)",
     "enableRecording": "Enable Recording",
@@ -658,7 +657,7 @@
     "basicPromoTitle": "🎉 Create your calendar with Anytimebot",
     "basicPromoText": "Pay once and keep your professional calendar forever: branded booking pages, automatic reminders and more customers — whenever you need them.",
     "comparisonSubtitle": "A clear comparison of what each plan includes.",
-    "launchNote": "Launch offer: the 20 Founding Coach seats include everything in Pro at €9/month with the price locked. When they run out, the price for new customers will be €19/month.",
+    "launchNote": "Launch offer: the 20 Founding Coach seats include everything in Pro at €10/month with the price locked. When they run out, the price for new customers will be €19/month.",
     "checkoutError": "We couldn't start checkout. Please try again.",
     "paymentUnavailable": "The payment system is currently unavailable.",
     "planChangeConfirm": "Confirm plan change?",
@@ -692,8 +691,6 @@
           "10 Booking Pages",
           "AI Assistant (300/mo)",
           "5 Bot Training Documents",
-          "Video Rooms (100 min/mo)",
-          "Video Recording & Transcription",
           "WhatsApp Integration",
           "Pre-Meeting Intelligence Briefs",
           "Advanced Analytics",
@@ -708,7 +705,6 @@
           "50 Booking Pages",
           "AI Assistant (500/mo)",
           "50 Bot Training Documents",
-          "Video Rooms (500 min/mo)",
           "Team Scheduling (up to 5)",
           "WhatsApp + Telegram Integration",
           "Twilio Integration",
@@ -724,7 +720,7 @@
         "features": [
           "Everything in Team",
           "Expanded users and capacity",
-          "Expanded AI, video and documents",
+          "Expanded AI and documents",
           "Multiple locations",
           "SSO & advanced security",
           "Dedicated support",
@@ -741,8 +737,6 @@
           "Founder price locked for life",
           "AI Assistant (300/mo)",
           "5 training documents",
-          "Video rooms (100 min/mo)",
-          "Recording & transcription",
           "WhatsApp integration"
         ]
       }
@@ -757,8 +751,6 @@
       "aiPro": "300/month",
       "aiTeam": "500/month",
       "botTrainingDocs": "Bot Training Documents",
-      "videoRooms": "Video Meeting Rooms",
-      "videoRecording": "Video Recording & Transcription",
       "whatsapp": "WhatsApp Integration",
       "customerFeedback": "Reviews and surveys",
       "telegram": "Telegram Integration",
@@ -781,7 +773,7 @@
       "botTitle": "AI when you need it",
       "botText": "The Pro plan adds an assistant that answers questions and turns conversations into bookings.",
       "launchTitle": "Start with the founder offer",
-      "launchText": "The first 20 Founding Coach seats include everything in Pro at €9/month, with the price locked for life."
+      "launchText": "The first 20 Founding Coach seats include everything in Pro at €10/month, with the price locked for life."
     },
     "faq": [
       {
@@ -802,11 +794,11 @@
       },
       {
         "question": "Can I use external video links with the free plan?",
-        "answer": "Yes! The free plan supports external video links from Zoom, Google Meet, and Microsoft Teams. Smart Video Rooms with built-in recording/transcription require Pro or higher."
+        "answer": "Yes! Every plan supports external video links from Zoom, Google Meet, Microsoft Teams or your own URL. You can also use the built-in video room with your own Daily account: the first 10,000 participant-minutes each month are free and Daily bills you for anything above that. Recording and transcription are paid Daily add-ons and are not included in any plan."
       }
     ],
     "resellerProvidedBy": "Prices provided by {{name}}",
-    "founderBanner": "Launch: only 20 Founding Coach seats at €9/month, locked forever. When they run out, the price for new customers goes up to €19/month.",
+    "founderBanner": "Launch: only 20 Founding Coach seats at €10/month, locked forever. When they run out, the price for new customers goes up to €19/month.",
     "founderBadge": "Launch offer",
     "founderSeatsLeft": "{{count}} seats left",
     "founderSoldOut": "Sold out: the price for new customers is now €19/month.",
@@ -844,7 +836,7 @@
   "commercial": {
     "title": "Commercial terms",
     "paymentTerms": "Payments and plans",
-    "paymentTermsText": "Founding Coach is a monthly subscription of €9 with the price locked while it stays active, limited to 20 seats. Pro (€19), Team (€39) and Enterprise (€79) are offered as monthly subscriptions at the price shown before you confirm payment. The €29 one-time Founders Basic plan is retired; existing holders keep their access.",
+    "paymentTermsText": "Founding Coach is a monthly subscription of €10 with the price locked while it stays active, limited to 20 seats. Pro (€19), Team (€39) and Enterprise (€79) are offered as monthly subscriptions at the price shown before you confirm payment. The €29 one-time Founders Basic plan is retired; existing holders keep their access.",
     "refunds": "Refunds",
     "refundsText": "You may request a refund within 14 days of purchase, unless applicable law provides a longer period. Requests are handled through a support ticket.",
     "cancellation": "Cancellation",

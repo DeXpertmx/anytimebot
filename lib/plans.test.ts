@@ -9,8 +9,8 @@ import {
 } from './plans';
 
 describe('plan catalog', () => {
-  test('Founder is priced at 9 €/mo and inherits Pro-level quotas', () => {
-    assert.equal(PLAN_CONFIG.FOUNDER.price, 9);
+  test('Founder is priced at 10 €/mo and inherits Pro-level quotas', () => {
+    assert.equal(PLAN_CONFIG.FOUNDER.price, 10);
     assert.deepEqual(PLAN_CONFIG.FOUNDER.quotas, PLAN_CONFIG.PRO.quotas);
   });
 

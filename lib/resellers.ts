@@ -17,7 +17,7 @@ export const RESELLER_REF_QUERY = 'ref';
 export const OFFICIAL_PRICE_CENTS: Record<SubscriptionPlan, number> = {
   FREE: 0,
   BASIC: 2900, // Legacy 29 € one-time (kept for existing holders)
-  FOUNDER: 900, // 9 €/month launch offer (locked)
+  FOUNDER: 1000, // 10 €/month launch offer (locked)
   PRO: 1900, // 19 €/month
   TEAM: 3900, // 39 €/month
   ENTERPRISE: 7900, // 79 €/month

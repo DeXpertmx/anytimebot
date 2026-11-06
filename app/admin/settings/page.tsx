@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail, HardDrive, Activity } from 'lucide-react';
+import { Save, CreditCard, ShieldCheck, FlaskConical, KeyRound, Trash2, Link2, Check, Mail, HardDrive, Activity, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GlobalSettings {
@@ -85,6 +85,35 @@ interface SystemStatus {
   smokeEvent: SmokeEventStatus | null;
 }
 
+interface LlmCredentialStatus {
+  provider: 'deepseek' | 'orcarouter' | 'auto';
+  providerSource: 'database' | 'env' | 'default';
+  active: 'deepseek' | 'orcarouter' | null;
+  deepseek: { configured: boolean; model: string; source: 'database' | 'env' | 'none' };
+  orcarouter: { configured: boolean; model: string; source: 'database' | 'env' | 'none' };
+  stored: boolean;
+}
+
+const LLM_SOURCE_LABEL = {
+  database: 'guardada en la base de datos',
+  env: 'desde variables de entorno',
+  none: 'sin configurar',
+} as const;
+
+interface LlmFormState {
+  deepseekKey: string;
+  deepseekModel: string;
+  orcaKey: string;
+  orcaModel: string;
+}
+
+const EMPTY_LLM_FORM: LlmFormState = {
+  deepseekKey: '',
+  deepseekModel: '',
+  orcaKey: '',
+  orcaModel: '',
+};
+
 const EMPTY_FORM: StripeCredentialsForm = {
   secretKey: '',
   publishableKey: '',
@@ -106,6 +135,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const [stripe, setStripe] = useState<StripeModeStatus | null>(null);
+  const [stripeError, setStripeError] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const [editingMode, setEditingMode] = useState<StripeMode | null>(null);
   const [credentials, setCredentials] = useState<StripeModeStatus['modes']>({
@@ -117,6 +147,15 @@ export default function SettingsPage() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('https://anytimebot.app/api/stripe/webhook');
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+
+  const [llmStatus, setLlmStatus] = useState<LlmCredentialStatus | null>(null);
+  const [llmProvider, setLlmProvider] = useState<'deepseek' | 'orcarouter' | 'auto'>('auto');
+  const [llmForm, setLlmForm] = useState<LlmFormState>(EMPTY_LLM_FORM);
+  const [savingLlm, setSavingLlm] = useState(false);
+  const [clearingLlm, setClearingLlm] = useState(false);
+  const [testingLlm, setTestingLlm] = useState(false);
+  const [llmTest, setLlmTest] = useState<{ ok: boolean; detail: string } | null>(null);
+  const [llmError, setLlmError] = useState<string | null>(null);
 
   // --- Fallback: paste raw keys and save via API with visible error output ---
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -220,9 +259,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetch('/api/admin/stripe-mode')
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        if (!r.ok) {
+          setStripeError(`HTTP ${r.status}`);
+          return null;
+        }
+        setStripeError(null);
+        return r.json();
+      })
       .then((data) => data && setStripe(data))
-      .catch(() => undefined);
+      .catch(() => setStripeError('error de red'));
 
     fetch('/api/admin/email-credentials')
       .then((r) => (r.ok ? r.json() : null))
@@ -238,6 +284,25 @@ export default function SettingsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setSystemStatus(data))
       .catch(() => undefined);
+
+    fetch('/api/admin/llm-credentials')
+      .then(async (r) => {
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          setLlmError(data.error ? `${data.error} (HTTP ${r.status})` : `HTTP ${r.status}`);
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (!data) return;
+        setLlmError(null);
+        setLlmStatus(data);
+        setLlmProvider(data.provider);
+      })
+      .catch((error) => {
+        setLlmError(`Error de red: ${error instanceof Error ? error.message : String(error)}`);
+      });
   }, []);
 
   const handleSave = async () => {
@@ -317,6 +382,87 @@ export default function SettingsPage() {
       toast.error('Failed to save credentials');
     } finally {
       setSavingCreds(false);
+    }
+  };
+
+  const handleSaveLlm = async () => {
+    setSavingLlm(true);
+    try {
+      const deepseek: Record<string, string> = {};
+      if (llmForm.deepseekKey.trim()) deepseek.apiKey = llmForm.deepseekKey.trim();
+      if (llmForm.deepseekModel.trim()) deepseek.model = llmForm.deepseekModel.trim();
+      const orcarouter: Record<string, string> = {};
+      if (llmForm.orcaKey.trim()) orcarouter.apiKey = llmForm.orcaKey.trim();
+      if (llmForm.orcaModel.trim()) orcarouter.model = llmForm.orcaModel.trim();
+
+      const response = await fetch('/api/admin/llm-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: llmProvider, deepseek, orcarouter }),
+      });
+      if (response.ok) {
+        setLlmStatus(await response.json());
+        setLlmForm(EMPTY_LLM_FORM);
+        setLlmTest(null);
+        toast.success('Claves de IA guardadas');
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'No se pudieron guardar las claves de IA');
+      }
+    } catch (error) {
+      toast.error('No se pudieron guardar las claves de IA');
+    } finally {
+      setSavingLlm(false);
+    }
+  };
+
+  const handleTestLlm = async () => {
+    setTestingLlm(true);
+    setLlmTest(null);
+    try {
+      const response = await fetch('/api/admin/llm-credentials/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: llmProvider === 'auto' ? llmStatus?.active ?? undefined : llmProvider,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setLlmTest({
+          ok: true,
+          detail: `${data.provider} · ${data.model} · ${data.latencyMs} ms · respuesta: ${data.reply ?? '(vacía)'}`,
+        });
+        toast.success(`Conexión correcta con ${data.provider}`);
+      } else {
+        setLlmTest({ ok: false, detail: data.error || `HTTP ${response.status}` });
+        toast.error('La prueba de conexión falló (detalle abajo)');
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+      setLlmTest({ ok: false, detail: `Error de red — ${msg}` });
+      toast.error('Error de red (detalle abajo)');
+    } finally {
+      setTestingLlm(false);
+    }
+  };
+
+  const handleClearLlm = async () => {
+    setClearingLlm(true);
+    try {
+      const response = await fetch('/api/admin/llm-credentials', { method: 'DELETE' });
+      if (response.ok) {
+        setLlmStatus(await response.json());
+        setLlmTest(null);
+        toast.success('Credenciales de IA borradas (las variables de entorno siguen aplicando)');
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast.error(data.error || 'No se pudieron borrar las credenciales');
+      }
+    } catch (error) {
+      toast.error('No se pudieron borrar las credenciales');
+    } finally {
+      setClearingLlm(false);
     }
   };
 
@@ -691,6 +837,12 @@ export default function SettingsPage() {
               })}
             </div>
 
+            <p className="text-xs text-muted-foreground">
+              Los <code>price_…</code> de los planes — incluido <strong>Coach Fundador</strong> — se guardan
+              con el botón <strong>Add credentials</strong> de cada modo. Los campos que dejes vacíos
+              conservan el valor ya guardado.
+            </p>
+
             {/* Fallback: paste raw keys (visible server output on any outcome) */}
             <div className="rounded-lg border border-dashed p-4">
               <button
@@ -751,6 +903,16 @@ export default function SettingsPage() {
               )}
             </div>
             </>
+          ) : stripeError ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-medium">No se pudo leer el estado de Stripe ({stripeError}).</p>
+              <p className="mt-1 text-xs leading-relaxed">
+                Este formulario necesita una cuenta con rol <strong>ADMIN</strong>. Mientras tanto puedes
+                fijar los precios por entorno: <code>STRIPE_PRICE_FOUNDER_LIVE</code> en producción y{' '}
+                <code>STRIPE_PRICE_FOUNDER_TEST</code> en test (Vercel → Settings → Environment Variables).
+                Si ya hay valores guardados en la base de datos, esos tienen prioridad sobre el entorno.
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">Loading Stripe mode...</p>
           )}
@@ -759,6 +921,163 @@ export default function SettingsPage() {
             Credentials saved here take precedence over environment variables. Env fallbacks:
             STRIPE_SECRET_KEY(_LIVE)/_TEST, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY(_LIVE)/_TEST,
             STRIPE_WEBHOOK_SECRET(_LIVE)/_TEST, STRIPE_PRICE_FOUNDER/PRO/TEAM/ENTERPRISE(_LIVE)/_TEST.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            IA del chatbot (DeepSeek / OrcaRouter)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Proveedor que usan el chatbot web, WhatsApp, Twilio y los resúmenes de reunión. Las
+            claves se guardan en la base de datos y tienen prioridad sobre las variables de
+            entorno; nunca se devuelven al navegador.
+          </p>
+
+          <div className="rounded-md border bg-muted/40 p-3">
+            <p className="text-xs font-medium text-muted-foreground">Estado</p>
+            {llmStatus ? (
+              <div className="space-y-1 text-sm">
+                <p>
+                  Activo:{' '}
+                  {llmStatus.active ? (
+                    <span className="font-medium text-emerald-600">
+                      {llmStatus.active === 'deepseek' ? 'DeepSeek' : 'OrcaRouter'}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-amber-600">
+                      ninguno — sin claves configuradas
+                    </span>
+                  )}
+                  {llmStatus.provider !== 'auto' && (
+                    <span className="text-muted-foreground"> (preferencia: {llmStatus.provider})</span>
+                  )}
+                </p>
+                {(['deepseek', 'orcarouter'] as const).map((id) => {
+                  const info = llmStatus[id];
+                  return (
+                    <p key={id} className="text-xs text-muted-foreground">
+                      {id === 'deepseek' ? 'DeepSeek' : 'OrcaRouter'}: {'clave '}
+                      {LLM_SOURCE_LABEL[info.source]} · modelo <code>{info.model}</code>
+                    </p>
+                  );
+                })}
+              </div>
+            ) : llmError ? (
+              <p className="text-sm text-red-600">No se pudo leer el estado: {llmError}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Comprobando...</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Proveedor preferido</Label>
+            <select
+              className="w-full rounded-md border bg-transparent px-2 py-1.5 text-sm md:w-64"
+              value={llmProvider}
+              onChange={(e) => setLlmProvider(e.target.value as typeof llmProvider)}
+            >
+              <option value="auto">Automático (OrcaRouter primero)</option>
+              <option value="deepseek">DeepSeek primero</option>
+              <option value="orcarouter">OrcaRouter primero</option>
+            </select>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">DeepSeek</p>
+              <div className="space-y-1">
+                <Label className="text-xs">API key</Label>
+                <Input
+                  type="password"
+                  placeholder={
+                    llmStatus?.deepseek.configured
+                      ? 'Guardada — deja vacío para conservarla'
+                      : 'sk-...'
+                  }
+                  value={llmForm.deepseekKey}
+                  onChange={(e) => setLlmForm({ ...llmForm, deepseekKey: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Modelo</Label>
+                <Input
+                  placeholder={llmStatus?.deepseek.model || 'deepseek-chat'}
+                  value={llmForm.deepseekModel}
+                  onChange={(e) => setLlmForm({ ...llmForm, deepseekModel: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">OrcaRouter</p>
+              <div className="space-y-1">
+                <Label className="text-xs">API key</Label>
+                <Input
+                  type="password"
+                  placeholder={
+                    llmStatus?.orcarouter.configured
+                      ? 'Guardada — deja vacío para conservarla'
+                      : 'clave de OrcaRouter'
+                  }
+                  value={llmForm.orcaKey}
+                  onChange={(e) => setLlmForm({ ...llmForm, orcaKey: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Modelo</Label>
+                <Input
+                  placeholder={llmStatus?.orcarouter.model || 'orcarouter/free'}
+                  value={llmForm.orcaModel}
+                  onChange={(e) => setLlmForm({ ...llmForm, orcaModel: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={savingLlm} onClick={handleSaveLlm}>
+              <KeyRound className="h-4 w-4 mr-1" />
+              {savingLlm ? 'Saving...' : 'Guardar claves de IA'}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={testingLlm || !llmStatus?.active}
+              onClick={handleTestLlm}
+            >
+              <FlaskConical className="h-4 w-4 mr-1" />
+              {testingLlm ? 'Probando...' : 'Probar conexión'}
+            </Button>
+            {llmStatus?.stored && (
+              <Button size="sm" variant="outline" disabled={clearingLlm} onClick={handleClearLlm}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+
+          {llmTest && (
+            <pre
+              className={`max-h-40 overflow-auto whitespace-pre-wrap rounded-md border p-2 text-xs ${
+                llmTest.ok
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                  : 'border-red-300 bg-red-50 text-red-800'
+              }`}
+            >
+              {llmTest.detail}
+            </pre>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Fallbacks por entorno: DEEPSEEK_API_KEY / LLM_MODEL, ORCAROUTER_API_KEY /
+            ORCAROUTER_MODEL y LLM_PROVIDER (o LLM_API_KEY para ambos). Si la clave es de la API
+            oficial de DeepSeek, el modelo debe ser <code>deepseek-chat</code>.
           </p>
         </CardContent>
       </Card>

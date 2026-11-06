@@ -17,6 +17,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { StripeConnectCard } from '@/components/dashboard/settings/stripe-connect-card';
 import { VideoConnections } from '@/components/dashboard/integrations/video-connections';
+import { DailyCard } from '@/components/dashboard/integrations/daily-card';
 import { VolkernCard } from '@/components/dashboard/integrations/volkern-card';
 
 type ConnStatus = 'not_created' | 'connecting' | 'connected' | 'error' | 'loading';
@@ -524,9 +525,12 @@ export default function IntegrationsPage() {
         <TabsContent value="payments">
           <StripeConnectCard />
         </TabsContent>
-        {/* Videollamadas tab (Zoom / Microsoft Teams) */}
+        {/* Videollamadas tab (Daily + Zoom / Microsoft Teams) */}
         <TabsContent value="video">
-          <VideoConnections />
+          <div className="space-y-4">
+            <DailyCard />
+            <VideoConnections />
+          </div>
         </TabsContent>
         {/* Volkern CRM tab */}
         <TabsContent value="volkern">

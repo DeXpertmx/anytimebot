@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { BrandIcon, BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, Calendar, Clock, Users, MessageSquare, BarChart3, Bot, Link2, Video, Brain, Zap, CheckCircle2, XCircle, Sparkles, Target, TrendingUp, Smartphone } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, Users, MessageSquare, BarChart3, Bot, Link2, CreditCard, Brain, Zap, CheckCircle2, XCircle, Sparkles, Target, TrendingUp, Smartphone } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/hooks';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -137,19 +137,19 @@ export function LandingPageContent() {
               </p>
             </div>
 
-            {/* Smart Video Rooms - EXCLUSIVE */}
+            {/* Payments & cash drawer */}
             <div className="relative group p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 hover:shadow-2xl transition-all duration-300 border-2 border-[#00D4FF]">
-              <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                {t('landing.features.smartVideoRooms.badge')}
+              <Badge className="absolute top-4 right-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                {t('landing.features.payments.badge')}
               </Badge>
               <div className="w-16 h-16 bg-gradient-to-br from-[#001F3F] to-[#003366] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Video className="h-8 w-8 text-[#00D4FF]" />
+                <CreditCard className="h-8 w-8 text-[#00D4FF]" />
               </div>
               <h3 className="text-2xl font-bold text-[#001F3F] dark:text-white mb-3">
-                {t('landing.features.smartVideoRooms.title')}
+                {t('landing.features.payments.title')}
               </h3>
               <p className="text-gray-700 leading-relaxed">
-                {t('landing.features.smartVideoRooms.description')}
+                {t('landing.features.payments.description')}
               </p>
             </div>
 
@@ -325,17 +325,6 @@ export function LandingPageContent() {
                   <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       {t('landing.comparison.whatsappNative')}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto" />
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <XCircle className="w-8 h-8 text-red-500 mx-auto" />
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-cyan-50 dark:hover:bg-cyan-400/10 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      {t('landing.comparison.smartVideo')}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto" />

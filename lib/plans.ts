@@ -14,7 +14,7 @@ export function isPaidPlanTier(value: unknown): value is PaidPlanTier {
   return typeof value === 'string' && (PAID_PLAN_TIERS as readonly string[]).includes(value);
 }
 
-/** Seats available for the "Coach Fundador" launch offer (9 €/mo locked). */
+/** Seats available for the "Coach Fundador" launch offer (10 €/mo locked). */
 export const FOUNDER_SEATS = 20;
 
 /** Whether a new founder seat can still be claimed, given the active count. */
@@ -114,7 +114,7 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
   },
   FOUNDER: {
     name: 'Coach Fundador',
-    price: 9,
+    price: 10,
     priceId: process.env.STRIPE_PRICE_FOUNDER || 'price_founder',
     description: 'Launch offer for coaches and consultants: everything in Pro, locked forever',
     features: [
@@ -122,8 +122,6 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       'Founder price locked for life',
       'Anytime Assistant (trainable chatbot)',
       'Up to 5 documents for AI training',
-      'Anytime Meeting Rooms (100 min/mo)',
-      'Video recording + transcription',
       'WhatsApp integration',
       '300 AI interactions/mo',
     ],
@@ -132,9 +130,9 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       maxCustomers: 10000,
       aiInteractions: 300,
       botDocuments: 5,
-      videoMinutes: 100,
-      videoRecording: true,
-      videoTranscription: true,
+      videoMinutes: 0,
+      videoRecording: false,
+      videoTranscription: false,
       whatsappMessages: 1000,
       telegramMessages: 0,
       teamMembers: 1,
@@ -155,8 +153,6 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       'Everything in Free, plus:',
       'Anytime Assistant (trainable chatbot)',
       'Up to 5 documents for AI training',
-      'Anytime Meeting Rooms (100 min/mo)',
-      'Video recording + transcription',
       'WhatsApp integration',
       'Pre-meeting briefs',
       '300 AI interactions/mo',
@@ -166,9 +162,9 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       maxCustomers: 10000,
       aiInteractions: 300,
       botDocuments: 5,
-      videoMinutes: 100,
-      videoRecording: true,
-      videoTranscription: true,
+      videoMinutes: 0,
+      videoRecording: false,
+      videoTranscription: false,
       whatsappMessages: 1000,
       telegramMessages: 0,
       teamMembers: 1,
@@ -193,7 +189,6 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       'Telegram integration',
       '50 documents for AI',
       '500 AI interactions/mo',
-      '500 video minutes/mo',
       'Round-robin & smart routing',
       'Advanced analytics',
     ],
@@ -202,9 +197,9 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       maxCustomers: 50000,
       aiInteractions: 500,
       botDocuments: 50,
-      videoMinutes: 500,
-      videoRecording: true,
-      videoTranscription: true,
+      videoMinutes: 0,
+      videoRecording: false,
+      videoTranscription: false,
       whatsappMessages: 5000,
       telegramMessages: 5000,
       teamMembers: 5,
@@ -227,7 +222,6 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       'Unlimited everything',
       'Unlimited team members',
       'Unlimited AI interactions',
-      'Unlimited video minutes',
       'Unlimited documents',
       'SSO & advanced security',
       'Dedicated support',
@@ -240,9 +234,9 @@ export const PLAN_CONFIG: Record<PlanTier, PlanDetails> = {
       maxCustomers: -1,
       aiInteractions: -1,
       botDocuments: -1,
-      videoMinutes: -1,
-      videoRecording: true,
-      videoTranscription: true,
+      videoMinutes: 0,
+      videoRecording: false,
+      videoTranscription: false,
       whatsappMessages: -1,
       telegramMessages: -1,
       teamMembers: -1,

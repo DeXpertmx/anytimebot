@@ -35,7 +35,7 @@ const PLAN_DETAILS: Record<PlanKey, {
   icon: typeof CalendarDays;
   highlighted?: boolean;
 }> = {
-  founder: { price: 9, billingKey: 'perMonth', icon: Flame, highlighted: true },
+  founder: { price: 10, billingKey: 'perMonth', icon: Flame, highlighted: true },
   pro: { price: 19, billingKey: 'perMonth', icon: Bot },
   team: { price: 39, billingKey: 'perMonth', icon: Users },
   enterprise: { price: 79, billingKey: 'perMonth', icon: Building2 },

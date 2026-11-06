@@ -1,10 +1,12 @@
-
 /**
  * Daily.co API Integration
  * For creating and managing video rooms
+ *
+ * Every function accepts an optional `apiKey`. Video rooms are created on the
+ * tenant's own Daily account (so the tenant keeps its 10,000 free
+ * participant-minutes per month); DAILY_API_KEY is only the platform fallback.
  */
 
-const DAILY_API_KEY = process.env.DAILY_API_KEY;
 const DAILY_API_URL = 'https://api.daily.co/v1';
 
 interface DailyRoomConfig {
@@ -42,10 +44,59 @@ interface CreateRoomResponse {
 }
 
 /**
+ * Resolve the API key for a call: tenant key first, platform key as fallback.
+ */
+function resolveApiKey(apiKey?: string | null): string | null {
+  const key = apiKey?.trim() || process.env.DAILY_API_KEY?.trim();
+  return key || null;
+}
+
+/**
+ * Validate an API key and return the domain it belongs to.
+ * Used by the Integraciones card to test a key before saving it.
+ */
+export async function getDailyDomain(
+  apiKey: string
+): Promise<{ ok: boolean; domain?: string; status?: number; error?: string }> {
+  const key = apiKey?.trim();
+  if (!key) {
+    return { ok: false, error: 'Falta la API key' };
+  }
+
+  try {
+    const response = await fetch(`${DAILY_API_URL}/`, {
+      headers: { 'Authorization': `Bearer ${key}` },
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error:
+          response.status === 401
+            ? 'API key no válida'
+            : `Daily respondió con estado ${response.status}`,
+      };
+    }
+
+    const data = await response.json();
+    const domain = typeof data?.domain_name === 'string' ? data.domain_name : undefined;
+    return { ok: true, domain };
+  } catch (error: any) {
+    console.error('Error validating Daily.co API key:', error);
+    return { ok: false, error: 'No se pudo contactar con Daily' };
+  }
+}
+
+/**
  * Create a Daily.co room for a meeting
  */
-export async function createDailyRoom(config: DailyRoomConfig): Promise<CreateRoomResponse> {
-  if (!DAILY_API_KEY) {
+export async function createDailyRoom(
+  config: DailyRoomConfig,
+  apiKey?: string
+): Promise<CreateRoomResponse> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return { success: false, error: 'Daily.co API key not configured' };
   }
 
@@ -57,7 +108,7 @@ export async function createDailyRoom(config: DailyRoomConfig): Promise<CreateRo
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
       body: JSON.stringify({
         ...config,
@@ -93,8 +144,13 @@ export async function createDailyRoom(config: DailyRoomConfig): Promise<CreateRo
  * Get meeting token with specific permissions
  * Used to generate host tokens with elevated permissions
  */
-export async function createMeetingToken(roomName: string, isHost: boolean = false): Promise<string | null> {
-  if (!DAILY_API_KEY) {
+export async function createMeetingToken(
+  roomName: string,
+  isHost: boolean = false,
+  apiKey?: string
+): Promise<string | null> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return null;
   }
 
@@ -105,7 +161,7 @@ export async function createMeetingToken(roomName: string, isHost: boolean = fal
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
       body: JSON.stringify({
         properties: {
@@ -135,8 +191,9 @@ export async function createMeetingToken(roomName: string, isHost: boolean = fal
 /**
  * Delete a Daily.co room
  */
-export async function deleteDailyRoom(roomName: string): Promise<boolean> {
-  if (!DAILY_API_KEY) {
+export async function deleteDailyRoom(roomName: string, apiKey?: string): Promise<boolean> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return false;
   }
 
@@ -144,7 +201,7 @@ export async function deleteDailyRoom(roomName: string): Promise<boolean> {
     const response = await fetch(`${DAILY_API_URL}/rooms/${roomName}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
     });
 
@@ -158,15 +215,16 @@ export async function deleteDailyRoom(roomName: string): Promise<boolean> {
 /**
  * Get room information
  */
-export async function getDailyRoom(roomName: string): Promise<DailyRoom | null> {
-  if (!DAILY_API_KEY) {
+export async function getDailyRoom(roomName: string, apiKey?: string): Promise<DailyRoom | null> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return null;
   }
 
   try {
     const response = await fetch(`${DAILY_API_URL}/rooms/${roomName}`, {
       headers: {
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
     });
 
@@ -184,8 +242,9 @@ export async function getDailyRoom(roomName: string): Promise<DailyRoom | null> 
 /**
  * Start cloud recording for a room
  */
-export async function startRecording(roomName: string): Promise<boolean> {
-  if (!DAILY_API_KEY) {
+export async function startRecording(roomName: string, apiKey?: string): Promise<boolean> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return false;
   }
 
@@ -194,7 +253,7 @@ export async function startRecording(roomName: string): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
     });
 
@@ -208,8 +267,9 @@ export async function startRecording(roomName: string): Promise<boolean> {
 /**
  * Stop cloud recording for a room
  */
-export async function stopRecording(roomName: string): Promise<boolean> {
-  if (!DAILY_API_KEY) {
+export async function stopRecording(roomName: string, apiKey?: string): Promise<boolean> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return false;
   }
 
@@ -217,7 +277,7 @@ export async function stopRecording(roomName: string): Promise<boolean> {
     const response = await fetch(`${DAILY_API_URL}/rooms/${roomName}/recordings/stop`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
     });
 
@@ -231,15 +291,16 @@ export async function stopRecording(roomName: string): Promise<boolean> {
 /**
  * Get recordings for a room
  */
-export async function getRoomRecordings(roomName: string): Promise<any[]> {
-  if (!DAILY_API_KEY) {
+export async function getRoomRecordings(roomName: string, apiKey?: string): Promise<any[]> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return [];
   }
 
   try {
     const response = await fetch(`${DAILY_API_URL}/recordings?room_name=${roomName}`, {
       headers: {
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
     });
 
@@ -258,8 +319,9 @@ export async function getRoomRecordings(roomName: string): Promise<any[]> {
 /**
  * Start live transcription for a room
  */
-export async function startTranscription(roomName: string): Promise<boolean> {
-  if (!DAILY_API_KEY) {
+export async function startTranscription(roomName: string, apiKey?: string): Promise<boolean> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return false;
   }
 
@@ -268,7 +330,7 @@ export async function startTranscription(roomName: string): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
       body: JSON.stringify({
         language: 'es', // Default to Spanish, can be made dynamic
@@ -285,8 +347,9 @@ export async function startTranscription(roomName: string): Promise<boolean> {
 /**
  * Stop live transcription
  */
-export async function stopTranscription(roomName: string): Promise<boolean> {
-  if (!DAILY_API_KEY) {
+export async function stopTranscription(roomName: string, apiKey?: string): Promise<boolean> {
+  const key = resolveApiKey(apiKey);
+  if (!key) {
     return false;
   }
 
@@ -294,7 +357,7 @@ export async function stopTranscription(roomName: string): Promise<boolean> {
     const response = await fetch(`${DAILY_API_URL}/rooms/${roomName}/transcription/stop`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
+        'Authorization': `Bearer ${key}`,
       },
     });
 

@@ -32,10 +32,10 @@ export default function TermsPage() {
             <section>
               <h2>3. Planes y condiciones comerciales</h2>
               <ul>
-                <li><strong>Coach Fundador:</strong> oferta de lanzamiento limitada a 20 plazas, suscripción mensual de 9 € al mes con el precio bloqueado mientras la suscripción permanezca activa. Incluye todo lo del plan Pro y requiere feedback durante el primer mes y, si el producto funciona, un testimonio. Al agotarse las plazas, el precio para nuevos clientes pasa a 19 €/mes.</li>
+                <li><strong>Coach Fundador:</strong> oferta de lanzamiento limitada a 20 plazas, suscripción mensual de 10 € al mes con el precio bloqueado mientras la suscripción permanezca activa. Incluye todo lo del plan Pro y requiere feedback durante el primer mes y, si el producto funciona, un testimonio. Al agotarse las plazas, el precio para nuevos clientes pasa a 19 €/mes.</li>
                 <li><strong>Pro:</strong> suscripción mensual de 19 € al mes, con automatización, asistente de IA, WhatsApp y las cuotas indicadas antes de contratar.</li>
                 <li><strong>Equipo:</strong> suscripción mensual de 39 € al mes, con funciones de colaboración y límites superiores según la oferta vigente.</li>
-                <li><strong>Empresa:</strong> suscripción mensual de 79 € al mes, para negocios con varias sedes, con usuarios, IA, video y soporte ampliados.</li>
+                <li><strong>Empresa:</strong> suscripción mensual de 79 € al mes, para negocios con varias sedes, con usuarios, IA y soporte ampliados.</li>
                 <li><strong>Básico de fundadores (histórico):</strong> plan de pago único de 29 € retirado de la venta. Los clientes que lo contrataron conservan su acceso en las condiciones vigentes en el momento de la compra.</li>
               </ul>
               <p>Los precios se muestran en euros salvo que se indique otra moneda antes del pago. Los impuestos aplicables se calcularán cuando corresponda. Las funciones, cuotas y precios vigentes se mostrarán claramente antes de confirmar una compra o cambio de plan.</p>

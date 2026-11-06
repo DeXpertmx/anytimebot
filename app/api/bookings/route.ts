@@ -834,10 +834,7 @@ export async function POST(request: NextRequest) {
     const autoVideoSession =
       (eventType.videoProvider === 'ZOOM' || eventType.videoProvider === 'TEAMS') &&
       !!providerMeeting;
-    if (
-      (eventType.videoProvider === 'DAILY' && eventType.enableEmbeddedVideo) ||
-      autoVideoSession
-    ) {
+    if (eventType.videoProvider === 'DAILY' || autoVideoSession) {
       try {
         videoSession = await createVideoSession({
           bookingId: booking.id,

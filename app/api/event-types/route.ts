@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
         bufferTime: parseInt(bufferTime),
         location,
         videoLink,
-        videoProvider: videoProvider === 'DAILY' ? 'GOOGLE_MEET' : videoProvider,
+        videoProvider,
         color,
         requiresConfirmation,
         price: parseInt(price),

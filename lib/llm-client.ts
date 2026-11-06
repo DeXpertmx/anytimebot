@@ -7,6 +7,7 @@
  */
 
 import { computeLlmUsage, logLlmUsage } from '@/lib/llm-usage';
+import { getLlmCredentials, type ResolvedLlmCredentials } from '@/lib/llm-credentials';
 
 export type LlmMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -46,25 +47,54 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3) {
   }
 }
 
-// OrcaRouter is the primary provider; DeepSeek is the fallback.
-function resolveProviders(): Provider[] {
+// OrcaRouter is the primary provider; DeepSeek is the fallback. The order comes
+// from the admin panel (stored in the database) and falls back to
+// LLM_PROVIDER=deepseek (or =orcarouter).
+export function resolveProviders(credentials?: ResolvedLlmCredentials): Provider[] {
   const providers: Provider[] = [];
-  const orcaKey = process.env.ORCAROUTER_API_KEY || process.env.LLM_API_KEY;
-  const deepKey = process.env.DEEPSEEK_API_KEY || process.env.LLM_API_KEY;
-  if (orcaKey) {
-    providers.push({
-      url: ORCAROUTER_URL,
-      apiKey: orcaKey,
-      model: process.env.ORCAROUTER_MODEL || 'orcarouter/free',
-    });
+  const orcaKey =
+    credentials?.orcarouter.apiKey ||
+    process.env.ORCAROUTER_API_KEY ||
+    process.env.LLM_API_KEY;
+  const deepKey =
+    credentials?.deepseek.apiKey ||
+    process.env.DEEPSEEK_API_KEY ||
+    process.env.LLM_API_KEY;
+  const preferred = (credentials?.provider || process.env.LLM_PROVIDER || '')
+    .trim()
+    .toLowerCase();
+
+  const orcaProvider: Provider | null = orcaKey
+    ? {
+        url: ORCAROUTER_URL,
+        apiKey: orcaKey,
+        model:
+          credentials?.orcarouter.model ||
+          process.env.ORCAROUTER_MODEL ||
+          'orcarouter/free',
+      }
+    : null;
+
+  const deepProvider: Provider | null = deepKey
+    ? {
+        url: DEEPSEEK_URL,
+        apiKey: deepKey,
+        model: credentials?.deepseek.model || process.env.LLM_MODEL || 'deepseek-v4-flash',
+      }
+    : null;
+
+  // The preferred provider goes first; the other one stays as fallback.
+  const order =
+    preferred === 'deepseek'
+      ? [deepProvider, orcaProvider]
+      : preferred === 'orcarouter'
+        ? [orcaProvider, deepProvider]
+        : [orcaProvider, deepProvider];
+
+  for (const provider of order) {
+    if (provider) providers.push(provider);
   }
-  if (deepKey) {
-    providers.push({
-      url: DEEPSEEK_URL,
-      apiKey: deepKey,
-      model: process.env.LLM_MODEL || 'deepseek-v4-flash',
-    });
-  }
+
   // Fallback: a generic LLM_API_KEY with no provider-specific var.
   if (providers.length === 0 && process.env.LLM_API_KEY) {
     providers.push({
@@ -77,11 +107,21 @@ function resolveProviders(): Provider[] {
 }
 
 /**
- * Calls the configured LLM providers in order (OrcaRouter → DeepSeek) and
- * returns the first successful completion. Throws if none succeed.
+ * Calls the configured LLM providers in order (LLM_PROVIDER first, then the
+ * other as fallback) and returns the first successful completion. Throws if
+ * none succeed.
  */
 export async function completeChat(params: CompleteChatParams): Promise<string> {
-  const providers = resolveProviders();
+  // Credentials saved in the admin panel (database) take precedence over env
+  // vars. A database hiccup must never break the chatbot, so fall back to env.
+  let credentials: ResolvedLlmCredentials | undefined;
+  try {
+    credentials = await getLlmCredentials();
+  } catch (error) {
+    console.warn('Could not read saved LLM credentials, using env vars:', error);
+  }
+
+  const providers = resolveProviders(credentials);
   if (providers.length === 0) {
     throw new Error('LLM is not configured: missing API key');
   }
